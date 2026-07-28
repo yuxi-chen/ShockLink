@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "shocklink"
+version = "0.1.0"
+description = "Analyze magnetic field-line connectivity to the bow shock in 3D MHD simulations."
+requires-python = ">=3.11"
+license = "BSD-3-Clause"
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Typing :: Typed",
+]
+dependencies = [
+  "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+vtk = ["vtk>=9.3"]
+test = ["pytest>=8"]
+dev = [
+  "build>=1.2",
+  "mypy>=1.11",
+  "pytest>=8",
+  "ruff>=0.9",
+  "twine>=5.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shocklink"]
+
+[tool.pytest.ini_options]
+addopts = ["--strict-config", "--strict-markers"]
+testpaths = ["tests"]
