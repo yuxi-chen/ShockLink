@@ -58,3 +58,6 @@ class ConnectivityResult:
         if self.status is ConnectivityStatus.CONNECTED and not intersections:
             raise ValueError("connected result requires at least one intersection")
         object.__setattr__(self, "intersections", intersections)
+
+
+__all__ = ["ConnectivityResult", "ConnectivityStatus", "Intersection"]

@@ -51,3 +51,6 @@ class FieldLine:
             raise GeometryError("field-line points must be finite")
         points.setflags(write=False)
         object.__setattr__(self, "points", points)
+
+
+__all__ = ["FieldLine", "SeedPoint"]

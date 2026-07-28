@@ -41,3 +41,6 @@ class BowShockSurface:
         faces.setflags(write=False)
         object.__setattr__(self, "vertices", vertices)
         object.__setattr__(self, "faces", faces)
+
+
+__all__ = ["BowShockSurface"]

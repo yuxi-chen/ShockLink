@@ -35,3 +35,6 @@ class DatasetMetadata:
         if not magnetic_field:
             raise ValueError("magnetic_field must not be empty")
         object.__setattr__(self, "magnetic_field", magnetic_field)
+
+
+__all__ = ["CoordinateSystem", "DatasetMetadata"]

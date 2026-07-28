@@ -44,3 +44,6 @@ class BowShockDetector(Protocol):
 
     def detect(self, dataset: SimulationDataset) -> BowShockSurface:
         """Return the detected bow-shock surface."""
+
+
+__all__ = ["BowShockDetector", "FieldLineTracer", "SimulationDataset"]
