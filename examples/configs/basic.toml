@@ -1,0 +1,14 @@
+# Minimal ShockLink analysis configuration.
+[dataset]
+path = "data/magnetosphere.vtu"
+magnetic_field = "B"
+coordinate_system = "GSM"
+
+[bow_shock]
+surface = "data/bow_shock.vtp"
+
+[analysis]
+tolerance = 0.01
+
+# Field-line seed definitions and output controls will be added with the first
+# concrete simulation-format adapter.
