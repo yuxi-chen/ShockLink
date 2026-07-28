@@ -28,14 +28,14 @@ This separation allows:
 
 ```text
 src/shocklink/
-├── core/          # Shared data models and coordinate conventions
-├── io/            # Simulation-data interfaces
-├── fieldlines/    # Seed definitions and field-line trace results
-├── bowshock/      # Shock surfaces and intersection detection
-├── connectivity/  # Field-line-to-shock classification
-├── paraview/      # Optional ParaView readers and pipelines
-├── cli/           # Command-line entry points
-└── config.py      # Validated analysis configuration
+├── core.py          # Shared data models and coordinate conventions
+├── io.py            # Simulation-data interfaces
+├── fieldlines.py    # Seed definitions and field-line trace results
+├── bowshock.py      # Shock surfaces and intersection detection
+├── connectivity.py  # Field-line-to-shock classification
+├── paraview.py      # Optional ParaView readers and pipelines
+├── cli.py           # Command-line entry points
+└── config.py        # Validated analysis configuration
 ```
 
 Responsibilities:
