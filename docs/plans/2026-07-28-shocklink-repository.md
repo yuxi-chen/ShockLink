@@ -84,8 +84,7 @@ git commit -m "build: establish ShockLink package"
 
 **Files:**
 - Create: `src/shocklink/exceptions.py`
-- Create: `src/shocklink/core/__init__.py`
-- Create: `src/shocklink/core/models.py`
+- Create: `src/shocklink/core.py`
 - Create: `src/shocklink/config.py`
 - Create: `tests/core/test_models.py`
 - Create: `tests/test_config.py`
@@ -178,14 +177,10 @@ git commit -m "feat: add core configuration models"
 ### Task 3: Add scientific domain seams
 
 **Files:**
-- Create: `src/shocklink/io/__init__.py`
-- Create: `src/shocklink/io/protocols.py`
-- Create: `src/shocklink/fieldlines/__init__.py`
-- Create: `src/shocklink/fieldlines/models.py`
-- Create: `src/shocklink/bowshock/__init__.py`
-- Create: `src/shocklink/bowshock/models.py`
-- Create: `src/shocklink/connectivity/__init__.py`
-- Create: `src/shocklink/connectivity/models.py`
+- Create: `src/shocklink/io.py`
+- Create: `src/shocklink/fieldlines.py`
+- Create: `src/shocklink/bowshock.py`
+- Create: `src/shocklink/connectivity.py`
 - Create: `tests/fieldlines/test_models.py`
 - Create: `tests/bowshock/test_models.py`
 - Create: `tests/connectivity/test_models.py`
@@ -253,9 +248,7 @@ git commit -m "feat: define ShockLink scientific domain models"
 ### Task 4: Isolate the optional ParaView runtime
 
 **Files:**
-- Create: `src/shocklink/paraview/__init__.py`
-- Create: `src/shocklink/paraview/runtime.py`
-- Create: `src/shocklink/paraview/pipeline.py`
+- Create: `src/shocklink/paraview.py`
 - Create: `tests/paraview/test_runtime.py`
 - Create: `tests/paraview/test_pipeline.py`
 
@@ -264,7 +257,7 @@ git commit -m "feat: define ShockLink scientific domain models"
 ```python
 def test_require_paraview_gives_pvpython_guidance(monkeypatch) -> None:
     monkeypatch.setattr(
-        "shocklink.paraview.runtime.import_module",
+        "shocklink.paraview.import_module",
         Mock(side_effect=ModuleNotFoundError("paraview")),
     )
     with pytest.raises(BackendUnavailableError, match="pvpython"):
@@ -313,8 +306,7 @@ git commit -m "feat: isolate optional ParaView integration"
 ### Task 5: Provide useful command-line entry points
 
 **Files:**
-- Create: `src/shocklink/cli/__init__.py`
-- Create: `src/shocklink/cli/main.py`
+- Create: `src/shocklink/cli.py`
 - Modify: `pyproject.toml`
 - Create: `tests/cli/test_main.py`
 
@@ -340,7 +332,7 @@ Use standard-library `argparse`. Add:
 
 ```toml
 [project.scripts]
-shocklink = "shocklink.cli.main:main"
+shocklink = "shocklink.cli:main"
 ```
 
 Keep stdout for successful machine-readable or user-requested output and stderr
