@@ -89,3 +89,6 @@ present and explicitly requested. It verifies the real sample's point and cell
 counts, corrected bounds, vector shapes, component ordering, and finite
 coordinates. The implementation will be demonstrated by running that
 integration test during development.
+
+Planar extraction and plotting are specified separately in
+`2026-07-29-2d-cut-plot-design.md`.
