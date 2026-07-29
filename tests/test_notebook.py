@@ -55,6 +55,20 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
     assert "calc_velocity_divergence(grid)" in code
     assert "from shocklink.bowshock import fit_bow_shock" in code
     assert "fit = fit_bow_shock(grid)" in code
+    assert "extract_shockfit_range" in code
+    assert "SHOCKFIT_RANGE = [-5.0, 5.0]" in code
+    assert "shock_region = extract_shockfit_range(" in code
+    assert "lower=SHOCKFIT_RANGE[0]" in code
+    assert "upper=SHOCKFIT_RANGE[1]" in code
+    assert "cut = get_2d_cut(shock_region, normal=NORMAL, origin=ORIGIN)" in code
+    assert "vtkOriginalPointIds" in code
+    assert "vtkOriginalCellIds" in code
+    assert code.index("fit = fit_bow_shock(grid)") < code.index(
+        "shock_region = extract_shockfit_range("
+    )
+    assert code.index("shock_region = extract_shockfit_range(") < code.index(
+        "cut = get_2d_cut(shock_region"
+    )
     assert 'SCALARS = "p"' in code
     assert '"div(U)"' in code
     assert "fit.loc0" in code
@@ -78,6 +92,7 @@ def test_notebook_is_portable_and_documents_launch() -> None:
     assert 'DATA_PATH = ROOT / "data/3d.dat"' in all_source
     assert 'NORMAL = "z"' in all_source
     assert 'SCALARS = "p"' in all_source
+    assert "SHOCKFIT_RANGE = [-5.0, 5.0]" in all_source
     assert "jupyter lab examples/tecplot_2d_cut.ipynb" in all_source
     assert "/Users/" not in all_source
     assert "pressure-z0.png" not in all_source
