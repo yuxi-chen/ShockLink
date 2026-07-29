@@ -114,6 +114,8 @@ The scaffold includes:
 - architecture and scientific-convention documentation;
 - a documented TOML configuration example;
 - a small synthetic workflow example;
+- a clean, executable Jupyter notebook for reading, cutting, validating, and
+  plotting the local Tecplot sample;
 - PyVista and Tecplot usage guidance;
 - contributor setup and test commands;
 - license, changelog, and citation metadata; and
