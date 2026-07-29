@@ -6,7 +6,8 @@ import pyvista as pv
 import pytest
 
 from shocklink.exceptions import DatasetError
-from shocklink.tecplot import get_2d_cut, plot_2d_cut, read_tecplot
+from shocklink.dataset import get_2d_cut, plot_2d_cut
+from shocklink.tecplot import read_tecplot
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SAMPLE = Path(

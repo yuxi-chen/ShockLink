@@ -3,7 +3,7 @@ import pyvista as pv
 import pytest
 
 from shocklink.exceptions import DatasetError
-from shocklink.tecplot import get_2d_cut
+from shocklink.dataset import get_2d_cut
 
 
 def _volume() -> pv.ImageData:

@@ -4,12 +4,12 @@ import numpy as np
 import pyvista as pv
 import pytest
 
-from shocklink.exceptions import DatasetError
-from shocklink.tecplot import (
+from shocklink.dataset import (
     CUT_NORMAL_KEY,
     CUT_ORIGIN_KEY,
     plot_2d_cut,
 )
+from shocklink.exceptions import DatasetError
 
 
 class RecordingPlotter:
