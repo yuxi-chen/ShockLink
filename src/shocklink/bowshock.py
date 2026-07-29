@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 import pyvista as pv
 from numpy.typing import ArrayLike, NDArray
+from scipy.interpolate import griddata
 from vtkmodules.vtkCommonDataModel import vtkStaticCellLocator
 
 from shocklink.dataset import (
@@ -248,6 +249,33 @@ def _surface_axis(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
     return axis
 
 
+def _normal_axis(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
+    """Return a coordinate axis suitable for normal differentiation."""
+
+    axis = _surface_axis(values, label=label)
+    if axis.size < 3:
+        raise DatasetError(f"{label} coordinates must contain at least three values")
+    return axis
+
+
+def _normal_surface(
+    surface_x: ArrayLike,
+    *,
+    shape: tuple[int, int],
+) -> NDArray[np.float64]:
+    """Return a validated private copy of a regular bow-shock surface."""
+
+    try:
+        surface = np.array(surface_x, dtype=np.float64, copy=True)
+    except (TypeError, ValueError) as error:
+        raise DatasetError("Bow-shock surface must be numeric") from error
+    if surface.shape != shape:
+        raise DatasetError(f"Bow-shock surface must have shape {shape}")
+    if np.isinf(surface).any():
+        raise DatasetError("Bow-shock surface must not contain infinity")
+    return surface
+
+
 def _surface_integer(
     value: int,
     *,
@@ -443,6 +471,39 @@ def get_bow_shock_surface(
     return surface.reshape(len(y_values), len(z_values))
 
 
+def calc_bow_shock_normals(
+    surface_x: ArrayLike,
+    *,
+    y: ArrayLike,
+    z: ArrayLike,
+) -> NDArray[np.float64]:
+    """Return outward unit normals for a regular bow-shock surface."""
+
+    y_values = _normal_axis(y, label="Y")
+    z_values = _normal_axis(z, label="Z")
+    filled_surface = _normal_surface(
+        surface_x,
+        shape=(len(y_values), len(z_values)),
+    )
+
+    dx_dy, dx_dz = np.gradient(
+        filled_surface,
+        y_values,
+        z_values,
+        edge_order=2,
+    )
+    normal_components = np.stack(
+        (np.ones_like(filled_surface), -dx_dy, -dx_dz),
+        axis=-1,
+    )
+    normal_magnitudes = np.linalg.norm(
+        normal_components,
+        axis=-1,
+        keepdims=True,
+    )
+    return normal_components / normal_magnitudes
+
+
 def fit_bow_shock(
     dataset: pv.DataSet,
     *,
@@ -550,6 +611,7 @@ def fit_bow_shock(
 __all__ = [
     "BowShockParaboloid",
     "BowShockSurface",
+    "calc_bow_shock_normals",
     "extract_shockfit_range",
     "fit_bow_shock",
     "get_bow_shock_surface",
