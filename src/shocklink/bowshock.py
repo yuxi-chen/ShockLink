@@ -4,7 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 import pyvista as pv
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
+from vtkmodules.vtkCommonDataModel import vtkStaticCellLocator
 
 from shocklink.dataset import (
     calc_velocity_divergence,
@@ -226,6 +227,92 @@ def extract_shockfit_range(
     return extracted
 
 
+def _surface_probe_source(
+    dataset: pv.DataSet,
+    *,
+    divergence_name: str,
+    divergence: np.ndarray,
+) -> pv.DataSet:
+    """Return a shallow geometry copy containing only divergence data."""
+
+    source = dataset.copy(deep=False)
+    source.point_data.clear()
+    source.point_data[divergence_name] = divergence
+    source.cell_data.clear()
+    source.field_data.clear()
+    return source
+
+
+def get_bow_shock_surface(
+    dataset: pv.DataSet,
+    *,
+    y: ArrayLike,
+    z: ArrayLike,
+    divergence_name: str = "div(U)",
+    x_resolution: int = 512,
+    x_range: tuple[float, float] | None = None,
+) -> NDArray[np.float64]:
+    """Return strongest-compression X locations on a regular Y-Z grid."""
+
+    y_values = np.asarray(y, dtype=np.float64)
+    z_values = np.asarray(z, dtype=np.float64)
+    divergence = np.asarray(dataset.point_data[divergence_name])
+    if x_range is None:
+        bounds = dataset.bounds
+        x_limits = (float(bounds.x_min), float(bounds.x_max))
+    else:
+        x_limits = x_range
+    x_values = np.linspace(
+        x_limits[0],
+        x_limits[1],
+        x_resolution,
+        dtype=np.float64,
+    )
+
+    yy, zz = np.meshgrid(y_values, z_values, indexing="ij")
+    column_y = yy.reshape(-1)
+    column_z = zz.reshape(-1)
+    points = np.empty(
+        (len(column_y) * len(x_values), 3),
+        dtype=np.float64,
+    )
+    points[:, 0] = np.tile(x_values, len(column_y))
+    points[:, 1] = np.repeat(column_y, len(x_values))
+    points[:, 2] = np.repeat(column_z, len(x_values))
+
+    source = _surface_probe_source(
+        dataset,
+        divergence_name=divergence_name,
+        divergence=divergence,
+    )
+    locator = vtkStaticCellLocator()
+    locator.SetDataSet(source)
+    locator.BuildLocator()
+    sampled = pv.PolyData(points).sample(
+        source,
+        locator=locator,
+        pass_cell_data=False,
+        pass_point_data=False,
+        pass_field_data=False,
+    )
+    sampled_divergence = np.asarray(
+        sampled.point_data[divergence_name]
+    ).reshape(len(column_y), len(x_values))
+    valid = (
+        np.asarray(sampled.point_data["vtkValidPointMask"])
+        .astype(bool)
+        .reshape(len(column_y), len(x_values))
+    )
+    valid &= np.isfinite(sampled_divergence)
+
+    surface = np.full(len(column_y), np.nan, dtype=np.float64)
+    has_valid = valid.any(axis=1)
+    candidates = np.where(valid, sampled_divergence, np.inf)
+    minima = np.argmin(candidates, axis=1)
+    surface[has_valid] = x_values[minima[has_valid]]
+    return surface.reshape(len(y_values), len(z_values))
+
+
 def fit_bow_shock(
     dataset: pv.DataSet,
     *,
@@ -339,4 +426,5 @@ __all__ = [
     "BowShockSurface",
     "extract_shockfit_range",
     "fit_bow_shock",
+    "get_bow_shock_surface",
 ]
