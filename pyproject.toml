@@ -39,4 +39,7 @@ packages = ["src/shocklink"]
 
 [tool.pytest.ini_options]
 addopts = ["--strict-config", "--strict-markers", "--import-mode=importlib"]
+markers = [
+  "integration: tests that use large local simulation data",
+]
 testpaths = ["tests"]
