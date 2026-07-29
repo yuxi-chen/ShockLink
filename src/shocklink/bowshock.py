@@ -164,6 +164,68 @@ def _strongest_compression(
     return np.array(points[selected], dtype=np.float64, copy=True)
 
 
+def extract_shockfit_range(
+    dataset: pv.DataSet,
+    *,
+    lower: float,
+    upper: float,
+    shockfit_name: str = "shockfit",
+    adjacent_cells: bool = True,
+) -> pv.UnstructuredGrid:
+    """Extract cells associated with an inclusive shock-fit residual range."""
+
+    if not isinstance(shockfit_name, str) or not shockfit_name.strip():
+        raise DatasetError("Shockfit array name must not be empty")
+    if shockfit_name not in dataset.point_data:
+        raise DatasetError(
+            f"Shockfit array {shockfit_name!r} is unavailable in point data"
+        )
+    values = np.asarray(dataset.point_data[shockfit_name])
+    if values.shape != (dataset.n_points,):
+        raise DatasetError(
+            f"Shockfit array {shockfit_name!r} must be a point scalar"
+        )
+    try:
+        lower_limit = float(lower)
+        upper_limit = float(upper)
+    except (TypeError, ValueError) as error:
+        raise DatasetError("Shockfit range limits must be finite numbers") from error
+    if not np.isfinite((lower_limit, upper_limit)).all():
+        raise DatasetError("Shockfit range limits must be finite numbers")
+    if lower_limit > upper_limit:
+        raise DatasetError(
+            "Shockfit range lower limit must not exceed upper limit"
+        )
+    if not isinstance(adjacent_cells, bool):
+        raise DatasetError("adjacent_cells must be a boolean")
+
+    try:
+        finite = np.isfinite(values)
+    except TypeError as error:
+        raise DatasetError(
+            f"Shockfit array {shockfit_name!r} must be numeric"
+        ) from error
+    mask = finite & (values >= lower_limit) & (values <= upper_limit)
+    try:
+        extracted = dataset.extract_points(
+            mask,
+            adjacent_cells=adjacent_cells,
+            include_cells=True,
+            pass_point_ids=True,
+            pass_cell_ids=True,
+        )
+    except Exception as error:
+        raise DatasetError(
+            f"Could not extract shockfit range: {error}"
+        ) from error
+    if not isinstance(extracted, pv.UnstructuredGrid):
+        raise DatasetError(
+            "PyVista shockfit extraction returned "
+            f"{type(extracted).__name__}; expected UnstructuredGrid"
+        )
+    return extracted
+
+
 def fit_bow_shock(
     dataset: pv.DataSet,
     *,
@@ -275,5 +337,6 @@ def fit_bow_shock(
 __all__ = [
     "BowShockParaboloid",
     "BowShockSurface",
+    "extract_shockfit_range",
     "fit_bow_shock",
 ]
