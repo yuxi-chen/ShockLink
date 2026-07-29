@@ -35,6 +35,13 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
         "NORMAL",
         "ORIGIN",
         "SCALARS",
+        "get_bow_shock_surface",
+        "SURFACE_Y",
+        "SURFACE_Z",
+        "SURFACE_X_RANGE",
+        "SURFACE_X_RESOLUTION",
+        "SURFACE_CHUNK_SIZE",
+        "surface_x",
         'pv.set_jupyter_backend("static")',
         '"P [nPa]"',
         '"div(U)"',
@@ -51,7 +58,9 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
     assert "from shocklink.tecplot import read_tecplot" in code
     assert "calc_velocity_divergence" in code
     assert "calc_velocity_divergence(grid)" in code
-    assert "from shocklink.bowshock import fit_bow_shock" in code
+    assert "from shocklink.bowshock import (" in code
+    assert "fit_bow_shock" in code
+    assert "get_bow_shock_surface" in code
     assert "fit = fit_bow_shock(grid)" in code
     assert "extract_shockfit_range" in code
     assert "SHOCKFIT_RANGE = [3-x0, x0+5]" in code
@@ -66,6 +75,19 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
     )
     assert code.index("shock_region = extract_shockfit_range(") < code.index(
         "cut = get_2d_cut(shock_region"
+    )
+    assert "surface_x = get_bow_shock_surface(" in code
+    assert "shock_region," in code
+    assert "y=SURFACE_Y" in code
+    assert "z=SURFACE_Z" in code
+    assert "x_range=SURFACE_X_RANGE" in code
+    assert "x_resolution=SURFACE_X_RESOLUTION" in code
+    assert "chunk_size=SURFACE_CHUNK_SIZE" in code
+    assert "surface_x.shape == (len(SURFACE_Y), len(SURFACE_Z))" in code
+    assert "finite_surface.any()" in code
+    assert "finite_surface[center_index]" in code
+    assert code.index("shock_region = extract_shockfit_range(") < code.index(
+        "surface_x = get_bow_shock_surface("
     )
     assert 'SCALARS = "p"' in code
     assert '"div(U)"' in code
@@ -95,6 +117,11 @@ def test_notebook_is_portable_and_documents_launch() -> None:
     assert 'DATA_PATH = ROOT / "data/3d.dat"' in all_source
     assert 'NORMAL = "z"' in all_source
     assert 'SCALARS = "p"' in all_source
+    assert "SURFACE_Y = np.linspace(-20.0, 20.0, 81)" in all_source
+    assert "SURFACE_Z = np.linspace(-20.0, 20.0, 81)" in all_source
+    assert "SURFACE_X_RANGE = (-40.0, 20.0)" in all_source
+    assert "SURFACE_X_RESOLUTION = 241" in all_source
+    assert "SURFACE_CHUNK_SIZE = 256" in all_source
     assert "SHOCKFIT_RANGE = [3-x0, x0+5]" in all_source
     assert "jupyter lab examples/tecplot_2d_cut.ipynb" in all_source
     assert "/Users/" not in all_source
