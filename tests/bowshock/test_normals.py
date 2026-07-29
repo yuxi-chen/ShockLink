@@ -1,6 +1,9 @@
 import numpy as np
+import pytest
 
+import shocklink.bowshock as bowshock
 from shocklink.bowshock import calc_bow_shock_normals
+from shocklink.exceptions import DatasetError
 
 
 def _surface_grid(
@@ -20,7 +23,8 @@ def test_calc_bow_shock_normals_matches_plane_on_nonuniform_grid() -> None:
 
     normals = calc_bow_shock_normals(surface, y=y, z=z)
 
-    assert normals.shape == surface.shape + (3,)
+    assert normals.shape == (len(y), len(z), 3)
+    assert np.isfinite(normals).all()
     np.testing.assert_allclose(
         normals,
         np.broadcast_to(expected, normals.shape),
@@ -75,3 +79,293 @@ def test_calc_bow_shock_normals_fills_edge_and_corner_gaps() -> None:
     assert np.isfinite(normals).all()
     np.testing.assert_allclose(np.linalg.norm(normals, axis=-1), 1.0)
     assert np.all(normals[..., 0] > 0.0)
+
+
+@pytest.mark.parametrize(
+    ("axis_name", "values", "message"),
+    [
+        ("y", [], "nonempty 1D"),
+        ("z", [0.0, 1.0], "at least three"),
+        ("y", [0.0, 1.0], "at least three"),
+        ("z", [[0.0, 1.0, 2.0]], "nonempty 1D"),
+        ("y", ["zero", "one", "two"], "numbers"),
+        ("z", [0.0, 1.0, 10**1000], "numbers"),
+        ("z", [0.0, np.nan, 2.0], "finite"),
+        ("y", [0.0, 1.0, np.inf], "finite"),
+        ("z", [0.0, 1.0, 1.0], "strictly increasing"),
+        ("y", [0.0, 2.0, 1.0], "strictly increasing"),
+    ],
+    ids=[
+        "empty-y",
+        "short-z",
+        "short-y",
+        "multidimensional-z",
+        "nonnumeric-y",
+        "overflow-z",
+        "nan-z",
+        "infinite-y",
+        "duplicate-z",
+        "decreasing-y",
+    ],
+)
+def test_calc_bow_shock_normals_rejects_invalid_axis(
+    axis_name: str,
+    values: object,
+    message: str,
+) -> None:
+    coordinates = {
+        "y": np.arange(3.0),
+        "z": np.arange(3.0),
+    }
+    coordinates[axis_name] = values
+
+    with pytest.raises(DatasetError, match=message):
+        calc_bow_shock_normals(
+            np.zeros((3, 3)),
+            y=coordinates["y"],
+            z=coordinates["z"],
+        )
+
+
+@pytest.mark.parametrize(
+    ("surface", "message"),
+    [
+        ([["not-a-number"] * 3 for _ in range(3)], "numeric"),
+        (np.zeros((2, 3)), "shape"),
+        (np.full((3, 3), np.inf), "infinity"),
+        (np.full((3, 3), -np.inf), "infinity"),
+    ],
+    ids=["nonnumeric", "wrong-shape", "positive-infinity", "negative-infinity"],
+)
+def test_calc_bow_shock_normals_rejects_invalid_surface(
+    surface: object,
+    message: str,
+) -> None:
+    with pytest.raises(DatasetError, match=message):
+        calc_bow_shock_normals(
+            surface,
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_translates_surface_conversion_overflow() -> None:
+    surface = [[10**1000, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+
+    with pytest.raises(DatasetError, match="numeric"):
+        calc_bow_shock_normals(
+            surface,
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_handles_extreme_finite_slope() -> None:
+    y = np.array([-1.0, 0.0, 1.0])
+    z = np.array([-1.0, 0.0, 1.0])
+    yy, _ = _surface_grid(y, z)
+    surface = 1.0e200 * yy
+
+    normals = calc_bow_shock_normals(surface, y=y, z=z)
+
+    assert np.isfinite(normals).all()
+    np.testing.assert_allclose(np.linalg.norm(normals, axis=-1), 1.0)
+    assert np.all(normals[..., 0] > 0.0)
+    np.testing.assert_allclose(normals[..., 1], -1.0)
+
+
+def test_calc_bow_shock_normals_requires_three_finite_surface_samples() -> None:
+    surface = np.full((3, 3), np.nan)
+    surface[0, :2] = (1.0, 2.0)
+
+    with pytest.raises(DatasetError, match="at least three"):
+        calc_bow_shock_normals(
+            surface,
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_rejects_collinear_interpolation_samples() -> None:
+    surface = np.full((4, 4), np.nan)
+    surface[1, :] = np.arange(4.0)
+
+    with pytest.raises(DatasetError, match="Could not interpolate"):
+        calc_bow_shock_normals(
+            surface,
+            y=np.arange(4.0),
+            z=np.arange(4.0),
+        )
+
+
+def test_calc_bow_shock_normals_translates_griddata_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    surface = np.zeros((3, 3))
+    surface[1, 1] = np.nan
+
+    def fail_griddata(*args: object, **kwargs: object) -> np.ndarray:
+        raise RuntimeError("interpolator failed")
+
+    monkeypatch.setattr(bowshock, "griddata", fail_griddata)
+
+    with pytest.raises(DatasetError, match="Could not interpolate"):
+        calc_bow_shock_normals(
+            surface,
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_rejects_nonfinite_interpolation_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    surface = np.zeros((3, 3))
+    surface[1, 1] = np.nan
+
+    def nonfinite_griddata(
+        points: object,
+        values: object,
+        coordinates: tuple[np.ndarray, np.ndarray],
+        *,
+        method: str,
+    ) -> np.ndarray:
+        del points, values, method
+        return np.full(np.shape(coordinates[0]), np.nan)
+
+    monkeypatch.setattr(bowshock, "griddata", nonfinite_griddata)
+
+    with pytest.raises(DatasetError, match="Could not interpolate"):
+        calc_bow_shock_normals(
+            surface,
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_skips_interpolation_for_finite_surface(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_griddata(*args: object, **kwargs: object) -> np.ndarray:
+        pytest.fail("griddata was called for a fully finite surface")
+
+    monkeypatch.setattr(bowshock, "griddata", fail_griddata)
+
+    normals = calc_bow_shock_normals(
+        np.zeros((3, 3)),
+        y=np.arange(3.0),
+        z=np.arange(3.0),
+    )
+
+    assert np.isfinite(normals).all()
+
+
+def test_calc_bow_shock_normals_does_not_mutate_inputs() -> None:
+    y = np.linspace(-2.0, 2.0, 5)
+    z = np.linspace(-3.0, 3.0, 5)
+    yy, zz = _surface_grid(y, z)
+    surface = 5.0 + 0.25 * yy - 0.5 * zz
+    surface[2, 2] = np.nan
+    original_surface = surface.copy()
+    original_y = y.copy()
+    original_z = z.copy()
+
+    calc_bow_shock_normals(surface, y=y, z=z)
+
+    assert np.array_equal(surface, original_surface, equal_nan=True)
+    np.testing.assert_array_equal(y, original_y)
+    np.testing.assert_array_equal(z, original_z)
+
+
+def test_calc_bow_shock_normals_translates_gradient_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_gradient(*args: object, **kwargs: object) -> list[np.ndarray]:
+        raise ValueError("gradient failed")
+
+    monkeypatch.setattr(bowshock.np, "gradient", fail_gradient)
+
+    with pytest.raises(DatasetError, match="Could not calculate"):
+        calc_bow_shock_normals(
+            np.zeros((3, 3)),
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_rejects_malformed_derivative_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def malformed_gradient(*args: object, **kwargs: object) -> list[np.ndarray]:
+        del args, kwargs
+        return [np.zeros((2, 3)), np.zeros((3, 3))]
+
+    monkeypatch.setattr(bowshock.np, "gradient", malformed_gradient)
+
+    with pytest.raises(DatasetError, match="derivative.*shape"):
+        calc_bow_shock_normals(
+            np.zeros((3, 3)),
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_rejects_nonfinite_derivative(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def nonfinite_gradient(*args: object, **kwargs: object) -> list[np.ndarray]:
+        del args, kwargs
+        dx_dy = np.zeros((3, 3))
+        dx_dy[1, 1] = np.nan
+        return [dx_dy, np.zeros((3, 3))]
+
+    monkeypatch.setattr(bowshock.np, "gradient", nonfinite_gradient)
+
+    with pytest.raises(DatasetError, match="derivatives must be finite"):
+        calc_bow_shock_normals(
+            np.zeros((3, 3)),
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_rejects_malformed_normal_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def malformed_stack(*args: object, **kwargs: object) -> np.ndarray:
+        del args, kwargs
+        return np.zeros((3, 3, 2))
+
+    monkeypatch.setattr(bowshock.np, "stack", malformed_stack)
+
+    with pytest.raises(DatasetError, match="normal.*shape"):
+        calc_bow_shock_normals(
+            np.zeros((3, 3)),
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_rejects_nonfinite_normal_components(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    normal_components = np.zeros((3, 3, 3))
+    normal_components[..., 0] = 1.0
+    normal_components[1, 1, 1] = np.nan
+
+    def nonfinite_stack(*args: object, **kwargs: object) -> np.ndarray:
+        del args, kwargs
+        return normal_components.copy()
+
+    monkeypatch.setattr(bowshock.np, "stack", nonfinite_stack)
+
+    with pytest.raises(DatasetError, match="normal.*finite"):
+        calc_bow_shock_normals(
+            np.zeros((3, 3)),
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_is_public() -> None:
+    assert "calc_bow_shock_normals" in bowshock.__all__

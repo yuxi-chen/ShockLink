@@ -238,7 +238,7 @@ def _surface_axis(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
 
     try:
         axis = np.asarray(values, dtype=np.float64)
-    except (TypeError, ValueError) as error:
+    except (TypeError, ValueError, OverflowError) as error:
         raise DatasetError(f"{label} coordinates must contain numbers") from error
     if axis.ndim != 1 or axis.size == 0:
         raise DatasetError(f"{label} coordinates must be a nonempty 1D array")
@@ -267,7 +267,7 @@ def _normal_surface(
 
     try:
         surface = np.array(surface_x, dtype=np.float64, copy=True)
-    except (TypeError, ValueError) as error:
+    except (TypeError, ValueError, OverflowError) as error:
         raise DatasetError("Bow-shock surface must be numeric") from error
     if surface.shape != shape:
         raise DatasetError(f"Bow-shock surface must have shape {shape}")
@@ -319,6 +319,107 @@ def _fill_normal_surface_gaps(
     if not np.isfinite(filled_surface).all():
         raise DatasetError("Could not interpolate all bow-shock surface gaps")
     return filled_surface
+
+
+def _normal_derivatives(
+    surface: NDArray[np.float64],
+    *,
+    y_values: NDArray[np.float64],
+    z_values: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Return validated coordinate-aware surface derivatives."""
+
+    try:
+        derivatives = np.gradient(
+            surface,
+            y_values,
+            z_values,
+            edge_order=2,
+        )
+    except Exception as error:
+        raise DatasetError(
+            f"Could not calculate bow-shock surface derivatives: {error}"
+        ) from error
+    if not isinstance(derivatives, (list, tuple)) or len(derivatives) != 2:
+        raise DatasetError(
+            "Bow-shock surface derivatives must contain Y and Z components"
+        )
+
+    try:
+        dx_dy = np.asarray(derivatives[0], dtype=np.float64)
+        dx_dz = np.asarray(derivatives[1], dtype=np.float64)
+    except (TypeError, ValueError, OverflowError) as error:
+        raise DatasetError("Bow-shock surface derivatives must be numeric") from error
+    if dx_dy.shape != surface.shape or dx_dz.shape != surface.shape:
+        raise DatasetError(
+            f"Bow-shock surface derivatives must have shape {surface.shape}"
+        )
+    if not np.isfinite(dx_dy).all() or not np.isfinite(dx_dz).all():
+        raise DatasetError("Bow-shock surface derivatives must be finite")
+    return dx_dy, dx_dz
+
+
+def _normal_components(
+    dx_dy: NDArray[np.float64],
+    dx_dz: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """Construct validated outward unit-normal components."""
+
+    surface_shape = dx_dy.shape
+    expected_shape = surface_shape + (3,)
+    try:
+        outward = np.stack(
+            (np.ones(surface_shape, dtype=np.float64), -dx_dy, -dx_dz),
+            axis=-1,
+        )
+    except Exception as error:
+        raise DatasetError(f"Could not construct bow-shock normals: {error}") from error
+    if outward.shape != expected_shape:
+        raise DatasetError(f"Bow-shock normal field must have shape {expected_shape}")
+    try:
+        outward_is_finite = np.isfinite(outward).all()
+    except TypeError as error:
+        raise DatasetError("Bow-shock normal components must be numeric") from error
+    if not outward_is_finite:
+        raise DatasetError("Bow-shock normal components must be finite")
+
+    try:
+        component_scale = np.max(np.abs(outward), axis=-1, keepdims=True)
+        scaled_outward = outward / component_scale
+        normal_magnitudes = np.hypot(
+            np.hypot(scaled_outward[..., 0], scaled_outward[..., 1]),
+            scaled_outward[..., 2],
+        )
+    except Exception as error:
+        raise DatasetError(f"Could not normalize bow-shock normals: {error}") from error
+    if (
+        component_scale.shape != surface_shape + (1,)
+        or not np.isfinite(component_scale).all()
+        or np.any(component_scale <= 0.0)
+        or normal_magnitudes.shape != surface_shape
+        or not np.isfinite(normal_magnitudes).all()
+        or np.any(normal_magnitudes <= 0.0)
+    ):
+        raise DatasetError("Bow-shock normal magnitudes must be finite and positive")
+
+    try:
+        normals = scaled_outward / normal_magnitudes[..., np.newaxis]
+    except Exception as error:
+        raise DatasetError(f"Could not normalize bow-shock normals: {error}") from error
+    if normals.shape != expected_shape:
+        raise DatasetError(f"Bow-shock normal field must have shape {expected_shape}")
+    if not np.isfinite(normals).all():
+        raise DatasetError("Bow-shock normal components must be finite")
+    if not np.all(normals[..., 0] > 0.0):
+        raise DatasetError("Bow-shock normal X components must be strictly positive")
+
+    unit_magnitudes = np.hypot(
+        np.hypot(normals[..., 0], normals[..., 1]),
+        normals[..., 2],
+    )
+    if not np.allclose(unit_magnitudes, 1.0, rtol=1.0e-12, atol=1.0e-12):
+        raise DatasetError("Bow-shock normals must have unit length")
+    return normals
 
 
 def _surface_integer(
@@ -536,22 +637,12 @@ def calc_bow_shock_normals(
         z_values=z_values,
     )
 
-    dx_dy, dx_dz = np.gradient(
+    dx_dy, dx_dz = _normal_derivatives(
         filled_surface,
-        y_values,
-        z_values,
-        edge_order=2,
+        y_values=y_values,
+        z_values=z_values,
     )
-    normal_components = np.stack(
-        (np.ones_like(filled_surface), -dx_dy, -dx_dz),
-        axis=-1,
-    )
-    normal_magnitudes = np.linalg.norm(
-        normal_components,
-        axis=-1,
-        keepdims=True,
-    )
-    return normal_components / normal_magnitudes
+    return _normal_components(dx_dy, dx_dz)
 
 
 def fit_bow_shock(
