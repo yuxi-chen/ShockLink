@@ -4,24 +4,24 @@
 
 ShockLink is a Python package for analyzing three-dimensional magnetohydrodynamic
 (MHD) magnetosphere simulations and determining how magnetic field lines connect
-to the bow shock. It combines a normal, pip-installable scientific Python core
-with optional ParaView pipelines executed through `pvpython`.
+to the bow shock. It uses PyVista to read and normalize three-dimensional
+simulation output inside a normal, pip-installable scientific Python package.
 
 The distribution and import package are both named `shocklink`; the project is
 presented as **ShockLink**.
 
 ## Architecture
 
-ShockLink uses a modular core with a thin ParaView integration layer. Scientific
-data models, geometry, connectivity, configuration, and result records must not
-import ParaView. ParaView-specific readers, filters, tracing pipelines, and
-export helpers live under `shocklink.paraview` and are loaded only when used.
+ShockLink uses a modular scientific core with PyVista-based data readers.
+Scientific data models, geometry, connectivity, configuration, and result
+records remain independent from specific simulation formats. Tecplot-specific
+loading and normalization live in `shocklink.tecplot`.
 
 This separation allows:
 
-- `pip install shocklink` to work without ParaView;
-- core unit tests to run in ordinary Python environments;
-- ParaView analyses to run with `pvpython`; and
+- `pip install shocklink` to provide its supported 3D reader;
+- core unit tests to run with small synthetic PyVista grids;
+- BATSRUS Tecplot data to become geometry-ready PyVista grids; and
 - future data backends to be added without rewriting the analysis model.
 
 ## Package Components
@@ -33,7 +33,7 @@ src/shocklink/
 ├── fieldlines.py    # Seed definitions and field-line trace results
 ├── bowshock.py      # Shock surfaces and intersection detection
 ├── connectivity.py  # Field-line-to-shock classification
-├── paraview.py      # Optional ParaView readers and pipelines
+├── tecplot.py       # PyVista-based Tecplot reader and normalization
 ├── cli.py           # Command-line entry points
 └── config.py        # Validated analysis configuration
 ```
@@ -50,8 +50,8 @@ Responsibilities:
   intersection interfaces.
 - `connectivity` classifies field lines as connected, not connected, ambiguous,
   or incomplete.
-- `paraview` contains optional runtime checks, readers, tracing pipelines, and
-  export helpers.
+- `tecplot` reads BATSRUS Tecplot output, repairs coordinates, and constructs
+  magnetic-field and velocity vector arrays.
 - `cli` exposes initial `shocklink analyze` and `shocklink validate` commands.
 - `config.py` parses and validates TOML analysis configuration.
 
@@ -80,9 +80,8 @@ ShockLink defines focused exception types for configuration errors, invalid or
 missing simulation arrays, unsupported coordinate systems, malformed surfaces,
 and unavailable optional backends.
 
-Importing `shocklink` must never require ParaView. Attempting a ParaView-specific
-operation outside ParaView will raise a clear backend error explaining that the
-operation should be run with `pvpython`.
+Tecplot and PyVista read failures are converted into dataset errors with the
+source path and actionable array or zone context.
 
 CLI commands return nonzero exit codes for invalid input and print concise,
 actionable messages without exposing internal tracebacks by default.
@@ -96,11 +95,11 @@ Core tests use small synthetic datasets and cover:
 - geometry and intersection behavior;
 - connectivity classification;
 - CLI validation behavior; and
-- ParaView import isolation.
+- Tecplot geometry and vector normalization.
 
-ParaView integration tests are marked separately and skipped when ParaView is
-unavailable. Ordinary CI runs formatting, linting, type checking, unit tests,
-and package builds without installing ParaView.
+Large-sample Tecplot integration tests are marked separately and skipped unless
+the local dataset is explicitly enabled. Ordinary CI uses synthetic PyVista
+grids for reader tests.
 
 The wheel and source distribution are inspected to ensure required package data,
 type information, and documentation are included.
@@ -113,7 +112,7 @@ The scaffold includes:
 - architecture and scientific-convention documentation;
 - a documented TOML configuration example;
 - a small synthetic workflow example;
-- ParaView and `pvpython` usage guidance;
+- PyVista and Tecplot usage guidance;
 - contributor setup and test commands;
 - license, changelog, and citation metadata; and
 - CI configuration suitable for a future PyPI release.
