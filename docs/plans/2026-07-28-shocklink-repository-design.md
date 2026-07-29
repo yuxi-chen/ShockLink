@@ -33,7 +33,7 @@ src/shocklink/
 ├── fieldlines.py    # Seed definitions and field-line trace results
 ├── bowshock.py      # Shock surfaces and intersection detection
 ├── connectivity.py  # Field-line-to-shock classification
-├── tecplot.py       # PyVista-based Tecplot reader and normalization
+├── tecplot.py       # PyVista Tecplot reading, planar cuts, and plotting
 ├── cli.py           # Command-line entry points
 └── config.py        # Validated analysis configuration
 ```
@@ -50,8 +50,9 @@ Responsibilities:
   intersection interfaces.
 - `connectivity` classifies field lines as connected, not connected, ambiguous,
   or incomplete.
-- `tecplot` reads BATSRUS Tecplot output, repairs coordinates, and constructs
-  magnetic-field and velocity vector arrays.
+- `tecplot` reads BATSRUS Tecplot output, repairs coordinates, constructs
+  magnetic-field and velocity vectors, extracts planar cuts, and plots those
+  cuts with pressure by default.
 - `cli` exposes initial `shocklink analyze` and `shocklink validate` commands.
 - `config.py` parses and validates TOML analysis configuration.
 
@@ -64,6 +65,7 @@ coordinate conventions, and shock-identification methods are specified.
 ```text
 3D MHD output
   → load dataset
+  → extract and inspect planar cuts
   → identify or load bow-shock surface
   → seed and trace magnetic field lines
   → detect line/surface intersections
@@ -95,7 +97,7 @@ Core tests use small synthetic datasets and cover:
 - geometry and intersection behavior;
 - connectivity classification;
 - CLI validation behavior; and
-- Tecplot geometry and vector normalization.
+- Tecplot geometry, vector normalization, planar cuts, and pressure plotting.
 
 Large-sample Tecplot integration tests are marked separately and skipped unless
 the local dataset is explicitly enabled. Ordinary CI uses synthetic PyVista

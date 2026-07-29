@@ -2,9 +2,11 @@ import os
 from pathlib import Path
 
 import numpy as np
+import pyvista as pv
 import pytest
 
-from shocklink.tecplot import read_tecplot
+from shocklink.exceptions import DatasetError
+from shocklink.tecplot import get_2d_cut, plot_2d_cut, read_tecplot
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SAMPLE = Path(
@@ -42,3 +44,23 @@ def test_real_batsrus_sample_has_geometry_and_vector_fields() -> None:
         grid["U [km/s]"][:10, 2],
         grid["U_z [km_s]"][:10],
     )
+
+
+def test_real_batsrus_sample_supports_equatorial_pressure_plot() -> None:
+    grid = read_tecplot(SAMPLE)
+
+    with pytest.raises(DatasetError, match="PolyData"):
+        plot_2d_cut(grid, show=False)  # type: ignore[arg-type]
+
+    cut = get_2d_cut(grid)
+
+    assert cut.n_points > 0
+    assert cut.n_cells > 0
+    np.testing.assert_allclose(cut.points[:, 2], 0.0, atol=1e-6)
+    assert {"P [nPa]", "B [nT]", "U [km/s]"} <= set(cut.point_data)
+
+    plotter = pv.Plotter(off_screen=True)
+    try:
+        assert plot_2d_cut(cut, plotter=plotter, show=False) is plotter
+    finally:
+        plotter.close()
