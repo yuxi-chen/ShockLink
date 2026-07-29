@@ -47,6 +47,14 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/shocklink"]
 
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/data",
+  "/.worktrees",
+  "/*.executed.ipynb",
+  "/*.png",
+]
+
 [tool.pytest.ini_options]
 addopts = ["--strict-config", "--strict-markers", "--import-mode=importlib"]
 markers = [

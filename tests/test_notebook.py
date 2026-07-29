@@ -1,4 +1,5 @@
 from pathlib import Path
+import tomllib
 
 import nbformat
 
@@ -57,3 +58,12 @@ def test_notebook_is_portable_and_documents_launch() -> None:
     assert "jupyter lab examples/tecplot_2d_cut.ipynb" in all_source
     assert "/Users/" not in all_source
     assert "pressure-z0.png" not in all_source
+
+
+def test_large_local_data_is_excluded_from_source_distribution() -> None:
+    with (ROOT / "pyproject.toml").open("rb") as stream:
+        project = tomllib.load(stream)
+
+    excluded = project["tool"]["hatch"]["build"]["targets"]["sdist"]["exclude"]
+
+    assert "/data" in excluded
