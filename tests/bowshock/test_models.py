@@ -48,6 +48,16 @@ def test_bow_shock_paraboloid_stores_fit_and_evaluates_surface() -> None:
     assert not fit.loc1.flags.writeable
     assert not fit.loc2.flags.writeable
     assert fit.x_at(2.0, 0.0) == pytest.approx(8.0)
+    assert fit.residual_at(8.0, 2.0, 0.0) == pytest.approx(0.0)
+    assert fit.residual_at(9.0, 2.0, 0.0) == pytest.approx(1.0)
+    np.testing.assert_allclose(
+        fit.residual_at(
+            np.array([8.0, 9.0]),
+            np.array([2.0, 2.0]),
+            0.0,
+        ),
+        [0.0, 1.0],
+    )
 
 
 @pytest.mark.parametrize(

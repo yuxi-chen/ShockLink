@@ -71,6 +71,16 @@ class BowShockParaboloid:
             - self.curvature * (y_values**2 + z_values**2)
         )
 
+    def residual_at(
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        z: ArrayLike,
+    ) -> np.ndarray:
+        """Return the signed X residual from the fitted surface."""
+
+        return np.asarray(x, dtype=np.float64) - self.x_at(y, z)
+
 
 @dataclass(frozen=True, slots=True)
 class BowShockSurface:
@@ -159,11 +169,15 @@ def fit_bow_shock(
     *,
     divergence_name: str = "div(U)",
     velocity_name: str = "U [km/s]",
+    shockfit_name: str = "shockfit",
     x_offset: float = 2.0,
     axis_resolution: int = 1000,
     cross_resolution: int = 1000,
 ) -> BowShockParaboloid:
     """Detect maximum compression and fit an X-directed paraboloid."""
+
+    if not isinstance(shockfit_name, str) or not shockfit_name.strip():
+        raise DatasetError("Bow-shock shockfit name must not be empty")
 
     try:
         offset = float(x_offset)
@@ -247,12 +261,15 @@ def fit_bow_shock(
         raise GeometryError("Bow-shock side locations are degenerate")
     curvature = float(np.sum(radius2 * delta_x) / denominator)
 
-    return BowShockParaboloid(
+    fit = BowShockParaboloid(
         loc0=loc0,
         loc1=loc1,
         loc2=loc2,
         curvature=curvature,
     )
+    x, y, z = np.asarray(dataset.points).T
+    dataset.point_data[shockfit_name] = fit.residual_at(x, y, z).copy()
+    return fit
 
 
 __all__ = [

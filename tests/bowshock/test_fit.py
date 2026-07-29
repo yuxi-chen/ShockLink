@@ -20,8 +20,9 @@ def _paraboloid_compression_grid() -> pv.ImageData:
 
 
 def test_fit_bow_shock_recovers_analytic_paraboloid() -> None:
+    grid = _paraboloid_compression_grid()
     fit = fit_bow_shock(
-        _paraboloid_compression_grid(),
+        grid,
         x_offset=2.0,
         axis_resolution=240,
         cross_resolution=320,
@@ -32,6 +33,41 @@ def test_fit_bow_shock_recovers_analytic_paraboloid() -> None:
     np.testing.assert_allclose(fit.loc2, (8.0, 2.0, 0.0), atol=0.03)
     assert fit.curvature == pytest.approx(0.5, abs=0.02)
     assert fit.x_at(3.0, 0.0) == pytest.approx(5.5, abs=0.2)
+    x, y, z = grid.points.T
+    np.testing.assert_allclose(
+        grid.point_data["shockfit"],
+        fit.residual_at(x, y, z),
+    )
+    for location in (fit.loc0, fit.loc1, fit.loc2):
+        assert fit.residual_at(*location) == pytest.approx(0.0, abs=0.03)
+
+
+def test_fit_bow_shock_accepts_and_replaces_custom_shockfit_name() -> None:
+    grid = _paraboloid_compression_grid()
+    grid.point_data["fit residual"] = np.full(grid.n_points, -99.0)
+
+    fit = fit_bow_shock(
+        grid,
+        shockfit_name="fit residual",
+        axis_resolution=240,
+        cross_resolution=320,
+    )
+
+    assert "shockfit" not in grid.point_data
+    assert not np.all(grid.point_data["fit residual"] == -99.0)
+    np.testing.assert_allclose(
+        grid.point_data["fit residual"],
+        fit.residual_at(*grid.points.T),
+    )
+
+
+@pytest.mark.parametrize("shockfit_name", ["", "   "])
+def test_fit_bow_shock_requires_shockfit_name(shockfit_name: str) -> None:
+    with pytest.raises(DatasetError, match="shockfit name"):
+        fit_bow_shock(
+            _paraboloid_compression_grid(),
+            shockfit_name=shockfit_name,
+        )
 
 
 def _profile(
