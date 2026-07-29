@@ -296,12 +296,21 @@ def _fill_normal_surface_gaps(
     sample_points = np.column_stack((yy[valid], zz[valid]))
     sample_values = surface[valid]
     try:
-        filled_surface = griddata(
-            sample_points,
-            sample_values,
-            (yy, zz),
-            method="linear",
+        filled_surface = np.array(
+            griddata(
+                sample_points,
+                sample_values,
+                (yy, zz),
+                method="linear",
+            ),
+            dtype=np.float64,
+            copy=True,
         )
+        if filled_surface.shape != surface.shape:
+            raise ValueError(
+                "linear interpolation returned shape "
+                f"{filled_surface.shape}; expected {surface.shape}"
+            )
         missing = ~np.isfinite(filled_surface)
         if missing.any():
             filled_surface[missing] = griddata(
@@ -310,14 +319,14 @@ def _fill_normal_surface_gaps(
                 (yy[missing], zz[missing]),
                 method="nearest",
             )
+        filled_surface[valid] = surface[valid]
+        if not np.isfinite(filled_surface).all():
+            raise ValueError("interpolation output contains nonfinite values")
     except Exception as error:
         raise DatasetError(
             f"Could not interpolate bow-shock surface: {error}"
         ) from error
 
-    filled_surface[valid] = surface[valid]
-    if not np.isfinite(filled_surface).all():
-        raise DatasetError("Could not interpolate all bow-shock surface gaps")
     return filled_surface
 
 

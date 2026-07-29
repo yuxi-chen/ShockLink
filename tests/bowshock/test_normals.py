@@ -217,6 +217,90 @@ def test_calc_bow_shock_normals_translates_griddata_error(
         )
 
 
+def test_calc_bow_shock_normals_rejects_wrong_interpolation_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    surface = np.zeros((3, 3))
+    surface[1, 1] = np.nan
+
+    def wrong_shape_griddata(*args: object, **kwargs: object) -> np.ndarray:
+        del args, kwargs
+        return np.zeros((2, 2))
+
+    monkeypatch.setattr(bowshock, "griddata", wrong_shape_griddata)
+
+    with pytest.raises(DatasetError, match="Could not interpolate"):
+        calc_bow_shock_normals(
+            surface,
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_copies_read_only_interpolation_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    surface = np.zeros((3, 3))
+    surface[1, 1] = np.nan
+    interpolated = np.zeros((3, 3))
+    interpolated.setflags(write=False)
+
+    def read_only_griddata(*args: object, **kwargs: object) -> np.ndarray:
+        del args, kwargs
+        return interpolated
+
+    monkeypatch.setattr(bowshock, "griddata", read_only_griddata)
+
+    normals = calc_bow_shock_normals(
+        surface,
+        y=np.arange(3.0),
+        z=np.arange(3.0),
+    )
+
+    expected = np.zeros((3, 3, 3))
+    expected[..., 0] = 1.0
+    np.testing.assert_array_equal(normals, expected)
+
+
+def test_calc_bow_shock_normals_restores_original_finite_samples(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    y = np.linspace(-2.0, 2.0, 5)
+    z = np.linspace(-2.0, 2.0, 5)
+    yy, zz = _surface_grid(y, z)
+    analytic_surface = 4.0 + 0.5 * yy - 0.25 * zz
+    surface = analytic_surface.copy()
+    surface[2, 2] = np.nan
+    valid = np.isfinite(surface)
+    methods: list[str] = []
+
+    def perturbed_griddata(
+        points: object,
+        values: object,
+        coordinates: tuple[np.ndarray, np.ndarray],
+        *,
+        method: str,
+    ) -> np.ndarray:
+        del points, values, coordinates
+        methods.append(method)
+        interpolated = analytic_surface.copy()
+        interpolated[valid] += 1000.0
+        return interpolated
+
+    monkeypatch.setattr(bowshock, "griddata", perturbed_griddata)
+
+    normals = calc_bow_shock_normals(surface, y=y, z=z)
+
+    expected = np.array([1.0, -0.5, 0.25])
+    expected /= np.linalg.norm(expected)
+    np.testing.assert_allclose(
+        normals,
+        np.broadcast_to(expected, normals.shape),
+        atol=1.0e-12,
+    )
+    assert methods == ["linear"]
+
+
 def test_calc_bow_shock_normals_rejects_nonfinite_interpolation_output(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
