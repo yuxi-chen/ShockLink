@@ -38,7 +38,9 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
         "ORIGIN",
         "SCALARS",
         'pv.set_jupyter_backend("static")',
+        '"P [nPa]"',
         '"div(U)"',
+        '"shockfit"',
         '"B [nT]"',
         '"U [km/s]"',
         'plotter.show(jupyter_backend="static")',
@@ -51,8 +53,22 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
     assert "from shocklink.tecplot import read_tecplot" in code
     assert "calc_velocity_divergence" in code
     assert "calc_velocity_divergence(grid)" in code
-    assert 'SCALARS = "div(U)"' in code
+    assert "from shocklink.bowshock import fit_bow_shock" in code
+    assert "fit = fit_bow_shock(grid)" in code
+    assert 'SCALARS = "p"' in code
     assert '"div(U)"' in code
+    assert "fit.loc0" in code
+    assert "fit.loc1" in code
+    assert "fit.loc2" in code
+    assert "fit.curvature" in code
+    assert "pressure_contours = cut.contour(" in code
+    assert "isosurfaces=15" in code
+    assert 'scalars="P [nPa]"' in code
+    assert "shock_contour = cut.contour(" in code
+    assert "isosurfaces=[0.0]" in code
+    assert 'scalars="shockfit"' in code
+    assert "plotter.add_mesh(pressure_contours" in code
+    assert "plotter.add_mesh(shock_contour" in code
 
 
 def test_notebook_is_portable_and_documents_launch() -> None:
@@ -61,7 +77,7 @@ def test_notebook_is_portable_and_documents_launch() -> None:
 
     assert 'DATA_PATH = ROOT / "data/3d.dat"' in all_source
     assert 'NORMAL = "z"' in all_source
-    assert 'SCALARS = "div(U)"' in all_source
+    assert 'SCALARS = "p"' in all_source
     assert "jupyter lab examples/tecplot_2d_cut.ipynb" in all_source
     assert "/Users/" not in all_source
     assert "pressure-z0.png" not in all_source
