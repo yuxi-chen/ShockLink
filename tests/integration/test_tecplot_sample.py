@@ -5,8 +5,17 @@ import numpy as np
 import pyvista as pv
 import pytest
 
+from shocklink.bowshock import (
+    extract_shockfit_range,
+    fit_bow_shock,
+    get_bow_shock_surface,
+)
+from shocklink.dataset import (
+    calc_velocity_divergence,
+    get_2d_cut,
+    plot_2d_cut,
+)
 from shocklink.exceptions import DatasetError
-from shocklink.dataset import get_2d_cut, plot_2d_cut
 from shocklink.tecplot import read_tecplot
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -65,3 +74,30 @@ def test_real_batsrus_sample_supports_equatorial_pressure_plot() -> None:
         assert plot_2d_cut(cut, plotter=plotter, show=False) is plotter
     finally:
         plotter.close()
+
+
+def test_real_batsrus_sample_extracts_bow_shock_surface_array() -> None:
+    grid = read_tecplot(SAMPLE)
+    calc_velocity_divergence(grid)
+    fit = fit_bow_shock(grid)
+    region = extract_shockfit_range(
+        grid,
+        lower=3.0 - fit.loc0[0],
+        upper=fit.loc0[0] + 5.0,
+    )
+    y = np.linspace(-5.0, 5.0, 5)
+    z = np.linspace(-5.0, 5.0, 5)
+
+    surface = get_bow_shock_surface(
+        region,
+        y=y,
+        z=z,
+        x_resolution=161,
+        chunk_size=5,
+    )
+
+    assert surface.shape == (len(y), len(z))
+    assert np.isfinite(surface).any()
+    finite = surface[np.isfinite(surface)]
+    assert finite.min() >= region.bounds.x_min
+    assert finite.max() <= region.bounds.x_max
