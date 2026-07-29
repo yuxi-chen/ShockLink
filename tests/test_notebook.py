@@ -43,7 +43,7 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
         '"shockfit"',
         '"B [nT]"',
         '"U [km/s]"',
-        'plotter.show(jupyter_backend="static")',
+        'show(jupyter_backend="static")',
     ]
 
     for fragment in required_fragments:
@@ -56,7 +56,7 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
     assert "from shocklink.bowshock import fit_bow_shock" in code
     assert "fit = fit_bow_shock(grid)" in code
     assert "extract_shockfit_range" in code
-    assert "SHOCKFIT_RANGE = [-5.0, 5.0]" in code
+    assert "SHOCKFIT_RANGE = [3-x0, x0+5]" in code
     assert "shock_region = extract_shockfit_range(" in code
     assert "lower=SHOCKFIT_RANGE[0]" in code
     assert "upper=SHOCKFIT_RANGE[1]" in code
@@ -75,14 +75,19 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
     assert "fit.loc1" in code
     assert "fit.loc2" in code
     assert "fit.curvature" in code
+    assert 'pressure_plotter = plot_2d_cut(cut, scalars="p"' in code
     assert "pressure_contours = cut.contour(" in code
     assert "isosurfaces=15" in code
     assert 'scalars="P [nPa]"' in code
-    assert "shock_contour = cut.contour(" in code
+    assert "pressure_shock_contour = cut.contour(" in code
     assert "isosurfaces=[0.0]" in code
     assert 'scalars="shockfit"' in code
-    assert "plotter.add_mesh(pressure_contours" in code
-    assert "plotter.add_mesh(shock_contour" in code
+    assert "pressure_plotter.add_mesh(pressure_contours" in code
+    assert "pressure_plotter.add_mesh(pressure_shock_contour" in code
+    assert 'divu_plotter = plot_2d_cut(cut, scalars="div(U)"' in code
+    assert "divu_shock_contour = cut.contour(" in code
+    assert "divu_plotter.add_mesh(divu_shock_contour" in code
+    assert code.count('show(jupyter_backend="static")') == 2
 
 
 def test_notebook_is_portable_and_documents_launch() -> None:
@@ -92,7 +97,7 @@ def test_notebook_is_portable_and_documents_launch() -> None:
     assert 'DATA_PATH = ROOT / "data/3d.dat"' in all_source
     assert 'NORMAL = "z"' in all_source
     assert 'SCALARS = "p"' in all_source
-    assert "SHOCKFIT_RANGE = [-5.0, 5.0]" in all_source
+    assert "SHOCKFIT_RANGE = [3-x0, x0+5]" in all_source
     assert "jupyter lab examples/tecplot_2d_cut.ipynb" in all_source
     assert "/Users/" not in all_source
     assert "pressure-z0.png" not in all_source
