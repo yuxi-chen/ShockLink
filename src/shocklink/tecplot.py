@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -93,6 +93,112 @@ def get_2d_cut(
     cut.field_data[CUT_NORMAL_KEY] = cut_normal
     cut.field_data[CUT_ORIGIN_KEY] = cut_origin
     return cut
+
+
+def _resolve_scalar_name(cut: pv.PolyData, requested: str) -> str:
+    """Resolve an exact, case-insensitive, or pressure-alias array name."""
+
+    names = list(cut.point_data.keys()) + list(cut.cell_data.keys())
+    if requested in names:
+        return requested
+
+    lowered = {name.lower(): name for name in names}
+    if requested.strip().lower() in {"p", "pressure"}:
+        for candidate in ("P [nPa]", "p", "P", "pressure"):
+            if candidate in names:
+                return candidate
+            if candidate.lower() in lowered:
+                return lowered[candidate.lower()]
+
+    match = lowered.get(requested.strip().lower())
+    if match is not None:
+        return match
+
+    available = ", ".join(names) if names else "<none>"
+    raise DatasetError(
+        f"Scalar array {requested!r} is unavailable. Available arrays: {available}"
+    )
+
+
+def _cut_plane_metadata(
+    cut: pv.PolyData,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Read and validate plane metadata stored by :func:`get_2d_cut`."""
+
+    missing = [
+        key
+        for key in (CUT_NORMAL_KEY, CUT_ORIGIN_KEY)
+        if key not in cut.field_data
+    ]
+    if missing:
+        raise DatasetError(
+            f"Cut is missing plane metadata: {', '.join(missing)}"
+        )
+
+    normal_values = np.asarray(cut.field_data[CUT_NORMAL_KEY]).reshape(-1)
+    origin_values = np.asarray(cut.field_data[CUT_ORIGIN_KEY]).reshape(-1)
+    normal = _normal_vector(normal_values)
+    origin = _vector3(origin_values, label="origin")
+    return normal, origin
+
+
+def _view_up(normal: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Return a stable in-plane camera up vector."""
+
+    z_axis = np.array([0.0, 0.0, 1.0])
+    reference = (
+        np.array([0.0, 1.0, 0.0])
+        if abs(float(np.dot(normal, z_axis))) > 0.9
+        else z_axis
+    )
+    projected = reference - np.dot(reference, normal) * normal
+    return projected / np.linalg.norm(projected)
+
+
+def plot_2d_cut(
+    cut: pv.PolyData,
+    *,
+    scalars: str = "p",
+    plotter: pv.Plotter | None = None,
+    show: bool = True,
+    cmap: str = "viridis",
+    **mesh_kwargs: object,
+) -> pv.Plotter:
+    """Plot a planar cut, colored by pressure by default."""
+
+    if not isinstance(cut, pv.PolyData):
+        raise DatasetError(
+            f"2D cut must be PolyData; received {type(cut).__name__}"
+        )
+    if cut.n_points == 0 or cut.n_cells == 0:
+        raise DatasetError("Cannot plot an empty 2D cut")
+
+    normal, _origin = _cut_plane_metadata(cut)
+    scalar_name = _resolve_scalar_name(cut, scalars)
+
+    supplied_bar_args = mesh_kwargs.pop("scalar_bar_args", None)
+    if supplied_bar_args is None:
+        scalar_bar_args: dict[str, object] = {}
+    elif isinstance(supplied_bar_args, Mapping):
+        scalar_bar_args = dict(supplied_bar_args)
+    else:
+        raise DatasetError("scalar_bar_args must be a mapping")
+    scalar_bar_args.setdefault("title", scalar_name)
+
+    active_plotter = plotter if plotter is not None else pv.Plotter()
+    active_plotter.add_mesh(
+        cut,
+        scalars=scalar_name,
+        cmap=cmap,
+        scalar_bar_args=scalar_bar_args,
+        **mesh_kwargs,
+    )
+    active_plotter.add_axes()
+    active_plotter.view_vector(normal, viewup=_view_up(normal))
+    active_plotter.enable_parallel_projection()
+    if show:
+        active_plotter.show()
+    return active_plotter
 
 
 def _components(
@@ -198,4 +304,4 @@ def read_tecplot(
     return grid
 
 
-__all__ = ["get_2d_cut", "read_tecplot"]
+__all__ = ["get_2d_cut", "plot_2d_cut", "read_tecplot"]
