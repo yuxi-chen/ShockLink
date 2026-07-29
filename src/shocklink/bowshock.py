@@ -243,6 +243,123 @@ def _surface_probe_source(
     return source
 
 
+def _surface_axis(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
+    """Return a validated regular-surface coordinate axis."""
+
+    try:
+        axis = np.asarray(values, dtype=np.float64)
+    except (TypeError, ValueError) as error:
+        raise DatasetError(
+            f"{label} coordinates must contain numbers"
+        ) from error
+    if axis.ndim != 1 or axis.size == 0:
+        raise DatasetError(
+            f"{label} coordinates must be a nonempty 1D array"
+        )
+    if not np.isfinite(axis).all():
+        raise DatasetError(f"{label} coordinates must be finite")
+    if axis.size > 1 and np.any(np.diff(axis) <= 0.0):
+        raise DatasetError(
+            f"{label} coordinates must be strictly increasing"
+        )
+    return axis
+
+
+def _surface_integer(
+    value: int,
+    *,
+    label: str,
+    minimum: int,
+) -> int:
+    """Return a validated integer surface-extraction option."""
+
+    if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+        if minimum == 1:
+            raise DatasetError(f"{label} must be a positive integer")
+        raise DatasetError(
+            f"{label} must be an integer of at least {minimum}"
+        )
+    result = int(value)
+    if result < minimum:
+        if minimum == 1:
+            raise DatasetError(f"{label} must be a positive integer")
+        raise DatasetError(
+            f"{label} must be an integer of at least {minimum}"
+        )
+    return result
+
+
+def _surface_divergence(
+    dataset: pv.DataSet,
+    *,
+    divergence_name: str,
+) -> np.ndarray:
+    """Return validated finite divergence point data."""
+
+    if not isinstance(divergence_name, str) or not divergence_name.strip():
+        raise DatasetError("Divergence array name must not be empty")
+    if divergence_name not in dataset.point_data:
+        raise DatasetError(
+            f"Divergence array {divergence_name!r} is unavailable in point data"
+        )
+    divergence = np.asarray(dataset.point_data[divergence_name])
+    if divergence.shape != (dataset.n_points,):
+        raise DatasetError(
+            f"Divergence array {divergence_name!r} must be a point scalar"
+        )
+    try:
+        finite = np.isfinite(divergence).all()
+    except TypeError as error:
+        raise DatasetError(
+            f"Divergence array {divergence_name!r} must be numeric"
+        ) from error
+    if not finite:
+        raise DatasetError(
+            f"Divergence array {divergence_name!r} must be finite"
+        )
+    return divergence
+
+
+def _surface_x_values(
+    dataset: pv.DataSet,
+    *,
+    x_range: tuple[float, float] | None,
+    x_resolution: int,
+) -> NDArray[np.float64]:
+    """Return validated regular X sampling coordinates."""
+
+    if x_range is None:
+        bounds = dataset.bounds
+        limits = np.asarray(
+            (bounds.x_min, bounds.x_max),
+            dtype=np.float64,
+        )
+        label = "Dataset X bounds"
+    else:
+        try:
+            limits = np.asarray(x_range, dtype=np.float64)
+        except (TypeError, ValueError) as error:
+            raise DatasetError("X range must contain two numbers") from error
+        label = "X range"
+    if limits.shape != (2,):
+        raise DatasetError(f"{label} must contain two values")
+    if not np.isfinite(limits).all():
+        raise DatasetError(f"{label} must be finite")
+    if limits[0] >= limits[1]:
+        raise DatasetError(f"{label} must be strictly increasing")
+    resolution = _surface_integer(
+        x_resolution,
+        label="X resolution",
+        minimum=2,
+    )
+    return np.linspace(
+        limits[0],
+        limits[1],
+        resolution,
+        dtype=np.float64,
+    )
+
+
 def get_bow_shock_surface(
     dataset: pv.DataSet,
     *,
@@ -255,24 +372,29 @@ def get_bow_shock_surface(
 ) -> NDArray[np.float64]:
     """Return strongest-compression X locations on a regular Y-Z grid."""
 
-    y_values = np.asarray(y, dtype=np.float64)
-    z_values = np.asarray(z, dtype=np.float64)
-    divergence = np.asarray(dataset.point_data[divergence_name])
-    if x_range is None:
-        bounds = dataset.bounds
-        x_limits = (float(bounds.x_min), float(bounds.x_max))
-    else:
-        x_limits = x_range
-    x_values = np.linspace(
-        x_limits[0],
-        x_limits[1],
-        x_resolution,
-        dtype=np.float64,
+    y_values = _surface_axis(y, label="Y")
+    z_values = _surface_axis(z, label="Z")
+    divergence = _surface_divergence(
+        dataset,
+        divergence_name=divergence_name,
+    )
+    x_values = _surface_x_values(
+        dataset,
+        x_range=x_range,
+        x_resolution=x_resolution,
+    )
+    columns_per_chunk = _surface_integer(
+        chunk_size,
+        label="Chunk size",
+        minimum=1,
     )
 
     yy, zz = np.meshgrid(y_values, z_values, indexing="ij")
     column_y = yy.reshape(-1)
     column_z = zz.reshape(-1)
+    surface = np.full(len(column_y), np.nan, dtype=np.float64)
+    if dataset.n_cells == 0:
+        return surface.reshape(len(y_values), len(z_values))
 
     source = _surface_probe_source(
         dataset,
@@ -283,9 +405,8 @@ def get_bow_shock_surface(
     locator.SetDataSet(source)
     locator.BuildLocator()
 
-    surface = np.full(len(column_y), np.nan, dtype=np.float64)
-    for start in range(0, len(column_y), chunk_size):
-        stop = min(start + chunk_size, len(column_y))
+    for start in range(0, len(column_y), columns_per_chunk):
+        stop = min(start + columns_per_chunk, len(column_y))
         count = stop - start
         points = np.empty(
             (count * len(x_values), 3),
@@ -295,22 +416,58 @@ def get_bow_shock_surface(
         points[:, 1] = np.repeat(column_y[start:stop], len(x_values))
         points[:, 2] = np.repeat(column_z[start:stop], len(x_values))
 
-        sampled = pv.PolyData(points).sample(
-            source,
-            locator=locator,
-            pass_cell_data=False,
-            pass_point_data=False,
-            pass_field_data=False,
-        )
+        try:
+            sampled = pv.PolyData(points).sample(
+                source,
+                locator=locator,
+                pass_cell_data=False,
+                pass_point_data=False,
+                pass_field_data=False,
+            )
+        except Exception as error:
+            raise DatasetError(
+                f"Could not sample bow-shock surface: {error}"
+            ) from error
+
+        expected_points = count * len(x_values)
+        if sampled.n_points != expected_points:
+            raise DatasetError(
+                "Bow-shock sampler returned an unexpected point count"
+            )
+        if divergence_name not in sampled.point_data:
+            raise DatasetError(
+                "Bow-shock sampler is missing sampled divergence "
+                f"{divergence_name!r}"
+            )
+        if "vtkValidPointMask" not in sampled.point_data:
+            raise DatasetError(
+                "Bow-shock sampler is missing vtkValidPointMask"
+            )
         sampled_divergence = np.asarray(
             sampled.point_data[divergence_name]
-        ).reshape(count, len(x_values))
-        valid = (
-            np.asarray(sampled.point_data["vtkValidPointMask"])
-            .astype(bool)
-            .reshape(count, len(x_values))
         )
-        valid &= np.isfinite(sampled_divergence)
+        point_mask = np.asarray(
+            sampled.point_data["vtkValidPointMask"]
+        )
+        if sampled_divergence.shape != (expected_points,):
+            raise DatasetError(
+                "Bow-shock sampler returned invalid divergence data"
+            )
+        if point_mask.shape != (expected_points,):
+            raise DatasetError(
+                "Bow-shock sampler returned an invalid point mask"
+            )
+        sampled_divergence = sampled_divergence.reshape(
+            count,
+            len(x_values),
+        )
+        valid = point_mask.astype(bool).reshape(count, len(x_values))
+        try:
+            valid &= np.isfinite(sampled_divergence)
+        except TypeError as error:
+            raise DatasetError(
+                "Bow-shock sampler returned nonnumeric divergence data"
+            ) from error
 
         chunk_surface = np.full(count, np.nan, dtype=np.float64)
         has_valid = valid.any(axis=1)

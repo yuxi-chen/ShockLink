@@ -1,7 +1,9 @@
 import numpy as np
 import pyvista as pv
+import pytest
 
 from shocklink.bowshock import get_bow_shock_surface
+from shocklink.exceptions import DatasetError
 
 
 def _compression_grid(*, name: str = "div(U)") -> pv.ImageData:
@@ -131,3 +133,105 @@ def test_get_bow_shock_surface_does_not_modify_input() -> None:
         grid.point_data["div(U)"],
         original_divergence,
     )
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"divergence_name": ""}, "name must not be empty"),
+        ({"y": []}, "Y coordinates must be a nonempty 1D array"),
+        ({"y": [[0.0, 1.0]]}, "Y coordinates must be a nonempty 1D array"),
+        ({"y": [0.0, np.nan]}, "Y coordinates must be finite"),
+        ({"y": [0.0, 0.0]}, "Y coordinates must be strictly increasing"),
+        ({"z": [1.0, 0.0]}, "Z coordinates must be strictly increasing"),
+        ({"x_range": (1.0,)}, "X range must contain two values"),
+        ({"x_range": (0.0, np.inf)}, "X range must be finite"),
+        ({"x_range": (2.0, 1.0)}, "X range must be strictly increasing"),
+        ({"x_resolution": 1}, "X resolution must be an integer of at least 2"),
+        ({"x_resolution": True}, "X resolution must be an integer of at least 2"),
+        ({"chunk_size": 0}, "Chunk size must be a positive integer"),
+        ({"chunk_size": 1.5}, "Chunk size must be a positive integer"),
+    ],
+)
+def test_get_bow_shock_surface_rejects_invalid_arguments(
+    changes: dict[str, object],
+    message: str,
+) -> None:
+    arguments: dict[str, object] = {
+        "y": np.array([-1.0, 0.0, 1.0]),
+        "z": np.array([-1.0, 0.0, 1.0]),
+        "x_resolution": 81,
+        "chunk_size": 2,
+    }
+    arguments.update(changes)
+
+    with pytest.raises(DatasetError, match=message):
+        get_bow_shock_surface(_compression_grid(), **arguments)
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ("missing", "unavailable"),
+        ("vector", "point scalar"),
+        ("nonfinite", "must be finite"),
+        ("nonnumeric", "must be numeric"),
+    ],
+)
+def test_get_bow_shock_surface_rejects_invalid_divergence(
+    change: str,
+    message: str,
+) -> None:
+    grid = _compression_grid()
+    if change == "missing":
+        del grid.point_data["div(U)"]
+    elif change == "vector":
+        grid.point_data["div(U)"] = np.zeros((grid.n_points, 3))
+    elif change == "nonfinite":
+        values = np.array(grid.point_data["div(U)"], copy=True)
+        values[0] = np.nan
+        grid.point_data["div(U)"] = values
+    else:
+        grid.point_data["div(U)"] = np.full(grid.n_points, "invalid")
+
+    with pytest.raises(DatasetError, match=message):
+        get_bow_shock_surface(grid, y=[0.0], z=[0.0])
+
+
+def test_get_bow_shock_surface_rejects_invalid_default_x_bounds() -> None:
+    grid = pv.ImageData(dimensions=(1, 2, 2))
+    grid.point_data["div(U)"] = np.zeros(grid.n_points)
+
+    with pytest.raises(DatasetError, match="X bounds"):
+        get_bow_shock_surface(grid, y=[0.0], z=[0.0])
+
+
+def test_get_bow_shock_surface_wraps_sampling_failure(monkeypatch) -> None:
+    def fail_sampling(self, *_args, **_kwargs):
+        raise RuntimeError("VTK failed")
+
+    monkeypatch.setattr(pv.PolyData, "sample", fail_sampling)
+
+    with pytest.raises(
+        DatasetError,
+        match="Could not sample bow-shock surface: VTK failed",
+    ):
+        get_bow_shock_surface(
+            _compression_grid(),
+            y=[0.0],
+            z=[0.0],
+        )
+
+
+def test_get_bow_shock_surface_rejects_malformed_sample(monkeypatch) -> None:
+    def malformed_sample(self, *_args, **_kwargs):
+        return pv.PolyData(self.points)
+
+    monkeypatch.setattr(pv.PolyData, "sample", malformed_sample)
+
+    with pytest.raises(DatasetError, match="missing sampled divergence"):
+        get_bow_shock_surface(
+            _compression_grid(),
+            y=[0.0],
+            z=[0.0],
+        )
