@@ -251,6 +251,7 @@ def get_bow_shock_surface(
     divergence_name: str = "div(U)",
     x_resolution: int = 512,
     x_range: tuple[float, float] | None = None,
+    chunk_size: int = 1024,
 ) -> NDArray[np.float64]:
     """Return strongest-compression X locations on a regular Y-Z grid."""
 
@@ -272,13 +273,6 @@ def get_bow_shock_surface(
     yy, zz = np.meshgrid(y_values, z_values, indexing="ij")
     column_y = yy.reshape(-1)
     column_z = zz.reshape(-1)
-    points = np.empty(
-        (len(column_y) * len(x_values), 3),
-        dtype=np.float64,
-    )
-    points[:, 0] = np.tile(x_values, len(column_y))
-    points[:, 1] = np.repeat(column_y, len(x_values))
-    points[:, 2] = np.repeat(column_z, len(x_values))
 
     source = _surface_probe_source(
         dataset,
@@ -288,28 +282,43 @@ def get_bow_shock_surface(
     locator = vtkStaticCellLocator()
     locator.SetDataSet(source)
     locator.BuildLocator()
-    sampled = pv.PolyData(points).sample(
-        source,
-        locator=locator,
-        pass_cell_data=False,
-        pass_point_data=False,
-        pass_field_data=False,
-    )
-    sampled_divergence = np.asarray(
-        sampled.point_data[divergence_name]
-    ).reshape(len(column_y), len(x_values))
-    valid = (
-        np.asarray(sampled.point_data["vtkValidPointMask"])
-        .astype(bool)
-        .reshape(len(column_y), len(x_values))
-    )
-    valid &= np.isfinite(sampled_divergence)
 
     surface = np.full(len(column_y), np.nan, dtype=np.float64)
-    has_valid = valid.any(axis=1)
-    candidates = np.where(valid, sampled_divergence, np.inf)
-    minima = np.argmin(candidates, axis=1)
-    surface[has_valid] = x_values[minima[has_valid]]
+    for start in range(0, len(column_y), chunk_size):
+        stop = min(start + chunk_size, len(column_y))
+        count = stop - start
+        points = np.empty(
+            (count * len(x_values), 3),
+            dtype=np.float64,
+        )
+        points[:, 0] = np.tile(x_values, count)
+        points[:, 1] = np.repeat(column_y[start:stop], len(x_values))
+        points[:, 2] = np.repeat(column_z[start:stop], len(x_values))
+
+        sampled = pv.PolyData(points).sample(
+            source,
+            locator=locator,
+            pass_cell_data=False,
+            pass_point_data=False,
+            pass_field_data=False,
+        )
+        sampled_divergence = np.asarray(
+            sampled.point_data[divergence_name]
+        ).reshape(count, len(x_values))
+        valid = (
+            np.asarray(sampled.point_data["vtkValidPointMask"])
+            .astype(bool)
+            .reshape(count, len(x_values))
+        )
+        valid &= np.isfinite(sampled_divergence)
+
+        chunk_surface = np.full(count, np.nan, dtype=np.float64)
+        has_valid = valid.any(axis=1)
+        candidates = np.where(valid, sampled_divergence, np.inf)
+        minima = np.argmin(candidates, axis=1)
+        chunk_surface[has_valid] = x_values[minima[has_valid]]
+        surface[start:stop] = chunk_surface
+
     return surface.reshape(len(y_values), len(z_values))
 
 
