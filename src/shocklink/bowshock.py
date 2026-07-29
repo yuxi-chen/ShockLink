@@ -276,6 +276,51 @@ def _normal_surface(
     return surface
 
 
+def _fill_normal_surface_gaps(
+    surface: NDArray[np.float64],
+    *,
+    y_values: NDArray[np.float64],
+    z_values: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """Fill missing regular-surface samples before differentiation."""
+
+    valid = np.isfinite(surface)
+    if valid.all():
+        return surface
+    if np.count_nonzero(valid) < 3:
+        raise DatasetError(
+            "Bow-shock surface must contain at least three finite samples"
+        )
+
+    yy, zz = np.meshgrid(y_values, z_values, indexing="ij")
+    sample_points = np.column_stack((yy[valid], zz[valid]))
+    sample_values = surface[valid]
+    try:
+        filled_surface = griddata(
+            sample_points,
+            sample_values,
+            (yy, zz),
+            method="linear",
+        )
+        missing = ~np.isfinite(filled_surface)
+        if missing.any():
+            filled_surface[missing] = griddata(
+                sample_points,
+                sample_values,
+                (yy[missing], zz[missing]),
+                method="nearest",
+            )
+    except Exception as error:
+        raise DatasetError(
+            f"Could not interpolate bow-shock surface: {error}"
+        ) from error
+
+    filled_surface[valid] = surface[valid]
+    if not np.isfinite(filled_surface).all():
+        raise DatasetError("Could not interpolate all bow-shock surface gaps")
+    return filled_surface
+
+
 def _surface_integer(
     value: int,
     *,
@@ -484,6 +529,11 @@ def calc_bow_shock_normals(
     filled_surface = _normal_surface(
         surface_x,
         shape=(len(y_values), len(z_values)),
+    )
+    filled_surface = _fill_normal_surface_gaps(
+        filled_surface,
+        y_values=y_values,
+        z_values=z_values,
     )
 
     dx_dy, dx_dz = np.gradient(

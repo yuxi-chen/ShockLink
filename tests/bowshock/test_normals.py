@@ -41,3 +41,37 @@ def test_calc_bow_shock_normals_matches_paraboloid() -> None:
     normals = calc_bow_shock_normals(surface, y=y, z=z)
 
     np.testing.assert_allclose(normals, expected, atol=1.0e-12)
+
+
+def test_calc_bow_shock_normals_interpolates_interior_hole() -> None:
+    y = np.linspace(-2.0, 2.0, 5)
+    z = np.linspace(-2.0, 2.0, 5)
+    yy, zz = _surface_grid(y, z)
+    surface = 4.0 + 0.5 * yy - 0.25 * zz
+    surface[2, 2] = np.nan
+    expected = np.array([1.0, -0.5, 0.25])
+    expected /= np.linalg.norm(expected)
+
+    normals = calc_bow_shock_normals(surface, y=y, z=z)
+
+    assert np.isfinite(normals).all()
+    np.testing.assert_allclose(
+        normals,
+        np.broadcast_to(expected, normals.shape),
+        atol=1.0e-12,
+    )
+
+
+def test_calc_bow_shock_normals_fills_edge_and_corner_gaps() -> None:
+    y = np.linspace(-2.0, 2.0, 5)
+    z = np.linspace(-2.0, 2.0, 5)
+    yy, zz = _surface_grid(y, z)
+    surface = 6.0 - 0.2 * yy**2 - 0.3 * zz**2
+    surface[0, :] = np.nan
+    surface[-1, -1] = np.nan
+
+    normals = calc_bow_shock_normals(surface, y=y, z=z)
+
+    assert np.isfinite(normals).all()
+    np.testing.assert_allclose(np.linalg.norm(normals, axis=-1), 1.0)
+    assert np.all(normals[..., 0] > 0.0)
