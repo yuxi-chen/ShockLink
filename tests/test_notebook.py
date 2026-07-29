@@ -25,9 +25,7 @@ def test_notebook_is_valid_and_clean() -> None:
 
 def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
     notebook = _notebook()
-    code = "\n".join(
-        cell.source for cell in notebook.cells if cell.cell_type == "code"
-    )
+    code = "\n".join(cell.source for cell in notebook.cells if cell.cell_type == "code")
 
     required_fragments = [
         "read_tecplot",

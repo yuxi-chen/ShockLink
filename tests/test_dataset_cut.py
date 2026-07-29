@@ -48,9 +48,7 @@ def test_get_2d_cut_defaults_to_equatorial_plane() -> None:
         ("z", 2),
     ],
 )
-def test_get_2d_cut_accepts_axis_aliases(
-    normal: str, component: int
-) -> None:
+def test_get_2d_cut_accepts_axis_aliases(normal: str, component: int) -> None:
     cut = get_2d_cut(_volume(), normal=normal)
 
     np.testing.assert_allclose(cut.points[:, component], 0.0)

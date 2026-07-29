@@ -29,9 +29,7 @@ def _components(
 
     missing = [name for name in names if name not in grid.point_data]
     if missing:
-        raise DatasetError(
-            f"Missing {label} component array(s): {', '.join(missing)}"
-        )
+        raise DatasetError(f"Missing {label} component array(s): {', '.join(missing)}")
 
     arrays = [np.asarray(grid.point_data[name]) for name in names]
     invalid = [

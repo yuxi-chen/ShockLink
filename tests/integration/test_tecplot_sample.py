@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 
 import numpy as np
-import pyvista as pv
 import pytest
+import pyvista as pv
 
 from shocklink.bowshock import (
     extract_shockfit_range,
@@ -44,9 +44,7 @@ def test_real_batsrus_sample_has_geometry_and_vector_fields() -> None:
 
     assert grid.n_points == 5_695_488
     assert grid.n_cells == 5_809_895
-    assert grid.bounds == pytest.approx(
-        (-220.0, 31.5, -126.0, 126.0, -126.0, 126.0)
-    )
+    assert grid.bounds == pytest.approx((-220.0, 31.5, -126.0, 126.0, -126.0, 126.0))
     assert grid["B [nT]"].shape == (grid.n_points, 3)
     assert grid["U [km/s]"].shape == (grid.n_points, 3)
     np.testing.assert_allclose(grid["B [nT]"][:10, 0], grid["B_x [nT]"][:10])

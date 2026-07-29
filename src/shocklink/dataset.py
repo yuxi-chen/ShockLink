@@ -38,8 +38,7 @@ def calc_velocity_divergence(
     velocity = np.asarray(dataset.point_data[velocity_name])
     if velocity.shape != (dataset.n_points, 3):
         raise DatasetError(
-            f"Velocity array {velocity_name!r} must have shape "
-            f"({dataset.n_points}, 3)"
+            f"Velocity array {velocity_name!r} must have shape ({dataset.n_points}, 3)"
         )
     try:
         finite_velocity = np.isfinite(velocity).all()
@@ -66,8 +65,7 @@ def calc_velocity_divergence(
 
     if output_name not in derived.point_data:
         raise DatasetError(
-            "Velocity-divergence filter did not produce "
-            f"{output_name!r} in point data"
+            f"Velocity-divergence filter did not produce {output_name!r} in point data"
         )
     divergence = np.asarray(derived.point_data[output_name])
     if divergence.shape != (dataset.n_points,):
@@ -82,9 +80,7 @@ def calc_velocity_divergence(
             "Velocity-divergence filter returned nonnumeric values"
         ) from error
     if not finite_divergence:
-        raise DatasetError(
-            "Velocity-divergence filter returned nonfinite values"
-        )
+        raise DatasetError("Velocity-divergence filter returned nonfinite values")
 
     dataset.point_data[output_name] = divergence.copy()
     return dataset
@@ -130,9 +126,7 @@ def sample_line(
         except (TypeError, ValueError) as error:
             raise DatasetError("Line tolerance must be a finite number") from error
         if not np.isfinite(tolerance) or tolerance < 0.0:
-            raise DatasetError(
-                "Line tolerance must be a finite, nonnegative number"
-            )
+            raise DatasetError("Line tolerance must be a finite, nonnegative number")
 
     try:
         profile = dataset.sample_over_line(
@@ -168,7 +162,9 @@ def get_x_axis_profile(
         y_coordinate = float(y)
         z_coordinate = float(z)
     except (TypeError, ValueError) as error:
-        raise DatasetError("X-axis profile coordinates must be finite numbers") from error
+        raise DatasetError(
+            "X-axis profile coordinates must be finite numbers"
+        ) from error
     if not np.isfinite((y_coordinate, z_coordinate)).all():
         raise DatasetError("X-axis profile coordinates must be finite numbers")
 
@@ -271,14 +267,10 @@ def _cut_plane_metadata(
     """Read and validate plane metadata stored by :func:`get_2d_cut`."""
 
     missing = [
-        key
-        for key in (CUT_NORMAL_KEY, CUT_ORIGIN_KEY)
-        if key not in cut.field_data
+        key for key in (CUT_NORMAL_KEY, CUT_ORIGIN_KEY) if key not in cut.field_data
     ]
     if missing:
-        raise DatasetError(
-            f"Cut is missing plane metadata: {', '.join(missing)}"
-        )
+        raise DatasetError(f"Cut is missing plane metadata: {', '.join(missing)}")
 
     normal_values = np.asarray(cut.field_data[CUT_NORMAL_KEY]).reshape(-1)
     origin_values = np.asarray(cut.field_data[CUT_ORIGIN_KEY]).reshape(-1)
@@ -336,9 +328,7 @@ def plot_2d_cut(
     """Plot a planar cut, colored by pressure by default."""
 
     if not isinstance(cut, pv.PolyData):
-        raise DatasetError(
-            f"2D cut must be PolyData; received {type(cut).__name__}"
-        )
+        raise DatasetError(f"2D cut must be PolyData; received {type(cut).__name__}")
     if cut.n_points == 0 or cut.n_cells == 0:
         raise DatasetError("Cannot plot an empty 2D cut")
 

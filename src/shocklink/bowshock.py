@@ -37,9 +37,7 @@ class BowShockParaboloid:
                     f"{name} must contain exactly three finite values"
                 ) from error
             if location.shape != (3,):
-                raise GeometryError(
-                    f"{name} must contain exactly three values"
-                )
+                raise GeometryError(f"{name} must contain exactly three values")
             if not np.isfinite(location).all():
                 raise GeometryError(f"{name} must contain finite values")
             location.setflags(write=False)
@@ -67,10 +65,7 @@ class BowShockParaboloid:
 
         y_values = np.asarray(y, dtype=np.float64)
         z_values = np.asarray(z, dtype=np.float64)
-        return np.asarray(
-            self.loc0[0]
-            - self.curvature * (y_values**2 + z_values**2)
-        )
+        return np.asarray(self.loc0[0] - self.curvature * (y_values**2 + z_values**2))
 
     def residual_at(
         self,
@@ -183,9 +178,7 @@ def extract_shockfit_range(
         )
     values = np.asarray(dataset.point_data[shockfit_name])
     if values.shape != (dataset.n_points,):
-        raise DatasetError(
-            f"Shockfit array {shockfit_name!r} must be a point scalar"
-        )
+        raise DatasetError(f"Shockfit array {shockfit_name!r} must be a point scalar")
     try:
         lower_limit = float(lower)
         upper_limit = float(upper)
@@ -194,9 +187,7 @@ def extract_shockfit_range(
     if not np.isfinite((lower_limit, upper_limit)).all():
         raise DatasetError("Shockfit range limits must be finite numbers")
     if lower_limit > upper_limit:
-        raise DatasetError(
-            "Shockfit range lower limit must not exceed upper limit"
-        )
+        raise DatasetError("Shockfit range lower limit must not exceed upper limit")
     if not isinstance(adjacent_cells, bool):
         raise DatasetError("adjacent_cells must be a boolean")
 
@@ -216,9 +207,7 @@ def extract_shockfit_range(
             pass_cell_ids=True,
         )
     except Exception as error:
-        raise DatasetError(
-            f"Could not extract shockfit range: {error}"
-        ) from error
+        raise DatasetError(f"Could not extract shockfit range: {error}") from error
     if not isinstance(extracted, pv.UnstructuredGrid):
         raise DatasetError(
             "PyVista shockfit extraction returned "
@@ -249,19 +238,13 @@ def _surface_axis(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
     try:
         axis = np.asarray(values, dtype=np.float64)
     except (TypeError, ValueError) as error:
-        raise DatasetError(
-            f"{label} coordinates must contain numbers"
-        ) from error
+        raise DatasetError(f"{label} coordinates must contain numbers") from error
     if axis.ndim != 1 or axis.size == 0:
-        raise DatasetError(
-            f"{label} coordinates must be a nonempty 1D array"
-        )
+        raise DatasetError(f"{label} coordinates must be a nonempty 1D array")
     if not np.isfinite(axis).all():
         raise DatasetError(f"{label} coordinates must be finite")
     if axis.size > 1 and np.any(np.diff(axis) <= 0.0):
-        raise DatasetError(
-            f"{label} coordinates must be strictly increasing"
-        )
+        raise DatasetError(f"{label} coordinates must be strictly increasing")
     return axis
 
 
@@ -276,16 +259,12 @@ def _surface_integer(
     if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
         if minimum == 1:
             raise DatasetError(f"{label} must be a positive integer")
-        raise DatasetError(
-            f"{label} must be an integer of at least {minimum}"
-        )
+        raise DatasetError(f"{label} must be an integer of at least {minimum}")
     result = int(value)
     if result < minimum:
         if minimum == 1:
             raise DatasetError(f"{label} must be a positive integer")
-        raise DatasetError(
-            f"{label} must be an integer of at least {minimum}"
-        )
+        raise DatasetError(f"{label} must be an integer of at least {minimum}")
     return result
 
 
@@ -314,9 +293,7 @@ def _surface_divergence(
             f"Divergence array {divergence_name!r} must be numeric"
         ) from error
     if not finite:
-        raise DatasetError(
-            f"Divergence array {divergence_name!r} must be finite"
-        )
+        raise DatasetError(f"Divergence array {divergence_name!r} must be finite")
     return divergence
 
 
@@ -431,32 +408,19 @@ def get_bow_shock_surface(
 
         expected_points = count * len(x_values)
         if sampled.n_points != expected_points:
-            raise DatasetError(
-                "Bow-shock sampler returned an unexpected point count"
-            )
+            raise DatasetError("Bow-shock sampler returned an unexpected point count")
         if divergence_name not in sampled.point_data:
             raise DatasetError(
-                "Bow-shock sampler is missing sampled divergence "
-                f"{divergence_name!r}"
+                f"Bow-shock sampler is missing sampled divergence {divergence_name!r}"
             )
         if "vtkValidPointMask" not in sampled.point_data:
-            raise DatasetError(
-                "Bow-shock sampler is missing vtkValidPointMask"
-            )
-        sampled_divergence = np.asarray(
-            sampled.point_data[divergence_name]
-        )
-        point_mask = np.asarray(
-            sampled.point_data["vtkValidPointMask"]
-        )
+            raise DatasetError("Bow-shock sampler is missing vtkValidPointMask")
+        sampled_divergence = np.asarray(sampled.point_data[divergence_name])
+        point_mask = np.asarray(sampled.point_data["vtkValidPointMask"])
         if sampled_divergence.shape != (expected_points,):
-            raise DatasetError(
-                "Bow-shock sampler returned invalid divergence data"
-            )
+            raise DatasetError("Bow-shock sampler returned invalid divergence data")
         if point_mask.shape != (expected_points,):
-            raise DatasetError(
-                "Bow-shock sampler returned an invalid point mask"
-            )
+            raise DatasetError("Bow-shock sampler returned an invalid point mask")
         sampled_divergence = sampled_divergence.reshape(
             count,
             len(x_values),
@@ -530,11 +494,7 @@ def fit_bow_shock(
 
     bounds = dataset.bounds
     cross_x = float(loc0[0] - offset)
-    if (
-        not np.isfinite(cross_x)
-        or cross_x < bounds.x_min
-        or cross_x > bounds.x_max
-    ):
+    if not np.isfinite(cross_x) or cross_x < bounds.x_min or cross_x > bounds.x_max:
         raise DatasetError(
             "Bow-shock cross-line X coordinate lies outside dataset bounds"
         )

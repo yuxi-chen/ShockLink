@@ -88,9 +88,7 @@ def load_config(path: str | Path) -> ShockLinkConfig:
         return ShockLinkConfig(
             dataset=DatasetConfig(
                 path=Path(_required(dataset, "dataset", "path")),
-                magnetic_field=str(
-                    _required(dataset, "dataset", "magnetic_field")
-                ),
+                magnetic_field=str(_required(dataset, "dataset", "magnetic_field")),
                 coordinate_system=str(
                     _required(dataset, "dataset", "coordinate_system")
                 ),

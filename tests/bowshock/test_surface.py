@@ -1,6 +1,6 @@
 import numpy as np
-import pyvista as pv
 import pytest
+import pyvista as pv
 
 from shocklink.bowshock import get_bow_shock_surface
 from shocklink.exceptions import DatasetError
@@ -14,8 +14,8 @@ def _compression_grid(*, name: str = "div(U)") -> pv.ImageData:
     )
     x, y, z = grid.points.T
     surface_x = 6.0 - 0.25 * y**2 - 0.5 * z**2
-    compression = -np.exp(-((x - surface_x) / 0.18) ** 2)
-    expansion = 3.0 * np.exp(-((x - (surface_x - 1.0)) / 0.18) ** 2)
+    compression = -np.exp(-(((x - surface_x) / 0.18) ** 2))
+    expansion = 3.0 * np.exp(-(((x - (surface_x - 1.0)) / 0.18) ** 2))
     grid.point_data[name] = compression + expansion
     return grid
 
