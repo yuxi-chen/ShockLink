@@ -38,7 +38,7 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
         "ORIGIN",
         "SCALARS",
         'pv.set_jupyter_backend("static")',
-        '"P [nPa]"',
+        '"div(U)"',
         '"B [nT]"',
         '"U [km/s]"',
         'plotter.show(jupyter_backend="static")',
@@ -47,8 +47,12 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
     for fragment in required_fragments:
         assert fragment in code
 
-    assert "from shocklink.dataset import get_2d_cut, plot_2d_cut" in code
+    assert "from shocklink.dataset import (" in code
     assert "from shocklink.tecplot import read_tecplot" in code
+    assert "calc_velocity_divergence" in code
+    assert "calc_velocity_divergence(grid)" in code
+    assert 'SCALARS = "div(U)"' in code
+    assert '"div(U)"' in code
 
 
 def test_notebook_is_portable_and_documents_launch() -> None:
@@ -57,7 +61,7 @@ def test_notebook_is_portable_and_documents_launch() -> None:
 
     assert 'DATA_PATH = ROOT / "data/3d.dat"' in all_source
     assert 'NORMAL = "z"' in all_source
-    assert 'SCALARS = "p"' in all_source
+    assert 'SCALARS = "div(U)"' in all_source
     assert "jupyter lab examples/tecplot_2d_cut.ipynb" in all_source
     assert "/Users/" not in all_source
     assert "pressure-z0.png" not in all_source
