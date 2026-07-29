@@ -104,6 +104,89 @@ def _vector3(value: Sequence[float], *, label: str) -> NDArray[np.float64]:
     return vector
 
 
+def sample_line(
+    dataset: pv.DataSet,
+    *,
+    pointa: Sequence[float],
+    pointb: Sequence[float],
+    resolution: int = 1000,
+    tolerance: float | None = None,
+) -> pv.PolyData:
+    """Return interpolated dataset values along a line segment."""
+
+    start = _vector3(pointa, label="line start")
+    end = _vector3(pointb, label="line end")
+    if isinstance(resolution, bool) or not isinstance(
+        resolution,
+        (int, np.integer),
+    ):
+        raise DatasetError("Line resolution must be a positive integer")
+    if resolution < 1:
+        raise DatasetError("Line resolution must be a positive integer")
+
+    if tolerance is not None:
+        try:
+            tolerance = float(tolerance)
+        except (TypeError, ValueError) as error:
+            raise DatasetError("Line tolerance must be a finite number") from error
+        if not np.isfinite(tolerance) or tolerance < 0.0:
+            raise DatasetError(
+                "Line tolerance must be a finite, nonnegative number"
+            )
+
+    try:
+        profile = dataset.sample_over_line(
+            start,
+            end,
+            resolution=resolution,
+            tolerance=tolerance,
+        )
+    except Exception as error:
+        raise DatasetError(f"Could not sample dataset along line: {error}") from error
+
+    if not isinstance(profile, pv.PolyData):
+        raise DatasetError(
+            "PyVista line sampling returned "
+            f"{type(profile).__name__}; expected PolyData"
+        )
+    if profile.n_points == 0:
+        raise DatasetError("Line sampling returned an empty profile")
+    return profile
+
+
+def get_x_axis_profile(
+    dataset: pv.DataSet,
+    *,
+    y: float = 0.0,
+    z: float = 0.0,
+    resolution: int = 1000,
+    tolerance: float | None = None,
+) -> pv.PolyData:
+    """Return interpolated dataset values along the X axis at ``(y, z)``."""
+
+    try:
+        y_coordinate = float(y)
+        z_coordinate = float(z)
+    except (TypeError, ValueError) as error:
+        raise DatasetError("X-axis profile coordinates must be finite numbers") from error
+    if not np.isfinite((y_coordinate, z_coordinate)).all():
+        raise DatasetError("X-axis profile coordinates must be finite numbers")
+
+    bounds = dataset.bounds
+    x_min = float(bounds.x_min)
+    x_max = float(bounds.x_max)
+    if not np.isfinite((x_min, x_max)).all() or x_min >= x_max:
+        raise DatasetError("Dataset X bounds must be finite and increasing")
+
+    return sample_line(
+        dataset,
+        pointa=(x_min, y_coordinate, z_coordinate),
+        pointb=(x_max, y_coordinate, z_coordinate),
+        resolution=resolution,
+        tolerance=tolerance,
+    )
+
+
 def _normal_vector(
     normal: str | Sequence[float],
 ) -> NDArray[np.float64]:
@@ -303,5 +386,7 @@ def plot_2d_cut(
 __all__ = [
     "calc_velocity_divergence",
     "get_2d_cut",
+    "get_x_axis_profile",
     "plot_2d_cut",
+    "sample_line",
 ]
