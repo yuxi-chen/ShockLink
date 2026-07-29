@@ -21,10 +21,10 @@ classifiers = [
 ]
 dependencies = [
   "numpy>=1.26",
+  "pyvista>=0.48",
 ]
 
 [project.optional-dependencies]
-vtk = ["vtk>=9.3"]
 test = ["pytest>=8"]
 dev = [
   "build>=1.2",
