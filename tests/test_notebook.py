@@ -42,6 +42,16 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
         "SURFACE_X_RESOLUTION",
         "SURFACE_CHUNK_SIZE",
         "surface_x",
+        "surface_y, surface_z = np.meshgrid(",
+        'indexing="ij"',
+        "surface_map = pv.StructuredGrid(",
+        'surface_map.point_data["Bow-shock X [R]"]',
+        'surface_x.ravel(order="F")',
+        'scalars="Bow-shock X [R]"',
+        'nan_color="lightgray"',
+        "surface_plotter.view_yz()",
+        "surface_plotter.enable_parallel_projection()",
+        "surface_plotter.show_grid()",
         'pv.set_jupyter_backend("static")',
         '"P [nPa]"',
         '"div(U)"',
@@ -107,7 +117,7 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
     assert 'divu_plotter = plot_2d_cut(cut, scalars="div(U)"' in code
     assert "divu_shock_contour = cut.contour(" in code
     assert "divu_plotter.add_mesh(divu_shock_contour" in code
-    assert code.count('show(jupyter_backend="static")') == 2
+    assert code.count('show(jupyter_backend="static")') == 3
 
 
 def test_notebook_is_portable_and_documents_launch() -> None:
