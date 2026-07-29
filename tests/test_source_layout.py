@@ -38,3 +38,15 @@ def test_repository_plan_describes_flat_source_modules() -> None:
     ]
 
     assert [path for path in nested_source_paths if path in plan] == []
+
+
+def test_repository_plan_uses_pyvista_instead_of_paraview() -> None:
+    root = Path(__file__).resolve().parents[1]
+    plan = (
+        root / "docs/plans/2026-07-28-shocklink-repository.md"
+    ).read_text()
+
+    assert "paraview" not in plan.lower()
+    assert "pvpython" not in plan.lower()
+    assert "PyVista" in plan
+    assert "src/shocklink/tecplot.py" in plan

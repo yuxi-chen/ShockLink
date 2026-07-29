@@ -2,11 +2,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Create a tested, pip-installable ShockLink repository scaffold for 3D MHD field-line-to-bow-shock connectivity analysis with an optional ParaView integration.
+**Goal:** Create a tested, pip-installable ShockLink repository scaffold for 3D MHD field-line-to-bow-shock connectivity analysis with PyVista data access.
 
-**Architecture:** Use a `src` layout with a backend-independent scientific core and a lazily imported `shocklink.paraview` adapter. Keep the initial scientific behavior deliberately small: validated configuration, explicit domain models, backend protocols, connectivity status records, optional-backend checks, and CLI entry points form stable seams for later algorithms.
+**Architecture:** Use a flat `src/shocklink` layout with a backend-independent scientific core and a PyVista-based `shocklink.tecplot` reader. Keep the initial scientific behavior deliberately small: validated configuration, explicit domain models, backend protocols, normalized simulation data, connectivity status records, and CLI entry points form stable seams for later algorithms.
 
-**Tech Stack:** Python 3.11+, NumPy, standard-library TOML and `argparse`, Hatchling, pytest, Ruff, mypy, GitHub Actions, ParaView/`pvpython` as an external optional runtime.
+**Tech Stack:** Python 3.11+, NumPy, PyVista, VTK, standard-library TOML and `argparse`, Hatchling, pytest, Ruff, mypy, GitHub Actions.
 
 ---
 
@@ -30,10 +30,10 @@ def test_package_exposes_installed_version() -> None:
     assert shocklink.__version__ == version("shocklink")
 
 
-def test_import_does_not_load_paraview() -> None:
+def test_import_does_not_load_pyvista() -> None:
     import sys
 
-    assert "paraview" not in sys.modules
+    assert "pyvista" not in sys.modules
 ```
 
 **Step 2: Run the test to verify it fails**
@@ -45,10 +45,9 @@ Expected: FAIL because the project and package do not exist.
 **Step 3: Add the minimal package**
 
 Create a PEP 621 `pyproject.toml` using Hatchling, distribution name
-`shocklink`, version `0.1.0`, Python `>=3.11`, NumPy as the only required
-scientific dependency, and `src/shocklink` as the wheel package. Add optional
-`vtk`, `test`, and `dev` dependency groups; do not list ParaView as a pip
-dependency.
+`shocklink`, version `0.1.0`, Python `>=3.11`, NumPy and PyVista as required
+scientific dependencies, and `src/shocklink` as the wheel package. Add optional
+`test` and `dev` dependency groups.
 
 Expose the installed version without importing optional backends:
 
@@ -245,62 +244,55 @@ git add src/shocklink/io src/shocklink/fieldlines src/shocklink/bowshock src/sho
 git commit -m "feat: define ShockLink scientific domain models"
 ```
 
-### Task 4: Isolate the optional ParaView runtime
+### Task 4: Read and normalize Tecplot data with PyVista
 
 **Files:**
-- Create: `src/shocklink/paraview.py`
-- Create: `tests/paraview/test_runtime.py`
-- Create: `tests/paraview/test_pipeline.py`
+- Create: `src/shocklink/tecplot.py`
+- Create: `tests/test_tecplot.py`
+- Create: `tests/integration/test_tecplot_sample.py`
 
-**Step 1: Write failing optional-backend tests**
+**Step 1: Write failing reader tests**
 
 ```python
-def test_require_paraview_gives_pvpython_guidance(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "shocklink.paraview.import_module",
-        Mock(side_effect=ModuleNotFoundError("paraview")),
-    )
-    with pytest.raises(BackendUnavailableError, match="pvpython"):
-        require_paraview()
+def test_read_tecplot_normalizes_geometry_and_vectors(
+    tmp_path, monkeypatch
+) -> None:
+    raw = synthetic_batsrus_grid()
+    monkeypatch.setattr(pyvista, "read", lambda _path: pyvista.MultiBlock([raw]))
 
+    grid = read_tecplot(tmp_path / "sample.dat")
 
-def test_package_import_does_not_probe_paraview(monkeypatch) -> None:
-    ...
+    np.testing.assert_allclose(grid.points, expected_points)
+    np.testing.assert_allclose(grid["B [nT]"], expected_b)
+    np.testing.assert_allclose(grid["U [km/s]"], expected_u)
 ```
 
-Test the pipeline factory with a fake `paraview.simple` module so CI does not
-need ParaView.
+Also test missing files, unsupported extensions, zone counts, zone types,
+missing component arrays, and invalid coordinates.
 
 **Step 2: Run tests to verify they fail**
 
-Run: `python -m pytest tests/paraview -v`
+Run: `python -m pytest tests/test_tecplot.py -v`
 
-Expected: FAIL because the integration package does not exist.
+Expected: FAIL because the reader module does not exist.
 
-**Step 3: Implement lazy runtime checks and pipeline request**
+**Step 3: Implement Tecplot normalization**
 
-`require_paraview()` imports and returns `paraview.simple` only when called and
-maps import failure to `BackendUnavailableError` with installation-neutral
-`pvpython` guidance.
-
-Define a `ParaViewPipelineRequest` dataclass containing the input file, magnetic
-field array, seed points, optional bow-shock surface, and output directory.
-Implement `build_pipeline(request)` as a narrow orchestration seam that checks
-the runtime and raises `NotImplementedError` with a message that names the
-pending simulation-format-specific adapter. This is an honest scaffold, not a
-fake scientific result.
+Use PyVista's native Tecplot reader, select one nonempty unstructured zone,
+assign imported coordinate components to `grid.points`, and compose `B [nT]`
+and `U [km/s]` vector arrays. Map expected failures to `DatasetError`.
 
 **Step 4: Run tests**
 
-Run: `python -m pytest tests/paraview -v`
+Run: `python -m pytest tests/test_tecplot.py -v`
 
 Expected: PASS.
 
 **Step 5: Commit**
 
 ```bash
-git add src/shocklink/paraview tests/paraview
-git commit -m "feat: isolate optional ParaView integration"
+git add src/shocklink/tecplot.py tests/test_tecplot.py tests/integration/test_tecplot_sample.py
+git commit -m "feat: read BATSRUS Tecplot data with PyVista"
 ```
 
 ### Task 5: Provide useful command-line entry points
@@ -362,7 +354,7 @@ git commit -m "feat: add ShockLink command line"
 - Create: `CONTRIBUTING.md`
 - Create: `docs/architecture.md`
 - Create: `docs/scientific-conventions.md`
-- Create: `docs/paraview.md`
+- Create: `docs/tecplot.md`
 - Create: `examples/README.md`
 - Create: `.gitignore`
 - Create: `.editorconfig`
@@ -374,7 +366,7 @@ Test that:
 
 - all local Markdown links from the README resolve;
 - the documented config path exists;
-- the README contains both ordinary installation and `pvpython` usage;
+- the README contains installation and `read_tecplot` usage;
 - `CITATION.cff` names ShockLink and the current version.
 
 **Step 2: Run tests to verify they fail**
@@ -387,8 +379,9 @@ Expected: FAIL because documentation files do not exist.
 
 Document current capabilities separately from planned capabilities. State
 coordinate-system and unit assumptions explicitly and warn that a dataset's
-metadata must be verified before scientific interpretation. Explain why
-ParaView is external to pip metadata and how to invoke scripts with `pvpython`.
+metadata must be verified before scientific interpretation. Explain PyVista
+Tecplot loading, coordinate repair, vector construction, and the opt-in
+large-sample integration test.
 
 Use a BSD 3-Clause license. Leave author identities out of `CITATION.cff` until
 the maintainers provide them; include title, version, license, and repository
