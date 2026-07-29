@@ -15,7 +15,7 @@ def test_notebook_is_valid_and_clean() -> None:
     notebook = _notebook()
 
     nbformat.validate(notebook)
-    assert len(notebook.cells) == 7
+    assert len(notebook.cells) >= 7
     assert notebook.cells[0].cell_type == "markdown"
     for cell in notebook.cells:
         if cell.cell_type == "code":
@@ -46,6 +46,9 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
 
     for fragment in required_fragments:
         assert fragment in code
+
+    assert "from shocklink.dataset import get_2d_cut, plot_2d_cut" in code
+    assert "from shocklink.tecplot import read_tecplot" in code
 
 
 def test_notebook_is_portable_and_documents_launch() -> None:

@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pyvista as pv
 
-from shocklink.tecplot import get_2d_cut, plot_2d_cut, read_tecplot
+from shocklink.dataset import get_2d_cut, plot_2d_cut
+from shocklink.tecplot import read_tecplot
 
 
 def main() -> None:
