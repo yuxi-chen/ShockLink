@@ -155,10 +155,34 @@ def _view_up(normal: NDArray[np.float64]) -> NDArray[np.float64]:
     return projected / np.linalg.norm(projected)
 
 
+def _plot_range(
+    value: Sequence[float] | None,
+    *,
+    name: str,
+) -> tuple[float, float] | None:
+    """Validate an optional, strictly increasing plot range."""
+
+    if value is None:
+        return None
+    try:
+        limits = np.asarray(value, dtype=np.float64)
+    except (TypeError, ValueError) as error:
+        raise DatasetError(f"{name} must contain two numeric values") from error
+    if limits.shape != (2,):
+        raise DatasetError(f"{name} must contain exactly two values")
+    if not np.isfinite(limits).all():
+        raise DatasetError(f"{name} must contain finite values")
+    if limits[0] >= limits[1]:
+        raise DatasetError(f"{name} minimum must be less than its maximum")
+    return float(limits[0]), float(limits[1])
+
+
 def plot_2d_cut(
     cut: pv.PolyData,
     *,
     scalars: str = "p",
+    xrange: Sequence[float] | None = None,
+    yrange: Sequence[float] | None = None,
     plotter: pv.Plotter | None = None,
     show: bool = True,
     cmap: str = "viridis",
@@ -175,6 +199,8 @@ def plot_2d_cut(
 
     normal, _origin = _cut_plane_metadata(cut)
     scalar_name = _resolve_scalar_name(cut, scalars)
+    xlimits = _plot_range(xrange, name="xrange")
+    ylimits = _plot_range(yrange, name="yrange")
 
     supplied_bar_args = mesh_kwargs.pop("scalar_bar_args", None)
     if supplied_bar_args is None:
@@ -196,6 +222,17 @@ def plot_2d_cut(
     active_plotter.add_axes()
     active_plotter.view_vector(normal, viewup=_view_up(normal))
     active_plotter.enable_parallel_projection()
+    if xlimits is not None or ylimits is not None:
+        bounds = cut.bounds
+        active_plotter.reset_camera(
+            bounds=(
+                *(xlimits or (bounds.x_min, bounds.x_max)),
+                *(ylimits or (bounds.y_min, bounds.y_max)),
+                bounds.z_min,
+                bounds.z_max,
+            ),
+            render=False,
+        )
     if show:
         active_plotter.show()
     return active_plotter

@@ -20,6 +20,8 @@ class RecordingPlotter:
         self.view_normal: np.ndarray | None = None
         self.view_up: np.ndarray | None = None
         self.parallel_projection_enabled = False
+        self.camera_bounds: tuple[float, ...] | None = None
+        self.camera_render: bool | None = None
         self.show_called = False
 
     def add_mesh(self, mesh: pv.PolyData, **kwargs: Any) -> None:
@@ -39,6 +41,14 @@ class RecordingPlotter:
 
     def enable_parallel_projection(self) -> None:
         self.parallel_projection_enabled = True
+
+    def reset_camera(
+        self,
+        bounds: tuple[float, ...] | None = None,
+        render: bool = True,
+    ) -> None:
+        self.camera_bounds = bounds
+        self.camera_render = render
 
     def show(self) -> None:
         self.show_called = True
@@ -70,6 +80,7 @@ def test_plot_2d_cut_defaults_to_pressure_without_showing() -> None:
     assert plotter.mesh_kwargs["scalar_bar_args"]["title"] == "P [nPa]"
     assert plotter.axes_added
     assert plotter.parallel_projection_enabled
+    assert plotter.camera_bounds is None
     np.testing.assert_allclose(plotter.view_normal, [0.0, 0.0, 1.0])
     assert not plotter.show_called
 
@@ -137,6 +148,75 @@ def test_plot_2d_cut_forwards_mesh_and_scalar_bar_options() -> None:
         "title": "Pressure",
         "vertical": True,
     }
+
+
+def test_plot_2d_cut_applies_xrange_and_yrange_to_camera() -> None:
+    plotter = RecordingPlotter()
+    cut = _cut()
+
+    plot_2d_cut(
+        cut,
+        plotter=plotter,  # type: ignore[arg-type]
+        show=False,
+        xrange=(-0.25, 0.5),
+        yrange=(-0.75, 0.25),
+    )
+
+    assert plotter.mesh is cut
+    assert plotter.camera_bounds == pytest.approx(
+        (-0.25, 0.5, -0.75, 0.25, cut.bounds.z_min, cut.bounds.z_max)
+    )
+    assert plotter.camera_render is False
+    assert "xrange" not in plotter.mesh_kwargs
+    assert "yrange" not in plotter.mesh_kwargs
+
+
+def test_plot_2d_cut_uses_full_axis_when_one_range_is_omitted() -> None:
+    plotter = RecordingPlotter()
+    cut = _cut()
+
+    plot_2d_cut(
+        cut,
+        plotter=plotter,  # type: ignore[arg-type]
+        show=False,
+        xrange=(-0.25, 0.25),
+    )
+
+    assert plotter.camera_bounds == pytest.approx(
+        (
+            -0.25,
+            0.25,
+            cut.bounds.y_min,
+            cut.bounds.y_max,
+            cut.bounds.z_min,
+            cut.bounds.z_max,
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("xrange", (0.0,)),
+        ("xrange", ("low", "high")),
+        ("xrange", (0.0, np.nan)),
+        ("yrange", (1.0, 1.0)),
+        ("yrange", (1.0, -1.0)),
+    ],
+)
+def test_plot_2d_cut_rejects_invalid_range(
+    name: str,
+    value: tuple[object, ...],
+) -> None:
+    kwargs = {name: value}
+
+    with pytest.raises(DatasetError, match=name):
+        plot_2d_cut(
+            _cut(),
+            plotter=RecordingPlotter(),  # type: ignore[arg-type]
+            show=False,
+            **kwargs,
+        )
 
 
 def test_plot_2d_cut_rejects_missing_scalar() -> None:
