@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -17,6 +18,81 @@ DEFAULT_VELOCITY_COMPONENTS = (
     "U_y [km_s]",
     "U_z [km_s]",
 )
+CUT_NORMAL_KEY = "shocklink_cut_normal"
+CUT_ORIGIN_KEY = "shocklink_cut_origin"
+
+_AXIS_NORMALS = {
+    "x": np.array([1.0, 0.0, 0.0]),
+    "y": np.array([0.0, 1.0, 0.0]),
+    "z": np.array([0.0, 0.0, 1.0]),
+}
+
+
+def _vector3(value: Sequence[float], *, label: str) -> NDArray[np.float64]:
+    """Validate a finite three-component vector."""
+
+    try:
+        vector = np.asarray(value, dtype=np.float64)
+    except (TypeError, ValueError) as error:
+        raise DatasetError(f"Cut {label} must contain three numbers") from error
+    if vector.shape != (3,):
+        raise DatasetError(f"Cut {label} must contain exactly three values")
+    if not np.isfinite(vector).all():
+        raise DatasetError(f"Cut {label} must contain finite values")
+    return vector
+
+
+def _normal_vector(
+    normal: str | Sequence[float],
+) -> NDArray[np.float64]:
+    """Resolve an axis alias or normalize a numeric plane normal."""
+
+    if isinstance(normal, str):
+        try:
+            return _AXIS_NORMALS[normal.strip().lower()].copy()
+        except KeyError as error:
+            raise DatasetError(
+                "Cut normal must be 'x', 'y', 'z', or a three-component vector"
+            ) from error
+
+    vector = _vector3(normal, label="normal")
+    magnitude = np.linalg.norm(vector)
+    if magnitude == 0.0:
+        raise DatasetError("Cut normal must be nonzero")
+    return vector / magnitude
+
+
+def get_2d_cut(
+    grid: pv.DataSet,
+    *,
+    normal: str | Sequence[float] = "z",
+    origin: Sequence[float] = (0.0, 0.0, 0.0),
+    generate_triangles: bool = False,
+) -> pv.PolyData:
+    """Return a planar PyVista cut, defaulting to the GSM equatorial plane."""
+
+    cut_normal = _normal_vector(normal)
+    cut_origin = _vector3(origin, label="origin")
+
+    try:
+        cut = grid.slice(
+            normal=cut_normal,
+            origin=cut_origin,
+            generate_triangles=generate_triangles,
+        )
+    except Exception as error:
+        raise DatasetError(f"Could not create 2D cut: {error}") from error
+
+    if not isinstance(cut, pv.PolyData):
+        raise DatasetError(
+            f"PyVista slice returned {type(cut).__name__}; expected PolyData"
+        )
+    if cut.n_points == 0 or cut.n_cells == 0:
+        raise DatasetError("Cut plane does not intersect the dataset")
+
+    cut.field_data[CUT_NORMAL_KEY] = cut_normal
+    cut.field_data[CUT_ORIGIN_KEY] = cut_origin
+    return cut
 
 
 def _components(
@@ -122,4 +198,4 @@ def read_tecplot(
     return grid
 
 
-__all__ = ["read_tecplot"]
+__all__ = ["get_2d_cut", "read_tecplot"]
