@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pytest
 
@@ -127,6 +129,26 @@ def test_calc_bow_shock_normals_rejects_invalid_axis(
         )
 
 
+@pytest.mark.parametrize("axis_name", ["y", "z"])
+def test_calc_bow_shock_normals_rejects_complex_axis(
+    axis_name: str,
+) -> None:
+    coordinates = {
+        "y": np.arange(3.0),
+        "z": np.arange(3.0),
+    }
+    coordinates[axis_name] = np.array([0.0, 1.0 + 1.0j, 2.0])
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", np.exceptions.ComplexWarning)
+        with pytest.raises(DatasetError, match="real numbers"):
+            calc_bow_shock_normals(
+                np.zeros((3, 3)),
+                y=coordinates["y"],
+                z=coordinates["z"],
+            )
+
+
 @pytest.mark.parametrize(
     ("surface", "message"),
     [
@@ -147,6 +169,20 @@ def test_calc_bow_shock_normals_rejects_invalid_surface(
             y=np.arange(3.0),
             z=np.arange(3.0),
         )
+
+
+def test_calc_bow_shock_normals_rejects_complex_surface() -> None:
+    surface = np.zeros((3, 3), dtype=np.complex128)
+    surface[1, 1] = 1.0j
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", np.exceptions.ComplexWarning)
+        with pytest.raises(DatasetError, match="real numbers"):
+            calc_bow_shock_normals(
+                surface,
+                y=np.arange(3.0),
+                z=np.arange(3.0),
+            )
 
 
 def test_calc_bow_shock_normals_translates_surface_conversion_overflow() -> None:
@@ -235,6 +271,78 @@ def test_calc_bow_shock_normals_rejects_wrong_interpolation_shape(
             y=np.arange(3.0),
             z=np.arange(3.0),
         )
+
+
+def test_calc_bow_shock_normals_rejects_broadcast_nearest_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    surface = np.zeros((3, 3))
+    surface[0, 0] = np.nan
+    surface[2, 2] = np.nan
+    methods: list[str] = []
+
+    def broadcast_griddata(
+        points: object,
+        values: object,
+        coordinates: tuple[np.ndarray, np.ndarray],
+        *,
+        method: str,
+    ) -> np.ndarray:
+        del points, values, coordinates
+        methods.append(method)
+        if method == "linear":
+            return surface.copy()
+        return np.array([0.0])
+
+    monkeypatch.setattr(bowshock, "griddata", broadcast_griddata)
+
+    with pytest.raises(DatasetError, match="Could not interpolate"):
+        calc_bow_shock_normals(
+            surface,
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+    assert methods == ["linear", "nearest"]
+
+
+@pytest.mark.parametrize("complex_stage", ["linear", "nearest"])
+def test_calc_bow_shock_normals_rejects_complex_interpolation_output(
+    monkeypatch: pytest.MonkeyPatch,
+    complex_stage: str,
+) -> None:
+    surface = np.zeros((3, 3))
+    surface[1, 1] = np.nan
+
+    def complex_griddata(
+        points: object,
+        values: object,
+        coordinates: tuple[np.ndarray, np.ndarray],
+        *,
+        method: str,
+    ) -> np.ndarray:
+        del points, values, coordinates
+        if method == "linear":
+            if complex_stage == "linear":
+                interpolated = np.zeros((3, 3), dtype=np.complex128)
+                interpolated[1, 1] = 1.0j
+                return interpolated
+            return surface.copy()
+        return np.array([1.0 + 1.0j])
+
+    monkeypatch.setattr(bowshock, "griddata", complex_griddata)
+
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always")
+        with pytest.raises(DatasetError, match="Could not interpolate"):
+            calc_bow_shock_normals(
+                surface,
+                y=np.arange(3.0),
+                z=np.arange(3.0),
+            )
+    assert not any(
+        issubclass(warning.category, np.exceptions.ComplexWarning)
+        for warning in caught_warnings
+    )
 
 
 def test_calc_bow_shock_normals_copies_read_only_interpolation_output(

@@ -237,7 +237,13 @@ def _surface_axis(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
     """Return a validated regular-surface coordinate axis."""
 
     try:
-        axis = np.asarray(values, dtype=np.float64)
+        raw_axis = np.asarray(values)
+    except (TypeError, ValueError, OverflowError) as error:
+        raise DatasetError(f"{label} coordinates must contain numbers") from error
+    if np.iscomplexobj(raw_axis):
+        raise DatasetError(f"{label} coordinates must contain real numbers")
+    try:
+        axis = np.asarray(raw_axis, dtype=np.float64)
     except (TypeError, ValueError, OverflowError) as error:
         raise DatasetError(f"{label} coordinates must contain numbers") from error
     if axis.ndim != 1 or axis.size == 0:
@@ -266,7 +272,13 @@ def _normal_surface(
     """Return a validated private copy of a regular bow-shock surface."""
 
     try:
-        surface = np.array(surface_x, dtype=np.float64, copy=True)
+        raw_surface = np.asarray(surface_x)
+    except (TypeError, ValueError, OverflowError) as error:
+        raise DatasetError("Bow-shock surface must be numeric") from error
+    if np.iscomplexobj(raw_surface):
+        raise DatasetError("Bow-shock surface must contain real numbers")
+    try:
+        surface = np.array(raw_surface, dtype=np.float64, copy=True)
     except (TypeError, ValueError, OverflowError) as error:
         raise DatasetError("Bow-shock surface must be numeric") from error
     if surface.shape != shape:
@@ -274,6 +286,25 @@ def _normal_surface(
     if np.isinf(surface).any():
         raise DatasetError("Bow-shock surface must not contain infinity")
     return surface
+
+
+def _normal_interpolation_result(
+    values: ArrayLike,
+    *,
+    label: str,
+    shape: tuple[int, ...],
+) -> NDArray[np.float64]:
+    """Return a private real interpolation result with the expected shape."""
+
+    raw_values = np.asarray(values)
+    if np.iscomplexobj(raw_values):
+        raise ValueError(f"{label} interpolation must return real numbers")
+    result = np.array(raw_values, dtype=np.float64, copy=True)
+    if result.shape != shape:
+        raise ValueError(
+            f"{label} interpolation returned shape {result.shape}; expected {shape}"
+        )
+    return result
 
 
 def _fill_normal_surface_gaps(
@@ -296,29 +327,29 @@ def _fill_normal_surface_gaps(
     sample_points = np.column_stack((yy[valid], zz[valid]))
     sample_values = surface[valid]
     try:
-        filled_surface = np.array(
+        filled_surface = _normal_interpolation_result(
             griddata(
                 sample_points,
                 sample_values,
                 (yy, zz),
                 method="linear",
             ),
-            dtype=np.float64,
-            copy=True,
+            label="linear",
+            shape=surface.shape,
         )
-        if filled_surface.shape != surface.shape:
-            raise ValueError(
-                "linear interpolation returned shape "
-                f"{filled_surface.shape}; expected {surface.shape}"
-            )
         missing = ~np.isfinite(filled_surface)
         if missing.any():
-            filled_surface[missing] = griddata(
-                sample_points,
-                sample_values,
-                (yy[missing], zz[missing]),
-                method="nearest",
+            nearest_values = _normal_interpolation_result(
+                griddata(
+                    sample_points,
+                    sample_values,
+                    (yy[missing], zz[missing]),
+                    method="nearest",
+                ),
+                label="nearest",
+                shape=(int(np.count_nonzero(missing)),),
             )
+            filled_surface[missing] = nearest_values
         filled_surface[valid] = surface[valid]
         if not np.isfinite(filled_surface).all():
             raise ValueError("interpolation output contains nonfinite values")
