@@ -50,8 +50,8 @@ The reader will:
 4. assign `X [R]`, `Y [R]`, and `Z [R]` to `grid.points`;
 5. combine `B_x [nT]`, `B_y [nT]`, and `B_z [nT]` into the `N x 3` point array
    `B [nT]`;
-6. combine `U_x [km/s]`, `U_y [km/s]`, and `U_z [km/s]` into the `N x 3` point
-   array `U [km/s]`; and
+6. combine PyVista's imported `U_x [km_s]`, `U_y [km_s]`, and `U_z [km_s]`
+   components into the `N x 3` point array `U [km/s]`; and
 7. retain all original component arrays.
 
 The returned grid shares PyVista/VTK-managed data where practical. Creating the
