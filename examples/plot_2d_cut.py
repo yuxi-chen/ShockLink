@@ -39,6 +39,20 @@ def main() -> None:
         help="array used to color the cut (default: p, resolving to P [nPa])",
     )
     parser.add_argument(
+        "--xrange",
+        nargs=2,
+        type=float,
+        metavar=("MIN", "MAX"),
+        help="limit the displayed world X range",
+    )
+    parser.add_argument(
+        "--yrange",
+        nargs=2,
+        type=float,
+        metavar=("MIN", "MAX"),
+        help="limit the displayed world Y range",
+    )
+    parser.add_argument(
         "--screenshot",
         type=Path,
         help="write a PNG instead of opening an interactive window",
@@ -49,13 +63,20 @@ def main() -> None:
     cut = get_2d_cut(grid, normal=args.normal, origin=args.origin)
 
     if args.screenshot is None:
-        plot_2d_cut(cut, scalars=args.scalars)
+        plot_2d_cut(
+            cut,
+            scalars=args.scalars,
+            xrange=args.xrange,
+            yrange=args.yrange,
+        )
         return
 
     plotter = pv.Plotter(off_screen=True)
     plot_2d_cut(
         cut,
         scalars=args.scalars,
+        xrange=args.xrange,
+        yrange=args.yrange,
         plotter=plotter,
         show=False,
     )

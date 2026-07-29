@@ -50,3 +50,12 @@ Save a pressure-cut screenshot:
 PYTHONPATH=src python examples/plot_2d_cut.py data/3d.dat \
   --screenshot pressure-cut.png
 ```
+
+Limit the displayed world-coordinate range without cropping the cut:
+
+```bash
+PYTHONPATH=src python examples/plot_2d_cut.py data/3d.dat \
+  --xrange -40 30 --yrange -60 60
+```
+
+The same limits can be combined with `--screenshot`.
