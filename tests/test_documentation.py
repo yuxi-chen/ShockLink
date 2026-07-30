@@ -125,6 +125,7 @@ def test_workflow_guide_documents_public_pipeline_and_array_conventions() -> Non
     assert "linear" in text
     assert "nearest" in text
     assert "data/3d.dat" in text
+    assert "PYTHONPATH=src python examples/bow_shock_workflow.py data/3d.dat" in text
 
 
 def test_workflow_guide_contains_compilable_complete_python_example() -> None:

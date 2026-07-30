@@ -51,8 +51,17 @@ sunward/upstream.
 
 ## Complete Python example
 
-Run this example from the repository root after making `data/3d.dat`
-available:
+Run this example from the repository root after making the untracked sample
+available at `data/3d.dat`. Install the development dependencies first, or use
+the source directory directly:
+
+```bash
+pip install -e ".[notebook]"
+PYTHONPATH=src python examples/bow_shock_workflow.py data/3d.dat
+```
+
+The script accepts a different Tecplot path as its first argument. The Python
+snippet below is the same workflow expressed inline:
 
 ```python
 import numpy as np
