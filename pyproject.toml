@@ -26,6 +26,10 @@ dependencies = [
   "scipy>=1.14.1",
 ]
 
+[project.urls]
+Repository = "https://github.com/yuxi-chen/ShockLink"
+Documentation = "https://github.com/yuxi-chen/ShockLink/blob/main/docs/bow-shock-workflow.md"
+
 [project.optional-dependencies]
 test = [
   "nbformat>=5",

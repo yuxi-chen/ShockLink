@@ -27,10 +27,11 @@ The implemented analysis sequence is:
 Tecplot -> div(U) -> paraboloid fit -> near-shock region -> regular Y-Z surface -> outward unit normals
 ```
 
-Source checkouts include `docs/bow-shock-workflow.md`, which explains the
-scientific conventions and provides a copy-paste Python example. They also
-include the same pipeline as the runnable script
-`examples/bow_shock_workflow.py`.
+Source checkouts include
+[docs/bow-shock-workflow.md](https://github.com/yuxi-chen/ShockLink/blob/main/docs/bow-shock-workflow.md),
+which explains the scientific conventions and provides a copy-paste Python
+example. They also include the same pipeline as the runnable script
+[examples/bow_shock_workflow.py](https://github.com/yuxi-chen/ShockLink/blob/main/examples/bow_shock_workflow.py).
 
 The final call:
 
@@ -43,8 +44,9 @@ X component.
 
 ## Examples
 
-In a source checkout, `examples/README.md` lists the notebook and command-line
-examples.
+In a source checkout,
+[examples/README.md](https://github.com/yuxi-chen/ShockLink/blob/main/examples/README.md)
+lists the notebook and command-line examples.
 
 ## Status
 

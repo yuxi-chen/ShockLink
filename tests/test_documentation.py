@@ -21,18 +21,34 @@ PUBLIC_WORKFLOW_FUNCTIONS = (
 def test_project_uses_root_readme_for_package_metadata() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text())
     assert metadata["project"]["readme"] == "README.md"
+    assert metadata["project"]["urls"] == {
+        "Repository": "https://github.com/yuxi-chen/ShockLink",
+        "Documentation": (
+            "https://github.com/yuxi-chen/ShockLink/blob/main/"
+            "docs/bow-shock-workflow.md"
+        ),
+    }
     assert README.is_file()
 
 
-def test_root_readme_describes_bow_shock_workflow_source_paths() -> None:
+def test_root_readme_links_bow_shock_workflow_documentation_on_github() -> None:
     text = README.read_text()
     assert "ShockLink" in text
     assert "pip install shocklink" in text
-    assert "](docs/" not in text
-    assert "](examples/" not in text
-    assert "`docs/bow-shock-workflow.md`" in text
-    assert "`examples/bow_shock_workflow.py`" in text
-    assert "`examples/README.md`" in text
+    assert (
+        "[docs/bow-shock-workflow.md]("
+        "https://github.com/yuxi-chen/ShockLink/blob/main/"
+        "docs/bow-shock-workflow.md)"
+    ) in text
+    assert (
+        "[examples/bow_shock_workflow.py]("
+        "https://github.com/yuxi-chen/ShockLink/blob/main/"
+        "examples/bow_shock_workflow.py)"
+    ) in text
+    assert (
+        "[examples/README.md]("
+        "https://github.com/yuxi-chen/ShockLink/blob/main/examples/README.md)"
+    ) in text
     assert "calc_bow_shock_normals" in text
 
 
