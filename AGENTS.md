@@ -9,5 +9,7 @@
   merging.
 - Do not use multiple subagents or repeated review cycles unless the user asks
   for them or the change has substantial independent or high-risk parts.
+- After a verified feature is ready, merge it directly into `main` without
+  asking for an integration choice.
 - Keep final handoffs short: summarize the change, verification result, and
   integration state.
