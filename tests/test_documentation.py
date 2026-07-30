@@ -1,3 +1,4 @@
+import ast
 import re
 import tomllib
 from pathlib import Path
@@ -68,4 +69,39 @@ def test_workflow_guide_contains_compilable_complete_python_example() -> None:
 def test_examples_readme_links_workflow_guide() -> None:
     text = (ROOT / "examples/README.md").read_text()
     assert "../docs/bow-shock-workflow.md" in text
+    assert "bow_shock_workflow.py" in text
+    assert "PYTHONPATH=src python examples/bow_shock_workflow.py data/3d.dat" in text
     assert (ROOT / "docs/bow-shock-workflow.md").is_file()
+    assert WORKFLOW_EXAMPLE.is_file()
+
+
+def test_workflow_example_compiles_and_uses_only_public_api() -> None:
+    assert WORKFLOW_EXAMPLE.is_file()
+    source = WORKFLOW_EXAMPLE.read_text()
+    compile(source, str(WORKFLOW_EXAMPLE), "exec")
+    tree = ast.parse(source)
+
+    shocklink_imports = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        and node.module is not None
+        and node.module.startswith("shocklink.")
+    ]
+    imported_names = {alias.name for node in shocklink_imports for alias in node.names}
+    assert set(PUBLIC_WORKFLOW_FUNCTIONS) <= imported_names
+    assert all(not name.startswith("_") for name in imported_names)
+
+
+def test_workflow_example_reports_surface_and_normal_quality() -> None:
+    assert WORKFLOW_EXAMPLE.is_file()
+    source = WORKFLOW_EXAMPLE.read_text()
+
+    for label in (
+        "surface_shape:",
+        "normal_shape:",
+        "finite_surface_values:",
+        "minimum_normal_x:",
+        "maximum_unit_length_error:",
+    ):
+        assert label in source
