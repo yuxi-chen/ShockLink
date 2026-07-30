@@ -103,7 +103,10 @@ def test_notebook_covers_read_cut_validate_and_plot_workflow() -> None:
     assert "normals = calc_bow_shock_normals(" in code
     assert "y=SURFACE_Y" in code
     assert "z=SURFACE_Z" in code
-    assert "normal_angle_deg = calc_bow_shock_normal_angle(normals, REFERENCE_VECTOR)" in code
+    assert (
+        "normal_angle_deg = calc_bow_shock_normal_angle(normals, REFERENCE_VECTOR)"
+        in code
+    )
     assert "normal_angle_deg.shape == surface_x.shape" in code
     assert "np.isfinite(normal_angle_deg).all()" in code
     assert "Angle range: {normal_angle_deg.min():.3f} to " in code
