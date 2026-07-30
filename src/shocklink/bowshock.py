@@ -602,6 +602,52 @@ def _surface_x_values(
     )
 
 
+def _refine_surface_minima(
+    *,
+    x_values: NDArray[np.float64],
+    sampled_divergence: np.ndarray,
+    valid: np.ndarray,
+    minima: np.ndarray,
+) -> NDArray[np.float64]:
+    """Return bounded three-point parabolic refinements of discrete minima."""
+
+    refined = x_values[minima].astype(np.float64, copy=True)
+    interior = (minima > 0) & (minima < len(x_values) - 1)
+    rows = np.flatnonzero(interior)
+    if not len(rows):
+        return refined
+
+    centers = minima[rows]
+    left = sampled_divergence[rows, centers - 1]
+    center = sampled_divergence[rows, centers]
+    right = sampled_divergence[rows, centers + 1]
+    neighbors_valid = valid[rows, centers - 1] & valid[rows, centers + 1]
+    finite = np.isfinite(left) & np.isfinite(center) & np.isfinite(right)
+    strict_minimum = (center < left) & (center < right)
+    curvature = left - 2.0 * center + right
+    spacing = x_values[1] - x_values[0]
+
+    # A three-point local parabola has vertex offset
+    # h * (f_left - f_right) / (2 * (f_left - 2*f_center + f_right)).
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        offset = spacing * (left - right) / (2.0 * curvature)
+
+    # Retain the discrete sample unless the neighbors are valid, the center is a
+    # strict bowl-shaped minimum, and its finite vertex remains in the bracket.
+    usable = (
+        neighbors_valid
+        & finite
+        & strict_minimum
+        & np.isfinite(curvature)
+        & (curvature > 0.0)
+        & np.isfinite(offset)
+        & (np.abs(offset) <= spacing)
+    )
+    refined_rows = rows[usable]
+    refined[refined_rows] += offset[usable]
+    return refined
+
+
 def get_bow_shock_surface(
     dataset: pv.DataSet,
     *,
@@ -611,6 +657,7 @@ def get_bow_shock_surface(
     x_resolution: int = 512,
     x_range: tuple[float, float] | None = None,
     chunk_size: int = 1024,
+    refine_minimum: bool = False,
 ) -> NDArray[np.float64]:
     """Sample strongest-compression X locations on a regular Y-Z grid.
 
@@ -634,6 +681,10 @@ def get_bow_shock_surface(
         Positive number of Y-Z columns sampled in each batch.  A larger chunk size
         reduces batch overhead but increases memory because each batch holds
         ``chunk_size * x_resolution`` probe points.
+    refine_minimum : bool, default False
+        If true, replace eligible interior discrete minima with bounded vertices
+        of local three-point parabolas.  The default returns the existing
+        discrete sampled minima.
 
     Returns
     -------
@@ -666,6 +717,8 @@ def get_bow_shock_surface(
         label="Chunk size",
         minimum=1,
     )
+    if not isinstance(refine_minimum, bool):
+        raise DatasetError("Refine minimum must be a boolean")
 
     yy, zz = np.meshgrid(y_values, z_values, indexing="ij")
     column_y = yy.reshape(-1)
@@ -740,6 +793,14 @@ def get_bow_shock_surface(
         # Per-column argmin selects the most-negative valid div(U) sample.
         minima = np.argmin(candidates, axis=1)
         chunk_surface[has_valid] = x_values[minima[has_valid]]
+        if refine_minimum:
+            refined = _refine_surface_minima(
+                x_values=x_values,
+                sampled_divergence=sampled_divergence,
+                valid=valid,
+                minima=minima,
+            )
+            chunk_surface[has_valid] = refined[has_valid]
         surface[start:stop] = chunk_surface
 
     return surface.reshape(len(y_values), len(z_values))

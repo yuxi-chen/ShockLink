@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 import pyvista as pv
 
+from shocklink import bowshock
 from shocklink.bowshock import get_bow_shock_surface
 from shocklink.exceptions import DatasetError
 
@@ -135,6 +136,71 @@ def test_get_bow_shock_surface_does_not_modify_input() -> None:
     )
 
 
+def test_get_bow_shock_surface_refines_quadratic_minimum_between_samples(
+    monkeypatch,
+) -> None:
+    vertex = 3.25
+
+    def sample_quadratic(self, *_args, **_kwargs):
+        sampled = pv.PolyData(self.points)
+        sampled.point_data["div(U)"] = (self.points[:, 0] - vertex) ** 2
+        sampled.point_data["vtkValidPointMask"] = np.ones(self.n_points, dtype=np.uint8)
+        return sampled
+
+    monkeypatch.setattr(pv.PolyData, "sample", sample_quadratic)
+    arguments = {
+        "y": [0.0],
+        "z": [0.0],
+        "x_range": (0.0, 6.0),
+        "x_resolution": 7,
+    }
+
+    discrete = get_bow_shock_surface(_compression_grid(), **arguments)
+    refined = get_bow_shock_surface(
+        _compression_grid(),
+        refine_minimum=True,
+        **arguments,
+    )
+
+    np.testing.assert_array_equal(discrete, [[3.0]])
+    np.testing.assert_allclose(refined, [[vertex]])
+
+
+@pytest.mark.parametrize(
+    ("values", "valid", "minimum", "expected"),
+    [
+        ([0.0, 1.0, 2.0], [True, True, True], 0, 0.0),
+        ([2.0, 1.0, 2.0], [True, False, True], 1, 1.0),
+        ([2.0, 1.0, 1.0], [True, True, True], 1, 1.0),
+        ([1.0, 1.0, 1.0], [True, True, True], 1, 1.0),
+        ([0.0, 1.0, 0.0], [True, True, True], 1, 1.0),
+        ([3.0, 1.0, 0.0], [True, True, True], 1, 1.0),
+    ],
+    ids=(
+        "endpoint",
+        "invalid-neighbor",
+        "non-strict-minimum",
+        "flat-curvature",
+        "nonpositive-curvature",
+        "vertex-outside-bracket",
+    ),
+)
+def test_refine_surface_minima_keeps_discrete_location_when_unsafe(
+    values: list[float],
+    valid: list[bool],
+    minimum: int,
+    expected: float,
+) -> None:
+    refined = bowshock._refine_surface_minima(
+        x_values=np.array([0.0, 1.0, 2.0]),
+        sampled_divergence=np.array([values]),
+        valid=np.array([valid]),
+        minima=np.array([minimum]),
+    )
+
+    np.testing.assert_array_equal(refined, [expected])
+
+
 @pytest.mark.parametrize(
     ("changes", "message"),
     [
@@ -151,6 +217,7 @@ def test_get_bow_shock_surface_does_not_modify_input() -> None:
         ({"x_resolution": True}, "X resolution must be an integer of at least 2"),
         ({"chunk_size": 0}, "Chunk size must be a positive integer"),
         ({"chunk_size": 1.5}, "Chunk size must be a positive integer"),
+        ({"refine_minimum": 1}, "Refine minimum must be a boolean"),
     ],
 )
 def test_get_bow_shock_surface_rejects_invalid_arguments(
