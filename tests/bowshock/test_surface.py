@@ -166,39 +166,63 @@ def test_get_bow_shock_surface_refines_quadratic_minimum_between_samples(
     np.testing.assert_allclose(refined, [[vertex]])
 
 
+def test_refine_surface_minima_keeps_endpoint_minimum_discrete() -> None:
+    refined = bowshock._refine_surface_minima(
+        x_values=np.array([0.0, 1.0, 2.0]),
+        sampled_divergence=np.array([[0.0, 1.0, 2.0]]),
+        valid=np.array([[True, True, True]]),
+        minima=np.array([0]),
+    )
+
+    np.testing.assert_array_equal(refined, [0.0])
+
+
+def test_refine_surface_minima_keeps_strict_minimum_with_invalid_neighbor() -> None:
+    refined = bowshock._refine_surface_minima(
+        x_values=np.array([0.0, 1.0, 2.0]),
+        sampled_divergence=np.array([[2.0, 1.0, 2.0]]),
+        valid=np.array([[False, True, True]]),
+        minima=np.array([1]),
+    )
+
+    np.testing.assert_array_equal(refined, [1.0])
+
+
+def test_refine_surface_minima_keeps_minimum_with_nonfinite_neighbor() -> None:
+    refined = bowshock._refine_surface_minima(
+        x_values=np.array([0.0, 1.0, 2.0]),
+        sampled_divergence=np.array([[np.nan, 1.0, 2.0]]),
+        valid=np.array([[True, True, True]]),
+        minima=np.array([1]),
+    )
+
+    np.testing.assert_array_equal(refined, [1.0])
+
+
 @pytest.mark.parametrize(
-    ("values", "valid", "minimum", "expected"),
+    ("values", "case"),
     [
-        ([0.0, 1.0, 2.0], [True, True, True], 0, 0.0),
-        ([2.0, 1.0, 2.0], [True, False, True], 1, 1.0),
-        ([2.0, 1.0, 1.0], [True, True, True], 1, 1.0),
-        ([1.0, 1.0, 1.0], [True, True, True], 1, 1.0),
-        ([0.0, 1.0, 0.0], [True, True, True], 1, 1.0),
-        ([3.0, 1.0, 0.0], [True, True, True], 1, 1.0),
+        ([2.0, 1.0, 1.0], "non-strict-minimum"),
+        ([1.0, 1.0, 1.0], "flat-curvature"),
+        ([0.0, 1.0, 0.0], "nonpositive-curvature"),
+        ([3.0, 1.0, 0.0], "vertex-outside-bracket"),
     ],
-    ids=(
-        "endpoint",
-        "invalid-neighbor",
-        "non-strict-minimum",
-        "flat-curvature",
-        "nonpositive-curvature",
-        "vertex-outside-bracket",
-    ),
 )
-def test_refine_surface_minima_keeps_discrete_location_when_unsafe(
+def test_refine_surface_minima_keeps_discrete_location_for_unsafe_parabola(
     values: list[float],
-    valid: list[bool],
-    minimum: int,
-    expected: float,
+    case: str,
 ) -> None:
+    # A strict local minimum necessarily has positive curvature and a vertex
+    # within one half-spacing, so these impossible profiles exercise the helper's
+    # defensive guards directly.
     refined = bowshock._refine_surface_minima(
         x_values=np.array([0.0, 1.0, 2.0]),
         sampled_divergence=np.array([values]),
-        valid=np.array([valid]),
-        minima=np.array([minimum]),
+        valid=np.array([[True, True, True]]),
+        minima=np.array([1]),
     )
 
-    np.testing.assert_array_equal(refined, [expected])
+    np.testing.assert_array_equal(refined, [1.0])
 
 
 @pytest.mark.parametrize(
