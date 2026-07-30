@@ -6,6 +6,15 @@ README = ROOT / "README.md"
 WORKFLOW_GUIDE = ROOT / "docs/bow-shock-workflow.md"
 WORKFLOW_EXAMPLE = ROOT / "examples/bow_shock_workflow.py"
 
+PUBLIC_WORKFLOW_FUNCTIONS = (
+    "read_tecplot",
+    "calc_velocity_divergence",
+    "fit_bow_shock",
+    "extract_shockfit_range",
+    "get_bow_shock_surface",
+    "calc_bow_shock_normals",
+)
+
 
 def test_project_uses_root_readme_for_package_metadata() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text())
@@ -23,3 +32,22 @@ def test_root_readme_describes_bow_shock_workflow_source_paths() -> None:
     assert "`examples/bow_shock_workflow.py`" in text
     assert "`examples/README.md`" in text
     assert "calc_bow_shock_normals" in text
+
+
+def test_workflow_guide_documents_public_pipeline_and_array_conventions() -> None:
+    text = WORKFLOW_GUIDE.read_text()
+    for function_name in PUBLIC_WORKFLOW_FUNCTIONS:
+        assert function_name in text
+    assert "surface_x[i, j]" in text
+    assert "normals.shape == surface_x.shape + (3,)" in text
+    assert "(1, -dx_s/dy, -dx_s/dz)" in text
+    assert "nx > 0" in text
+    assert "linear" in text
+    assert "nearest" in text
+    assert "data/3d.dat" in text
+
+
+def test_examples_readme_links_workflow_guide_and_script() -> None:
+    text = (ROOT / "examples/README.md").read_text()
+    assert "../docs/bow-shock-workflow.md" in text
+    assert "bow_shock_workflow.py" in text
