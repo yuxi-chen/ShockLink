@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "shocklink"
 version = "0.1.0"
 description = "Analyze magnetic field-line connectivity to the bow shock in 3D MHD simulations."
+readme = "README.md"
 requires-python = ">=3.11"
 license = "BSD-3-Clause"
 classifiers = [
