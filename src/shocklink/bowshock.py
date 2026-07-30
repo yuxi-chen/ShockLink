@@ -6,6 +6,7 @@ import numpy as np
 import pyvista as pv
 from numpy.typing import ArrayLike, NDArray
 from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
 from vtkmodules.vtkCommonDataModel import vtkStaticCellLocator
 
 from shocklink.dataset import (
@@ -866,6 +867,96 @@ def calc_bow_shock_normals(
     return _normal_components(dx_dy, dx_dz)
 
 
+def smooth_bow_shock_surface(
+    surface_x: ArrayLike,
+    *,
+    sigma: float | tuple[float, float] = 1.0,
+    preserve_nan: bool = True,
+) -> NDArray[np.float64]:
+    """Smooth a regular bow-shock X surface with a NaN-aware Gaussian filter.
+
+    Parameters
+    ----------
+    surface_x : array-like
+        Real two-dimensional X-coordinate surface. Finite entries are smoothed;
+        NaN entries represent unavailable surface columns.
+    sigma : float or tuple of float, default 1.0
+        Positive Gaussian standard deviation in Y-Z grid cells. A scalar uses
+        the same width on both axes; a two-value tuple sets Y and Z widths.
+    preserve_nan : bool, default True
+        If true, restore NaNs at their input locations after smoothing. If
+        false, return normalized interpolated values wherever filter weights
+        are nonzero.
+
+    Returns
+    -------
+    numpy.ndarray
+        Smoothed ``float64`` surface with the same shape as ``surface_x``.
+
+    Raises
+    ------
+    DatasetError
+        If the surface is not a real two-dimensional array with at least one
+        finite value, if it contains infinity, or if options are invalid.
+
+    Notes
+    -----
+    The input is not modified. NaNs are excluded with normalized convolution:
+    the filter is applied separately to finite values and their validity mask,
+    then the two results are divided. This prevents missing columns from being
+    interpreted as X = 0.
+    """
+
+    surface = _real_numeric_array(
+        surface_x,
+        numeric_message="Bow-shock surface must be numeric",
+        complex_message="Bow-shock surface must contain real numbers",
+    )
+    if surface.ndim != 2:
+        raise DatasetError("Bow-shock surface must be a 2D array")
+    if np.isinf(surface).any():
+        raise DatasetError("Bow-shock surface must not contain infinity")
+    if not isinstance(preserve_nan, bool):
+        raise DatasetError("preserve_nan must be a boolean")
+
+    sigma_values = _real_numeric_array(
+        sigma,
+        numeric_message="Smoothing sigma must contain positive numbers",
+        complex_message="Smoothing sigma must contain real numbers",
+    )
+    if sigma_values.ndim == 0:
+        sigma_values = np.full(2, float(sigma_values))
+    if sigma_values.shape != (2,) or not np.isfinite(sigma_values).all():
+        raise DatasetError("Smoothing sigma must be one or two finite numbers")
+    if np.any(sigma_values <= 0.0):
+        raise DatasetError("Smoothing sigma must contain positive numbers")
+
+    valid = np.isfinite(surface)
+    if not valid.any():
+        raise DatasetError("Bow-shock surface must contain at least one finite value")
+
+    try:
+        # Filter values and coverage independently so NaN columns never act as zero.
+        weights = gaussian_filter(
+            valid.astype(np.float64),
+            sigma=tuple(sigma_values),
+            mode="nearest",
+        )
+        filtered_values = gaussian_filter(
+            np.where(valid, surface, 0.0),
+            sigma=tuple(sigma_values),
+            mode="nearest",
+        )
+    except Exception as error:
+        raise DatasetError(f"Could not smooth bow-shock surface: {error}") from error
+
+    smoothed = np.full(surface.shape, np.nan, dtype=np.float64)
+    np.divide(filtered_values, weights, out=smoothed, where=weights > 0.0)
+    if preserve_nan:
+        smoothed[~valid] = np.nan
+    return smoothed
+
+
 def calc_bow_shock_normal_angle(
     normals: ArrayLike,
     vector: ArrayLike,
@@ -1087,4 +1178,5 @@ __all__ = [
     "extract_shockfit_range",
     "fit_bow_shock",
     "get_bow_shock_surface",
+    "smooth_bow_shock_surface",
 ]

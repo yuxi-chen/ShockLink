@@ -3,7 +3,7 @@ import pytest
 import pyvista as pv
 
 from shocklink import bowshock
-from shocklink.bowshock import get_bow_shock_surface
+from shocklink.bowshock import get_bow_shock_surface, smooth_bow_shock_surface
 from shocklink.exceptions import DatasetError
 
 
@@ -134,6 +134,53 @@ def test_get_bow_shock_surface_does_not_modify_input() -> None:
         grid.point_data["div(U)"],
         original_divergence,
     )
+
+
+def test_smooth_bow_shock_surface_reduces_a_local_step_without_mutation() -> None:
+    surface = np.zeros((5, 5))
+    surface[2, 2] = 10.0
+    original = surface.copy()
+
+    smoothed = smooth_bow_shock_surface(surface, sigma=1.0)
+
+    assert smoothed.shape == surface.shape
+    assert 0.0 < smoothed[2, 2] < 10.0
+    assert smoothed[2, 1] > 0.0
+    np.testing.assert_array_equal(surface, original)
+
+
+def test_smooth_bow_shock_surface_handles_nan_gaps_without_bias() -> None:
+    surface = np.ones((5, 5))
+    surface[2, 2] = np.nan
+
+    preserved = smooth_bow_shock_surface(surface, sigma=1.0)
+    filled = smooth_bow_shock_surface(surface, sigma=1.0, preserve_nan=False)
+
+    assert np.isnan(preserved[2, 2])
+    np.testing.assert_allclose(preserved[np.isfinite(preserved)], 1.0)
+    np.testing.assert_allclose(filled, 1.0)
+
+
+@pytest.mark.parametrize(
+    ("surface", "sigma", "preserve_nan", "message"),
+    [
+        (np.ones(3), 1.0, True, "2D"),
+        (np.ones((3, 3)), 0.0, True, "positive"),
+        (np.ones((3, 3)), 1.0, 1, "boolean"),
+    ],
+)
+def test_smooth_bow_shock_surface_rejects_invalid_arguments(
+    surface: np.ndarray,
+    sigma: float,
+    preserve_nan: object,
+    message: str,
+) -> None:
+    with pytest.raises(DatasetError, match=message):
+        smooth_bow_shock_surface(surface, sigma=sigma, preserve_nan=preserve_nan)
+
+
+def test_smooth_bow_shock_surface_is_public() -> None:
+    assert "smooth_bow_shock_surface" in bowshock.__all__
 
 
 def test_get_bow_shock_surface_refines_quadratic_minimum_between_samples(
