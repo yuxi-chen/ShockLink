@@ -150,6 +150,41 @@ def test_calc_bow_shock_normals_rejects_complex_axis(
 
 
 @pytest.mark.parametrize(
+    ("axis_name", "values"),
+    [
+        ("y", np.array(["0", "1", "2"])),
+        (
+            "z",
+            np.arange(
+                "2020-01-01",
+                "2020-01-04",
+                dtype="datetime64[D]",
+            ),
+        ),
+        ("y", np.arange(3).astype("timedelta64[D]")),
+        ("z", np.array([False, True, True])),
+    ],
+    ids=["numeric-strings", "datetime", "timedelta", "boolean"],
+)
+def test_calc_bow_shock_normals_rejects_nonnumeric_axis_dtype(
+    axis_name: str,
+    values: np.ndarray,
+) -> None:
+    coordinates = {
+        "y": np.arange(3.0),
+        "z": np.arange(3.0),
+    }
+    coordinates[axis_name] = values
+
+    with pytest.raises(DatasetError, match="numbers"):
+        calc_bow_shock_normals(
+            np.zeros((3, 3)),
+            y=coordinates["y"],
+            z=coordinates["z"],
+        )
+
+
+@pytest.mark.parametrize(
     ("surface", "message"),
     [
         ([["not-a-number"] * 3 for _ in range(3)], "numeric"),
@@ -183,6 +218,39 @@ def test_calc_bow_shock_normals_rejects_complex_surface() -> None:
                 y=np.arange(3.0),
                 z=np.arange(3.0),
             )
+
+
+@pytest.mark.parametrize(
+    "surface",
+    [
+        np.full((3, 3), "0"),
+        np.full((3, 3), np.datetime64("2020-01-01")),
+        np.full((3, 3), np.timedelta64(1, "D")),
+        np.zeros((3, 3), dtype=np.bool_),
+    ],
+    ids=["numeric-strings", "datetime", "timedelta", "boolean"],
+)
+def test_calc_bow_shock_normals_rejects_nonnumeric_surface_dtype(
+    surface: np.ndarray,
+) -> None:
+    with pytest.raises(DatasetError, match="numeric"):
+        calc_bow_shock_normals(
+            surface,
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+
+
+def test_calc_bow_shock_normals_accepts_integer_axes_and_surface() -> None:
+    normals = calc_bow_shock_normals(
+        np.zeros((3, 3), dtype=np.int32),
+        y=[-1, 0, 1],
+        z=np.arange(3, dtype=np.uint64),
+    )
+
+    expected = np.zeros((3, 3, 3))
+    expected[..., 0] = 1.0
+    np.testing.assert_array_equal(normals, expected)
 
 
 def test_calc_bow_shock_normals_translates_surface_conversion_overflow() -> None:
@@ -435,6 +503,41 @@ def test_calc_bow_shock_normals_rejects_nonfinite_interpolation_output(
         )
 
 
+@pytest.mark.parametrize("infinite_value", [np.inf, -np.inf])
+def test_calc_bow_shock_normals_rejects_infinite_linear_interpolation(
+    monkeypatch: pytest.MonkeyPatch,
+    infinite_value: float,
+) -> None:
+    surface = np.zeros((3, 3))
+    surface[1, 1] = np.nan
+    methods: list[str] = []
+
+    def infinite_griddata(
+        points: object,
+        values: object,
+        coordinates: tuple[np.ndarray, np.ndarray],
+        *,
+        method: str,
+    ) -> np.ndarray:
+        del points, values, coordinates
+        methods.append(method)
+        if method == "linear":
+            interpolated = np.zeros((3, 3))
+            interpolated[1, 1] = infinite_value
+            return interpolated
+        return np.array([0.0])
+
+    monkeypatch.setattr(bowshock, "griddata", infinite_griddata)
+
+    with pytest.raises(DatasetError, match="Could not interpolate"):
+        calc_bow_shock_normals(
+            surface,
+            y=np.arange(3.0),
+            z=np.arange(3.0),
+        )
+    assert methods == ["linear"]
+
+
 def test_calc_bow_shock_normals_skips_interpolation_for_finite_surface(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -500,6 +603,27 @@ def test_calc_bow_shock_normals_rejects_malformed_derivative_shape(
             y=np.arange(3.0),
             z=np.arange(3.0),
         )
+
+
+def test_calc_bow_shock_normals_rejects_complex_derivative(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def complex_gradient(*args: object, **kwargs: object) -> list[np.ndarray]:
+        del args, kwargs
+        dx_dy = np.zeros((3, 3), dtype=np.complex128)
+        dx_dy[1, 1] = 1.0j
+        return [dx_dy, np.zeros((3, 3))]
+
+    monkeypatch.setattr(bowshock.np, "gradient", complex_gradient)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", np.exceptions.ComplexWarning)
+        with pytest.raises(DatasetError, match="derivatives.*real numbers"):
+            calc_bow_shock_normals(
+                np.zeros((3, 3)),
+                y=np.arange(3.0),
+                z=np.arange(3.0),
+            )
 
 
 def test_calc_bow_shock_normals_rejects_nonfinite_derivative(

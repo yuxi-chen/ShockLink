@@ -233,19 +233,36 @@ def _surface_probe_source(
     return source
 
 
+def _real_numeric_array(
+    values: ArrayLike,
+    *,
+    numeric_message: str,
+    complex_message: str,
+) -> NDArray[np.float64]:
+    """Return a private float64 copy of real numeric input values."""
+
+    try:
+        raw_values = np.asarray(values)
+    except (TypeError, ValueError, OverflowError) as error:
+        raise DatasetError(numeric_message) from error
+    if np.iscomplexobj(raw_values):
+        raise DatasetError(complex_message)
+    if raw_values.dtype.kind not in "iuf":
+        raise DatasetError(numeric_message)
+    try:
+        return np.array(raw_values, dtype=np.float64, copy=True)
+    except (TypeError, ValueError, OverflowError) as error:
+        raise DatasetError(numeric_message) from error
+
+
 def _surface_axis(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
     """Return a validated regular-surface coordinate axis."""
 
-    try:
-        raw_axis = np.asarray(values)
-    except (TypeError, ValueError, OverflowError) as error:
-        raise DatasetError(f"{label} coordinates must contain numbers") from error
-    if np.iscomplexobj(raw_axis):
-        raise DatasetError(f"{label} coordinates must contain real numbers")
-    try:
-        axis = np.asarray(raw_axis, dtype=np.float64)
-    except (TypeError, ValueError, OverflowError) as error:
-        raise DatasetError(f"{label} coordinates must contain numbers") from error
+    axis = _real_numeric_array(
+        values,
+        numeric_message=f"{label} coordinates must contain numbers",
+        complex_message=f"{label} coordinates must contain real numbers",
+    )
     if axis.ndim != 1 or axis.size == 0:
         raise DatasetError(f"{label} coordinates must be a nonempty 1D array")
     if not np.isfinite(axis).all():
@@ -271,16 +288,11 @@ def _normal_surface(
 ) -> NDArray[np.float64]:
     """Return a validated private copy of a regular bow-shock surface."""
 
-    try:
-        raw_surface = np.asarray(surface_x)
-    except (TypeError, ValueError, OverflowError) as error:
-        raise DatasetError("Bow-shock surface must be numeric") from error
-    if np.iscomplexobj(raw_surface):
-        raise DatasetError("Bow-shock surface must contain real numbers")
-    try:
-        surface = np.array(raw_surface, dtype=np.float64, copy=True)
-    except (TypeError, ValueError, OverflowError) as error:
-        raise DatasetError("Bow-shock surface must be numeric") from error
+    surface = _real_numeric_array(
+        surface_x,
+        numeric_message="Bow-shock surface must be numeric",
+        complex_message="Bow-shock surface must contain real numbers",
+    )
     if surface.shape != shape:
         raise DatasetError(f"Bow-shock surface must have shape {shape}")
     if np.isinf(surface).any():
@@ -337,7 +349,9 @@ def _fill_normal_surface_gaps(
             label="linear",
             shape=surface.shape,
         )
-        missing = ~np.isfinite(filled_surface)
+        if np.isinf(filled_surface).any():
+            raise ValueError("linear interpolation output contains infinity")
+        missing = np.isnan(filled_surface)
         if missing.any():
             nearest_values = _normal_interpolation_result(
                 griddata(
@@ -386,8 +400,15 @@ def _normal_derivatives(
         )
 
     try:
-        dx_dy = np.asarray(derivatives[0], dtype=np.float64)
-        dx_dz = np.asarray(derivatives[1], dtype=np.float64)
+        raw_dx_dy = np.asarray(derivatives[0])
+        raw_dx_dz = np.asarray(derivatives[1])
+    except (TypeError, ValueError, OverflowError) as error:
+        raise DatasetError("Bow-shock surface derivatives must be numeric") from error
+    if np.iscomplexobj(raw_dx_dy) or np.iscomplexobj(raw_dx_dz):
+        raise DatasetError("Bow-shock surface derivatives must contain real numbers")
+    try:
+        dx_dy = np.asarray(raw_dx_dy, dtype=np.float64)
+        dx_dz = np.asarray(raw_dx_dz, dtype=np.float64)
     except (TypeError, ValueError, OverflowError) as error:
         raise DatasetError("Bow-shock surface derivatives must be numeric") from error
     if dx_dy.shape != surface.shape or dx_dz.shape != surface.shape:
