@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import shocklink.bowshock as bowshock
-from shocklink.bowshock import calc_bow_shock_normals
+from shocklink.bowshock import calc_bow_shock_normal_angle, calc_bow_shock_normals
 from shocklink.exceptions import DatasetError
 
 
@@ -685,3 +685,56 @@ def test_calc_bow_shock_normals_rejects_nonfinite_normal_components(
 
 def test_calc_bow_shock_normals_is_public() -> None:
     assert "calc_bow_shock_normals" in bowshock.__all__
+
+
+def test_calc_bow_shock_normal_angle_measures_direction_in_degrees() -> None:
+    normals = np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ]
+    )
+
+    angles = calc_bow_shock_normal_angle(normals, [2.0, 0.0, 0.0])
+
+    assert angles.shape == (3,)
+    np.testing.assert_allclose(angles, [0.0, 180.0, 90.0], atol=1.0e-12)
+
+
+def test_calc_bow_shock_normal_angle_preserves_leading_normal_shape() -> None:
+    normals = np.zeros((2, 3, 3))
+    normals[..., 2] = 4.0
+
+    angles = calc_bow_shock_normal_angle(normals, [0.0, 0.0, 3.0])
+
+    assert angles.shape == (2, 3)
+    np.testing.assert_array_equal(angles, np.zeros((2, 3)))
+
+
+@pytest.mark.parametrize(
+    ("normals", "vector", "message"),
+    [
+        (np.ones((2, 2)), [1.0, 0.0, 0.0], "shape"),
+        (["x", "y", "z"], [1.0, 0.0, 0.0], "numeric"),
+        (np.array([1.0 + 0.0j, 0.0, 0.0]), [1.0, 0.0, 0.0], "real"),
+        (np.array([np.nan, 0.0, 0.0]), [1.0, 0.0, 0.0], "finite"),
+        (np.zeros(3), [1.0, 0.0, 0.0], "positive"),
+        (np.array([1.0, 0.0, 0.0]), [1.0, 0.0], "shape"),
+        (np.array([1.0, 0.0, 0.0]), ["x", "y", "z"], "numeric"),
+        (np.array([1.0, 0.0, 0.0]), [1.0 + 0.0j, 0.0, 0.0], "real"),
+        (np.array([1.0, 0.0, 0.0]), [np.inf, 0.0, 0.0], "finite"),
+        (np.array([1.0, 0.0, 0.0]), [0.0, 0.0, 0.0], "positive"),
+    ],
+)
+def test_calc_bow_shock_normal_angle_rejects_invalid_inputs(
+    normals: object,
+    vector: object,
+    message: str,
+) -> None:
+    with pytest.raises(DatasetError, match=message):
+        calc_bow_shock_normal_angle(normals, vector)
+
+
+def test_calc_bow_shock_normal_angle_is_public() -> None:
+    assert "calc_bow_shock_normal_angle" in bowshock.__all__

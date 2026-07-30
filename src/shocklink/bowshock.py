@@ -805,6 +805,69 @@ def calc_bow_shock_normals(
     return _normal_components(dx_dy, dx_dz)
 
 
+def calc_bow_shock_normal_angle(
+    normals: ArrayLike,
+    vector: ArrayLike,
+) -> NDArray[np.float64]:
+    """Return angles between bow-shock normals and a reference vector.
+
+    Parameters
+    ----------
+    normals : array-like
+        Finite real normal vectors with shape ``(..., 3)``.  Each normal must
+        have nonzero magnitude.
+    vector : array-like
+        Finite real reference vector with shape ``(3,)`` and nonzero magnitude.
+
+    Returns
+    -------
+    numpy.ndarray
+        Angles in degrees with shape ``normals.shape[:-1]``.  An outward normal
+        aligned with ``vector`` has angle 0 degrees; an opposite normal has
+        angle 180 degrees.
+
+    Raises
+    ------
+    DatasetError
+        If either input has an invalid shape or contains nonnumeric, complex,
+        nonfinite, or zero-length vectors.
+    """
+
+    normal_values = _real_numeric_array(
+        normals,
+        numeric_message="Bow-shock normals must be numeric",
+        complex_message="Bow-shock normals must contain real numbers",
+    )
+    if normal_values.ndim < 1 or normal_values.shape[-1] != 3:
+        raise DatasetError("Bow-shock normals must have shape (..., 3)")
+    if not np.isfinite(normal_values).all():
+        raise DatasetError("Bow-shock normals must be finite")
+
+    vector_values = _real_numeric_array(
+        vector,
+        numeric_message="Bow-shock reference vector must be numeric",
+        complex_message="Bow-shock reference vector must contain real numbers",
+    )
+    if vector_values.shape != (3,):
+        raise DatasetError("Bow-shock reference vector must have shape (3,)")
+    if not np.isfinite(vector_values).all():
+        raise DatasetError("Bow-shock reference vector must be finite")
+
+    normal_scales = np.max(np.abs(normal_values), axis=-1)
+    vector_scale = np.max(np.abs(vector_values))
+    if np.any(normal_scales <= 0.0):
+        raise DatasetError("Bow-shock normal magnitudes must be positive")
+    if vector_scale <= 0.0:
+        raise DatasetError("Bow-shock reference vector magnitude must be positive")
+
+    normal_unit = normal_values / normal_scales[..., np.newaxis]
+    normal_unit /= np.linalg.norm(normal_unit, axis=-1, keepdims=True)
+    vector_unit = vector_values / vector_scale
+    vector_unit /= np.linalg.norm(vector_unit)
+    dot_products = np.sum(normal_unit * vector_unit, axis=-1)
+    return np.degrees(np.arccos(np.clip(dot_products, -1.0, 1.0)))
+
+
 def fit_bow_shock(
     dataset: pv.DataSet,
     *,
@@ -958,6 +1021,7 @@ def fit_bow_shock(
 __all__ = [
     "BowShockParaboloid",
     "BowShockSurface",
+    "calc_bow_shock_normal_angle",
     "calc_bow_shock_normals",
     "extract_shockfit_range",
     "fit_bow_shock",
