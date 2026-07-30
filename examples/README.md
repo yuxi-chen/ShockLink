@@ -11,7 +11,7 @@ Run the non-graphical example:
 PYTHONPATH=src python examples/bow_shock_workflow.py data/3d.dat
 ```
 
-## Tecplot 2D cut notebook
+## Extract bow-shock notebook
 
 Install ShockLink with the notebook tools from the repository root:
 
@@ -23,19 +23,21 @@ Make sure the untracked BATSRUS sample is available at `data/3d.dat`, then
 launch:
 
 ```bash
-jupyter lab examples/tecplot_2d_cut.ipynb
+jupyter lab examples/extract_shock.ipynb
 ```
 
-The notebook exposes four parameters near the top:
+The notebook exposes the input file, Y-Z surface grid, X search range,
+smoothing width, and reference vector near the top. It reads the local sample,
+calculates `div(U)`, extracts and smooths the bow-shock surface, then plots the
+surface and normal angle on the Y-Z plane.
+
+The key parameters are:
 
 - `DATA_PATH`: Tecplot `*.dat` input;
-- `NORMAL`: cut-plane normal (`"x"`, `"y"`, `"z"`, or a numeric vector);
-- `ORIGIN`: a point on the cut plane; and
-- `SCALARS`: the plotted array (`"p"` resolves to `P [nPa]`).
-
-Its defaults read the local sample, extract the GSM equatorial plane (`Z = 0`),
-validate pressure plus the magnetic and velocity vectors, and display a static
-pressure plot inline.
+- `SURFACE_Y` and `SURFACE_Z`: the transverse sampling coordinates;
+- `SURFACE_X_RANGE`: X search bounds;
+- `SMOOTHING_SIGMA`: Gaussian smoothing width in grid cells; and
+- `REFERENCE_VECTOR`: direction compared with outward shock normals.
 
 The sample is about 1.3 GB. Reading and normalizing it uses roughly 1 GB before
 the cut and rendering allocations. The data file, notebook outputs, and
