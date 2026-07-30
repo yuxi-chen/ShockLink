@@ -32,6 +32,8 @@ def test_notebook_covers_the_compact_shock_extraction_pipeline() -> None:
         "calc_velocity_divergence",
         "fit_bow_shock",
         "extract_shockfit_range",
+        "get_2d_cut",
+        "plot_2d_cut",
         "get_bow_shock_surface",
         "refine_minimum=True",
         "smooth_bow_shock_surface",
@@ -48,14 +50,15 @@ def test_notebook_covers_the_compact_shock_extraction_pipeline() -> None:
     for fragment in required_fragments:
         assert fragment in code
 
-    assert "get_2d_cut" not in code
-    assert "plot_2d_cut" not in code
     assert code.index("fit = fit_bow_shock(grid)") < code.index(
         "shock_region = extract_shockfit_range("
     )
     assert code.index("shock_region = extract_shockfit_range(") < code.index(
-        "surface_x_raw = get_bow_shock_surface("
+        "cut = get_2d_cut(shock_region, normal=CUT_NORMAL, origin=CUT_ORIGIN)"
     )
+    assert code.index(
+        "cut = get_2d_cut(shock_region, normal=CUT_NORMAL, origin=CUT_ORIGIN)"
+    ) < code.index("surface_x_raw = get_bow_shock_surface(")
     assert code.index("surface_x_raw = get_bow_shock_surface(") < code.index(
         "surface_x = smooth_bow_shock_surface("
     )
@@ -64,9 +67,9 @@ def test_notebook_covers_the_compact_shock_extraction_pipeline() -> None:
 def test_notebook_is_portable_and_documents_launch() -> None:
     all_source = "\n".join(cell.source for cell in _notebook().cells)
 
-    assert 'DATA_PATH = Path("data/3d.dat")' in all_source
-    assert "SURFACE_Y = np.linspace(-30.0, 30.0, 601)" in all_source
-    assert "SURFACE_Z = np.linspace(-30.0, 30.0, 601)" in all_source
+    assert 'DATA_PATH = Path("../data/3d.dat")' in all_source
+    assert "SURFACE_Y = np.linspace(-25.0, 25.0, 401)" in all_source
+    assert "SURFACE_Z = np.linspace(-25.0, 25.0, 401)" in all_source
     assert "jupyter lab examples/extract_shock.ipynb" in all_source
     assert "/Users/" not in all_source
 
