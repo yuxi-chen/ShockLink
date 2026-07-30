@@ -6,6 +6,7 @@ import pytest
 import pyvista as pv
 
 from shocklink.bowshock import (
+    calc_bow_shock_normals,
     extract_shockfit_range,
     fit_bow_shock,
     get_bow_shock_surface,
@@ -94,6 +95,12 @@ def test_real_batsrus_sample_extracts_bow_shock_surface_array() -> None:
         chunk_size=5,
     )
 
+    normals = calc_bow_shock_normals(surface, y=y, z=z)
+
+    assert normals.shape == surface.shape + (3,)
+    assert np.isfinite(normals).all()
+    np.testing.assert_allclose(np.linalg.norm(normals, axis=-1), 1.0)
+    assert np.all(normals[..., 0] > 0.0)
     assert surface.shape == (len(y), len(z))
     assert np.isfinite(surface).any()
     finite = surface[np.isfinite(surface)]
