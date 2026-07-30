@@ -17,6 +17,14 @@ largest absolute value. The numerical units of `div(U)` follow from the
 velocity and coordinate arrays supplied to PyVista; the workflow does not
 assign it a separate fixed physical unit.
 
+For each requested Y-Z column, the implementation selects the minimum finite
+sampled `div(U)`. It applies no negativity test, magnitude threshold, or
+continuity threshold. A column containing only positive divergence still
+returns its minimum, and a selected point can represent weak compression,
+expansion, or an unrelated structure. Treat the result as a candidate surface:
+inspect the sampled divergence strength and surface continuity before using
+it scientifically.
+
 The initial axisymmetric fit is
 
 ```text
@@ -74,6 +82,7 @@ surface_x = get_bow_shock_surface(
     y=y,
     z=z,
 )
+coverage_mask = np.isfinite(surface_x)
 normals = calc_bow_shock_normals(
     surface_x,
     y=y,
@@ -126,22 +135,30 @@ divergence-based surface detection.
 residual band `-5.0 <= shockfit <= 5.0` and returns an
 `UnstructuredGrid`. With the default `adjacent_cells=True`, cells adjacent to
 selected points are retained so the later interpolation has nearby cell
-geometry.
+geometry. Those retained cells can include points whose `shockfit` values are
+outside the exact residual limits.
 
-The range controls search cost and isolation. A band that is too wide includes
-unrelated compression structures; a band that is too narrow can remove valid
-shock cells. In either case the paraboloid is still only the region selector.
+Because `shockfit` is an X residual, `[-5.0, 5.0]` has the same coordinate
+units as X and `shockfit`. This band is a dataset-specific search heuristic,
+not a universal shock criterion. A band that is too wide includes unrelated
+compression structures; a band that is too narrow can remove valid shock
+cells. In either case the paraboloid is still only the region selector.
 
 ## Step 5: Extract the regular surface array
 
 `get_bow_shock_surface(shock_region, y=y, z=z)` samples X-directed columns at
 every pair in the requested regular Y-Z grid. In each column it selects the X
-coordinate with the most negative valid `div(U)`. A column that does not
-intersect valid sampled data remains `NaN`.
+coordinate with the minimum finite sampled `div(U)`. There is no sign,
+magnitude, or cross-column continuity requirement. A column with only positive
+divergence still produces its minimum, so the selected location may be weak
+compression, expansion, or unrelated structure.
 
 The result has shape `(len(y), len(z))`. Y is axis 0 and Z is axis 1, so
 `surface_x[i, j]` maps to `(y[i], z[j])`. The function does not modify
-`shock_region`.
+`shock_region`. A `NaN` means that the column had no valid sampled point in the
+search region and X range; it is not proof that no physical shock exists.
+Inspect divergence strength and surface continuity rather than treating every
+finite value as an automatically validated shock detection.
 
 ## Step 6: Calculate outward normals
 
@@ -165,10 +182,21 @@ and strictly positive X component, so `nx > 0`.
 2. `nearest` interpolation fills unresolved edge and corner values outside
    that support.
 
+Linear interpolation fills any interior NaN pattern inside the valid samples'
+convex hull, including a large hole. It does not impose a maximum gap size or
+verify that the missing region follows the shock.
+
 After filling gaps, the original measured finite values are restored exactly
 before gradients are calculated. Nearest-neighbor edge extrapolation supplies
 a complete field, but normals near extrapolated edges and corners are less
 accurate than normals surrounded by measured surface values.
+
+The returned normals do not encode which surface values were measured and
+which were interpolated. Preserve `coverage_mask = np.isfinite(surface_x)`
+before calling `calc_bow_shock_normals`, as shown in the complete example.
+Exclude heavily filled regions from analysis or sensitivity-test results
+against alternate coverage and resolution choices. A complete, finite normal
+field can still be scientifically unsupported where surface coverage is poor.
 
 Interpolation needs at least three finite samples spanning a nondegenerate
 two-dimensional geometry. Too few samples, collinear samples, or another
@@ -189,11 +217,17 @@ The main resolution tradeoffs are:
   both creates four times as many columns and four times as many surface
   values and normals.
 - `x_resolution` in `get_bow_shock_surface` controls samples per column.
-  Increasing it improves X localization while increasing sampling runtime
-  linearly.
+  Increasing it reduces nominal X sample spacing, but does not guarantee
+  improved localization or scientific accuracy.
 - `chunk_size` controls how many columns are sampled together. A smaller
   chunk lowers peak temporary memory but requires more sampling calls; it
   does not change the requested grid.
+
+For fixed bounds, total sampling work scales approximately with the number of
+columns times `x_resolution`, while each chunk's temporary point allocation
+scales approximately with its column count times `x_resolution`. These are
+not strict linear relationships because PyVista/VTK lookup, interpolation,
+allocation, and per-chunk overhead also contribute.
 
 Choose resolutions by checking convergence of the detected surface and
 normals. Finer arrays cannot recover structure absent from the simulation

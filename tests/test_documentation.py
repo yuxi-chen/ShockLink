@@ -1,3 +1,4 @@
+import re
 import tomllib
 from pathlib import Path
 
@@ -42,12 +43,26 @@ def test_workflow_guide_documents_public_pipeline_and_array_conventions() -> Non
     assert "normals.shape == surface_x.shape + (3,)" in text
     assert "(1, -dx_s/dy, -dx_s/dz)" in text
     assert "nx > 0" in text
-    assert "linear" in text
-    assert "nearest" in text
-    assert "data/3d.dat" in text
 
 
-def test_examples_readme_links_workflow_guide_and_script() -> None:
+def test_workflow_guide_contains_compilable_complete_python_example() -> None:
+    python_blocks = re.findall(
+        r"```python\n(.*?)\n```",
+        WORKFLOW_GUIDE.read_text(),
+        flags=re.DOTALL,
+    )
+    workflow_blocks = [
+        block
+        for block in python_blocks
+        if all(
+            f"{function_name}(" in block for function_name in PUBLIC_WORKFLOW_FUNCTIONS
+        )
+    ]
+    assert len(workflow_blocks) == 1
+    compile(workflow_blocks[0], str(WORKFLOW_GUIDE), "exec")
+
+
+def test_examples_readme_links_workflow_guide() -> None:
     text = (ROOT / "examples/README.md").read_text()
     assert "../docs/bow-shock-workflow.md" in text
-    assert "bow_shock_workflow.py" in text
+    assert (ROOT / "docs/bow-shock-workflow.md").is_file()

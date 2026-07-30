@@ -5,12 +5,6 @@
 The [bow-shock workflow guide](../docs/bow-shock-workflow.md) explains the
 full Tecplot-to-normal pipeline and its array/sign conventions.
 
-Run the non-graphical example:
-
-```bash
-PYTHONPATH=src python examples/bow_shock_workflow.py data/3d.dat
-```
-
 ## Tecplot 2D cut notebook
 
 Install ShockLink with the notebook tools from the repository root:
