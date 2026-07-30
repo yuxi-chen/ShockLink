@@ -65,6 +65,8 @@ def test_notebook_is_portable_and_documents_launch() -> None:
     all_source = "\n".join(cell.source for cell in _notebook().cells)
 
     assert 'DATA_PATH = Path("data/3d.dat")' in all_source
+    assert "SURFACE_Y = np.linspace(-30.0, 30.0, 601)" in all_source
+    assert "SURFACE_Z = np.linspace(-30.0, 30.0, 601)" in all_source
     assert "jupyter lab examples/extract_shock.ipynb" in all_source
     assert "/Users/" not in all_source
 
