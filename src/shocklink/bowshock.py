@@ -157,6 +157,7 @@ def _strongest_compression(
     indices = np.flatnonzero(candidates)
     if len(indices) == 0:
         raise DatasetError(f"No valid {label} compression samples were found")
+    # Strongest compression is the minimum div(U) among valid candidates.
     selected = indices[np.argmax(-divergence[indices])]
     return np.array(points[selected], dtype=np.float64, copy=True)
 
@@ -169,7 +170,32 @@ def extract_shockfit_range(
     shockfit_name: str = "shockfit",
     adjacent_cells: bool = True,
 ) -> pv.UnstructuredGrid:
-    """Extract cells associated with an inclusive shock-fit residual range."""
+    """Extract cells associated with an inclusive shock-fit residual range.
+
+    Parameters
+    ----------
+    dataset : pyvista.DataSet
+        Dataset containing the named point-scalar residual array.
+    lower, upper : float
+        Finite inclusive limits for ``lower <= shockfit <= upper``.
+    shockfit_name : str, default "shockfit"
+        Name of the ``(n_points,)`` residual point-data array, usually written by
+        :func:`fit_bow_shock`.
+    adjacent_cells : bool, default True
+        Whether PyVista also extracts cells adjacent to selected points.
+
+    Returns
+    -------
+    pyvista.UnstructuredGrid
+        Extracted cells and points.  Nonfinite residual samples are excluded.
+
+    Raises
+    ------
+    DatasetError
+        If the residual array or limits are invalid, ``lower`` exceeds ``upper``,
+        ``adjacent_cells`` is not boolean, or extraction does not produce an
+        unstructured grid.
+    """
 
     if not isinstance(shockfit_name, str) or not shockfit_name.strip():
         raise DatasetError("Shockfit array name must not be empty")
@@ -364,6 +390,7 @@ def _fill_normal_surface_gaps(
                 shape=(int(np.count_nonzero(missing)),),
             )
             filled_surface[missing] = nearest_values
+        # Preserve observed samples after interpolation fills only missing cells.
         filled_surface[valid] = surface[valid]
         if not np.isfinite(filled_surface).all():
             raise ValueError("interpolation output contains nonfinite values")
@@ -429,6 +456,7 @@ def _normal_components(
     surface_shape = dx_dy.shape
     expected_shape = surface_shape + (3,)
     try:
+        # Normalize the outward raw vector (1, -dx/dy, -dx/dz).
         outward = np.stack(
             (np.ones(surface_shape, dtype=np.float64), -dx_dy, -dx_dz),
             axis=-1,
@@ -582,7 +610,39 @@ def get_bow_shock_surface(
     x_range: tuple[float, float] | None = None,
     chunk_size: int = 1024,
 ) -> NDArray[np.float64]:
-    """Return strongest-compression X locations on a regular Y-Z grid."""
+    """Sample strongest-compression X locations on a regular Y-Z grid.
+
+    Parameters
+    ----------
+    dataset : pyvista.DataSet
+        Dataset with a finite scalar divergence point-data array.
+    y, z : array-like
+        Strictly increasing one-dimensional transverse coordinates.  Their sizes
+        define the first and second dimensions of the returned surface.
+    divergence_name : str, default "div(U)"
+        Name of the finite ``(n_points,)`` divergence point-data array.
+    x_resolution : int, default 512
+        Number of regular X samples per Y-Z column; it must be at least two.
+    x_range : tuple of float, optional
+        Finite increasing X sampling bounds.  Dataset X bounds are used when
+        omitted.
+    chunk_size : int, default 1024
+        Positive number of Y-Z columns sampled in each batch.
+
+    Returns
+    -------
+    numpy.ndarray
+        Float array ``surface_x`` with shape ``(len(y), len(z))``.  Element
+        ``surface_x[i, j]`` is the sampled X position where ``div(U)`` is lowest
+        along the column at ``(y[i], z[j])``.  Columns with no valid sampled data
+        are ``NaN``; an input dataset with no cells therefore returns all NaNs.
+
+    Raises
+    ------
+    DatasetError
+        If coordinates, divergence data, sampling options, or sampler output are
+        invalid, or if PyVista cannot sample the dataset.
+    """
 
     y_values = _surface_axis(y, label="Y")
     z_values = _surface_axis(z, label="Z")
@@ -684,7 +744,32 @@ def calc_bow_shock_normals(
     y: ArrayLike,
     z: ArrayLike,
 ) -> NDArray[np.float64]:
-    """Return outward unit normals for a regular bow-shock surface."""
+    """Return outward unit normals for a regular bow-shock surface.
+
+    Parameters
+    ----------
+    surface_x : array-like
+        Real array with shape ``(len(y), len(z))`` whose values represent
+        ``x_s(y, z)``.  NaNs mark missing samples and are interpolated before
+        differentiation; infinity is not allowed.
+    y, z : array-like
+        Strictly increasing one-dimensional coordinate arrays, each with at
+        least three entries.
+
+    Returns
+    -------
+    numpy.ndarray
+        Unit-normal array with shape ``surface_x.shape + (3,)``.  Normals use the
+        raw vector ``(1, -dx/dy, -dx/dz)`` and are oriented toward +X, so every
+        returned X component is strictly positive.
+
+    Raises
+    ------
+    DatasetError
+        If coordinate arrays or surface shape/data are invalid, fewer than three
+        finite surface samples are available to fill NaNs, interpolation fails,
+        or finite unit normals cannot be calculated.
+    """
 
     y_values = _normal_axis(y, label="Y")
     z_values = _normal_axis(z, label="Z")
@@ -716,7 +801,47 @@ def fit_bow_shock(
     axis_resolution: int = 1000,
     cross_resolution: int = 1000,
 ) -> BowShockParaboloid:
-    """Detect maximum compression and fit an X-directed paraboloid."""
+    """Detect compression samples and fit an X-directed paraboloid in place.
+
+    Parameters
+    ----------
+    dataset : pyvista.DataSet
+        Dataset sampled along the X axis and a cross line.  It must provide a
+        valid velocity vector array when ``divergence_name`` is absent.
+    divergence_name : str, default "div(U)"
+        Name of the scalar divergence point-data array.  If absent, divergence
+        is calculated from ``velocity_name`` and added to ``dataset`` in place.
+    velocity_name : str, default "U [km/s]"
+        Name of the finite ``(n_points, 3)`` velocity point-data array used to
+        calculate divergence when needed.
+    shockfit_name : str, default "shockfit"
+        Nonempty name for the fitted signed-X residual point-data array.
+    x_offset : float, default 2.0
+        Positive distance from the nose to the cross-line sampling location.
+    axis_resolution, cross_resolution : int, default 1000
+        Positive line-sampling resolutions for finding the nose and flank
+        compression samples.
+
+    Returns
+    -------
+    BowShockParaboloid
+        Paraboloid fitted from the strongest finite compression samples at the
+        X-axis nose and the negative- and positive-Y flanks.
+
+    Raises
+    ------
+    DatasetError
+        If names, offset, divergence/velocity data, bounds, profiles, or sampled
+        data are invalid, including missing or nonfinite compression samples.
+    GeometryError
+        If the selected flank locations are degenerate or cannot form a valid
+        positive-curvature paraboloid.
+
+    Notes
+    -----
+    The function mutates ``dataset`` in place by adding ``divergence_name`` when
+    needed and always writing a ``(n_points,)`` ``shockfit_name`` residual array.
+    """
 
     if not isinstance(shockfit_name, str) or not shockfit_name.strip():
         raise DatasetError("Bow-shock shockfit name must not be empty")
@@ -778,6 +903,7 @@ def fit_bow_shock(
         cross_profile,
         divergence_name=divergence_name,
     )
+    # Select paraboloid flanks independently on the negative- and positive-Y sides.
     loc1 = _strongest_compression(
         cross_points,
         cross_divergence,

@@ -75,7 +75,34 @@ def read_tecplot(
     magnetic_name: str = "B [nT]",
     velocity_name: str = "U [km/s]",
 ) -> pv.UnstructuredGrid:
-    """Read one Tecplot zone and normalize its geometry and vector fields."""
+    """Read one Tecplot zone and normalize its geometry and vector fields.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        Existing ``.dat`` Tecplot file containing exactly one nonempty zone.
+    coordinate_components, magnetic_components, velocity_components : tuple of str
+        Names of the three scalar point arrays holding the X/Y/Z coordinates,
+        magnetic field, and velocity components, respectively.  Each component
+        must be a one-dimensional array with one value per grid point.
+    magnetic_name, velocity_name : str
+        Names assigned to the normalized ``(n_points, 3)`` magnetic and velocity
+        point-data arrays.
+
+    Returns
+    -------
+    pyvista.UnstructuredGrid
+        The input zone with points replaced by the finite coordinate array and
+        normalized vector point data.  Magnetic and velocity samples are kept as
+        read, so missing values may remain in these vector arrays.
+
+    Raises
+    ------
+    DatasetError
+        If the path is not an existing ``.dat`` file, the reader does not return
+        one nonempty unstructured zone, or required coordinate/vector arrays are
+        absent or have incompatible shapes.  Coordinates must be finite.
+    """
 
     source = Path(path)
     if not source.is_file():

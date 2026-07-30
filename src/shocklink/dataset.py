@@ -26,7 +26,30 @@ def calc_velocity_divergence(
     velocity_name: str = "U [km/s]",
     output_name: str = "div(U)",
 ) -> pv.DataSet:
-    """Calculate velocity divergence and add it to the input dataset."""
+    """Calculate velocity divergence and add it to the input dataset in place.
+
+    Parameters
+    ----------
+    dataset : pyvista.DataSet
+        Dataset whose point data contains a finite velocity vector array.
+    velocity_name : str, default "U [km/s]"
+        Name of the ``(n_points, 3)`` point-data velocity array.
+    output_name : str, default "div(U)"
+        Nonempty name for the one-dimensional divergence point-data array.
+
+    Returns
+    -------
+    pyvista.DataSet
+        The same ``dataset`` object, mutated in place with a finite
+        ``(n_points,)`` array named ``output_name``.
+
+    Raises
+    ------
+    DatasetError
+        If the velocity array is missing, nonnumeric, nonfinite, or not shaped
+        ``(n_points, 3)``, if the output name is empty, or if PyVista cannot
+        compute a finite scalar divergence result.
+    """
 
     if velocity_name not in dataset.point_data:
         raise DatasetError(

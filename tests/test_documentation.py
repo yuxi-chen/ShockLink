@@ -1,7 +1,19 @@
 import ast
+import inspect
 import re
 import tomllib
 from pathlib import Path
+
+import pytest
+
+from shocklink.bowshock import (
+    calc_bow_shock_normals,
+    extract_shockfit_range,
+    fit_bow_shock,
+    get_bow_shock_surface,
+)
+from shocklink.dataset import calc_velocity_divergence
+from shocklink.tecplot import read_tecplot
 
 ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
@@ -16,6 +28,36 @@ PUBLIC_WORKFLOW_FUNCTIONS = (
     "get_bow_shock_surface",
     "calc_bow_shock_normals",
 )
+
+PUBLIC_WORKFLOW_API = (
+    read_tecplot,
+    calc_velocity_divergence,
+    fit_bow_shock,
+    extract_shockfit_range,
+    get_bow_shock_surface,
+    calc_bow_shock_normals,
+)
+
+
+@pytest.mark.parametrize("function", PUBLIC_WORKFLOW_API)
+def test_public_workflow_api_docstrings_use_numpy_sections(function: object) -> None:
+    """Public workflow functions document inputs, outputs, and failures."""
+
+    docstring = inspect.getdoc(function)
+    assert docstring is not None
+    for section in ("Parameters", "Returns", "Raises"):
+        assert f"{section}\n{'-' * len(section)}" in docstring
+
+
+def test_bow_shock_api_docstrings_explain_key_data_conventions() -> None:
+    """Workflow documentation records mutation, missing-data, and normal semantics."""
+
+    assert "in place" in inspect.getdoc(calc_velocity_divergence).lower()
+    assert "in place" in inspect.getdoc(fit_bow_shock).lower()
+    assert "NaN" in inspect.getdoc(get_bow_shock_surface)
+    normal_docstring = inspect.getdoc(calc_bow_shock_normals)
+    assert "+X" in normal_docstring
+    assert "(1, -dx/dy, -dx/dz)" in normal_docstring
 
 
 def test_project_uses_root_readme_for_package_metadata() -> None:
