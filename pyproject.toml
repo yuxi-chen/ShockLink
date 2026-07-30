@@ -31,6 +31,10 @@ Repository = "https://github.com/yuxi-chen/ShockLink"
 Documentation = "https://github.com/yuxi-chen/ShockLink/blob/main/docs/bow-shock-workflow.md"
 
 [project.optional-dependencies]
+mms = [
+  "matplotlib>=3.8",
+  "pyspedas>=1.7",
+]
 test = [
   "nbformat>=5",
   "pytest>=8",
