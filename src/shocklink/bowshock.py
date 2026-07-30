@@ -411,6 +411,7 @@ def _normal_derivatives(
     """Return validated coordinate-aware surface derivatives."""
 
     try:
+        # Second-order one-sided stencils retain lower edge accuracy than first order.
         derivatives = np.gradient(
             surface,
             y_values,
@@ -456,7 +457,7 @@ def _normal_components(
     surface_shape = dx_dy.shape
     expected_shape = surface_shape + (3,)
     try:
-        # Normalize the outward raw vector (1, -dx/dy, -dx/dz).
+        # For r(y, z) = (x_s, y, z), r_y x r_z is +X-oriented (1, -dx/dy, -dx/dz).
         outward = np.stack(
             (np.ones(surface_shape, dtype=np.float64), -dx_dy, -dx_dz),
             axis=-1,
@@ -473,6 +474,7 @@ def _normal_components(
         raise DatasetError("Bow-shock normal components must be finite")
 
     try:
+        # Scale components before normalization to avoid overflow in the magnitude.
         component_scale = np.max(np.abs(outward), axis=-1, keepdims=True)
         scaled_outward = outward / component_scale
         normal_magnitudes = np.hypot(
@@ -623,18 +625,22 @@ def get_bow_shock_surface(
         Name of the finite ``(n_points,)`` divergence point-data array.
     x_resolution : int, default 512
         Number of regular X samples per Y-Z column; it must be at least two.
+        Higher X-resolution improves X-location sampling but increases memory per
+        column and the total interpolation work.
     x_range : tuple of float, optional
         Finite increasing X sampling bounds.  Dataset X bounds are used when
         omitted.
     chunk_size : int, default 1024
-        Positive number of Y-Z columns sampled in each batch.
+        Positive number of Y-Z columns sampled in each batch.  A larger chunk size
+        reduces batch overhead but increases memory because each batch holds
+        ``chunk_size * x_resolution`` probe points.
 
     Returns
     -------
     numpy.ndarray
         Float array ``surface_x`` with shape ``(len(y), len(z))``.  Element
-        ``surface_x[i, j]`` is the sampled X position where ``div(U)`` is lowest
-        along the column at ``(y[i], z[j])``.  Columns with no valid sampled data
+        ``surface_x[i, j]`` is the sampled X position where ``div(U)`` is most
+        negative along the column at ``(y[i], z[j])``.  Columns with no valid sampled data
         are ``NaN``; an input dataset with no cells therefore returns all NaNs.
 
     Raises
@@ -731,6 +737,7 @@ def get_bow_shock_surface(
         chunk_surface = np.full(count, np.nan, dtype=np.float64)
         has_valid = valid.any(axis=1)
         candidates = np.where(valid, sampled_divergence, np.inf)
+        # Per-column argmin selects the most-negative valid div(U) sample.
         minima = np.argmin(candidates, axis=1)
         chunk_surface[has_valid] = x_values[minima[has_valid]]
         surface[start:stop] = chunk_surface
@@ -759,9 +766,10 @@ def calc_bow_shock_normals(
     Returns
     -------
     numpy.ndarray
-        Unit-normal array with shape ``surface_x.shape + (3,)``.  Normals use the
-        raw vector ``(1, -dx/dy, -dx/dz)`` and are oriented toward +X, so every
-        returned X component is strictly positive.
+        Unit-normal array ``(nx, ny, nz)`` with shape
+        ``surface_x.shape + (3,)``.  Normals use the raw vector
+        ``(1, -dx/dy, -dx/dz)`` and are oriented toward +X, so every returned X
+        component is strictly positive.
 
     Raises
     ------
@@ -769,6 +777,12 @@ def calc_bow_shock_normals(
         If coordinate arrays or surface shape/data are invalid, fewer than three
         finite surface samples are available to fill NaNs, interpolation fails,
         or finite unit normals cannot be calculated.
+
+    Notes
+    -----
+    NaNs are filled by linear interpolation followed by nearest-neighbor
+    interpolation before differentiation.  The function does not mutate
+    ``surface_x``.  Second-order edge stencils provide lower edge accuracy.
     """
 
     y_values = _normal_axis(y, label="Y")
@@ -825,8 +839,9 @@ def fit_bow_shock(
     Returns
     -------
     BowShockParaboloid
-        Paraboloid fitted from the strongest finite compression samples at the
-        X-axis nose and the negative- and positive-Y flanks.
+        Paraboloid ``x = x0 - a(y**2 + z**2)`` fitted from the strongest finite
+        compression samples at the X-axis nose and the negative- and positive-Y
+        flanks.
 
     Raises
     ------
@@ -841,6 +856,9 @@ def fit_bow_shock(
     -----
     The function mutates ``dataset`` in place by adding ``divergence_name`` when
     needed and always writing a ``(n_points,)`` ``shockfit_name`` residual array.
+    Strongest compression maximizes ``-div(U)``, equivalently selecting the
+    most-negative div(U) value.  The residual convention is
+    ``shockfit = x - x_surface(y, z)``.
     """
 
     if not isinstance(shockfit_name, str) or not shockfit_name.strip():
@@ -873,6 +891,7 @@ def fit_bow_shock(
         axis_profile,
         divergence_name=divergence_name,
     )
+    # Select the X-axis nose at the profile's most-negative valid div(U) sample.
     loc0 = _strongest_compression(
         axis_points,
         axis_divergence,

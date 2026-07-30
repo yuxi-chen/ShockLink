@@ -60,6 +60,26 @@ def test_bow_shock_api_docstrings_explain_key_data_conventions() -> None:
     assert "(1, -dx/dy, -dx/dz)" in normal_docstring
 
 
+def test_bow_shock_api_docstrings_explain_fitting_and_sampling_conventions() -> None:
+    """Workflow documentation records fit, sampling, and normal conventions."""
+
+    fit_docstring = inspect.getdoc(fit_bow_shock)
+    assert "x = x0 - a(y**2 + z**2)" in fit_docstring
+    assert "most-negative div(U)" in fit_docstring
+    assert "shockfit = x - x_surface(y, z)" in fit_docstring
+
+    surface_docstring = inspect.getdoc(get_bow_shock_surface)
+    assert "X-resolution" in surface_docstring
+    assert "chunk size" in surface_docstring
+    assert "memory" in surface_docstring
+
+    normal_docstring = inspect.getdoc(calc_bow_shock_normals)
+    assert "(nx, ny, nz)" in normal_docstring
+    assert "linear interpolation followed by nearest-neighbor" in normal_docstring
+    assert "does not mutate" in normal_docstring
+    assert "lower edge accuracy" in normal_docstring
+
+
 def test_project_uses_root_readme_for_package_metadata() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text())
     assert metadata["project"]["readme"] == "README.md"
