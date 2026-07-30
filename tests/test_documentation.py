@@ -13,10 +13,13 @@ def test_project_uses_root_readme_for_package_metadata() -> None:
     assert README.is_file()
 
 
-def test_root_readme_describes_and_links_bow_shock_workflow() -> None:
+def test_root_readme_describes_bow_shock_workflow_source_paths() -> None:
     text = README.read_text()
     assert "ShockLink" in text
-    assert "pip install" in text
-    assert "docs/bow-shock-workflow.md" in text
-    assert "examples/bow_shock_workflow.py" in text
+    assert "pip install shocklink" in text
+    assert "](docs/" not in text
+    assert "](examples/" not in text
+    assert "`docs/bow-shock-workflow.md`" in text
+    assert "`examples/bow_shock_workflow.py`" in text
+    assert "`examples/README.md`" in text
     assert "calc_bow_shock_normals" in text
