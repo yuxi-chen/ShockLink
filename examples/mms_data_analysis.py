@@ -212,21 +212,20 @@ def plot_mms_data(data: MMSData):
 
     if "magnetic_field" in series:
         panels.append(lambda axis: _plot_magnetic_field(axis, series["magnetic_field"]))
-    densities = [name for name in ("ion_density", "electron_density") if name in series]
-    if densities:
-        panels.append(lambda axis: _plot_density(axis, series, densities))
+    if "ion_density" in series:
+        panels.append(lambda axis: _plot_density(axis, series["ion_density"]))
     if "ion_velocity" in series:
         panels.append(
             lambda axis: _plot_vector(
-                axis, series["ion_velocity"], "Ion velocity", "km/s"
+                axis, series["ion_velocity"], "V_i", "[km/s]"
             )
         )
-    for species in ("ion", "electron"):
+    for species, symbol in (("ion", "i"), ("electron", "e")):
         temperature = _total_temperature(series, species)
         if temperature is not None:
             panels.append(
-                lambda axis, temperature=temperature, species=species: _plot_scalar(
-                    axis, temperature, f"{species.title()} total temperature", "eV"
+                lambda axis, temperature=temperature, symbol=symbol: _plot_scalar(
+                    axis, temperature, f"T_{symbol}", "[eV]"
                 )
             )
 
@@ -421,18 +420,15 @@ def _plot_magnetic_field(axis: object, product: _TimeSeries) -> None:
 
 def _plot_density(
     axis: object,
-    series: Mapping[str, _TimeSeries],
-    names: list[str],
+    product: _TimeSeries,
 ) -> None:
-    for name in names:
-        product = series[name]
-        axis.plot(
-            product.times,
-            product.values,
-            linewidth=PLOT_LINE_WIDTH,
-            label=product.name or name.removesuffix("_density").title(),
-        )
-    axis.set_ylabel(_axis_label(series[names[0]], "Density", "cm⁻³"))
+    axis.plot(
+        product.times,
+        product.values,
+        linewidth=PLOT_LINE_WIDTH,
+        label=product.name or "Ion density",
+    )
+    axis.set_ylabel("n [/cm^3]")
 
 
 def _plot_vector(axis: object, product: _TimeSeries, fallback_name: str, fallback_units: str) -> None:

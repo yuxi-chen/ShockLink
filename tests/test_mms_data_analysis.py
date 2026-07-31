@@ -31,6 +31,8 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
         "ne": np.array([4.0, 5.0, 6.0]),
         "vi": np.array([[10.0, 20.0, 30.0], [20.0, 40.0, 60.0], [30.0, 60.0, 90.0]]),
         "ve": np.array([[40.0, 50.0, 60.0], [50.0, 60.0, 70.0], [60.0, 70.0, 80.0]]),
+        "ti_parallel": np.array([300.0, 600.0, 900.0]),
+        "ti_perpendicular": np.array([30.0, 60.0, 90.0]),
         "te_parallel": np.array([100.0, 200.0, 300.0]),
         "te_perpendicular": np.array([10.0, 20.0, 30.0]),
     }
@@ -50,6 +52,8 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
             "electron_density": "ne",
             "ion_velocity": "vi",
             "electron_velocity": "ve",
+            "ion_temperature_parallel": "ti_parallel",
+            "ion_temperature_perpendicular": "ti_perpendicular",
             "electron_temperature_parallel": "te_parallel",
             "electron_temperature_perpendicular": "te_perpendicular",
         },
@@ -79,9 +83,9 @@ def test_summarize_data_reports_scalar_and_vector_component_statistics(
 def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     figure = plot_mms_data(mms_data)
 
-    assert len(figure.axes) == 4
+    assert len(figure.axes) == 5
     assert figure._suptitle.get_text() == "MMS1 brst data"
-    assert figure.get_size_inches().tolist() == [10.0, 6.0]
+    assert figure.get_size_inches().tolist() == [10.0, 7.5]
     time_formatter = figure.axes[-1].xaxis.get_major_formatter()
     assert isinstance(time_formatter, mdates.DateFormatter)
     assert time_formatter.fmt == "%H:%M:%S"
@@ -96,11 +100,13 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
         "black",
     ]
     assert all(line.get_linewidth() == 0.75 for axis in figure.axes for line in axis.lines)
-    assert figure.axes[1].get_ylabel() == "Density (cm⁻³)"
-    assert figure.axes[2].get_ylabel() == "Ion velocity (km/s)"
-    assert figure.axes[3].get_ylabel() == "Electron total temperature (eV)"
+    assert figure.axes[1].get_ylabel() == "n [/cm^3]"
+    assert len(figure.axes[1].lines) == 1
+    assert figure.axes[2].get_ylabel() == "V_i [km/s]"
+    assert figure.axes[3].get_ylabel() == "T_i [eV]"
+    assert figure.axes[4].get_ylabel() == "T_e [eV]"
     assert all("Electron velocity" not in axis.get_ylabel() for axis in figure.axes)
-    np.testing.assert_allclose(figure.axes[3].lines[0].get_ydata(), [40.0, 80.0, 120.0])
+    np.testing.assert_allclose(figure.axes[4].lines[0].get_ydata(), [40.0, 80.0, 120.0])
 
 
 def test_plot_mms_data_uses_pytplot_name_and_units_metadata(
@@ -128,7 +134,7 @@ def test_plot_mms_data_uses_pytplot_name_and_units_metadata(
         MMSData(cadence="fast", series={"ion_density": "density"})
     )
 
-    assert figure.axes[0].get_ylabel() == "Density [cm^-3]"
+    assert figure.axes[0].get_ylabel() == "n [/cm^3]"
     assert figure.axes[0].get_legend().get_texts()[0].get_text() == "Ion number density"
 
 
