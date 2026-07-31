@@ -70,7 +70,7 @@ python examples/mms_data_analysis.py \
   --coordinates gsm
 ```
 
-For interactive exploration, launch `jupyter lab examples/mms_data_analysis.ipynb`.
+For interactive exploration, launch `jupyter lab examples/mms_example.ipynb`.
 The notebook exposes the time range, probe, `auto`/`brst`/`fast` mode, and GSE
 or GSM coordinate selection near the top, then uses the same public loading,
 summary, and plotting functions as the script.
