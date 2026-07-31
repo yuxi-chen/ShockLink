@@ -268,12 +268,20 @@ def _resolve_series(data: MMSData) -> dict[str, _TimeSeries]:
         except TypeError:
             metadata = {}
         resolved[name] = _TimeSeries(
-            times=np.asarray(times),
+            times=_to_datetime64(times),
             values=values_array,
             name=_metadata_text(metadata, "name"),
             units=_metadata_text(metadata, "units"),
         )
     return resolved
+
+
+def _to_datetime64(times: object) -> np.ndarray:
+    """Convert pySPEDAS Unix timestamps to calendar timestamps for plotting."""
+    timestamps = np.asarray(times)
+    if np.issubdtype(timestamps.dtype, np.datetime64):
+        return timestamps
+    return timestamps.astype("datetime64[s]")
 
 
 def _statistics(values: np.ndarray) -> dict[str, float]:
