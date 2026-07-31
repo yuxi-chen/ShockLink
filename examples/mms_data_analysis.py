@@ -230,7 +230,13 @@ def plot_mms_data(data: MMSData):
     if not panels:
         raise ValueError("No plot-able MMS time series were loaded.")
 
-    figure, axes = plt.subplots(len(panels), 1, sharex=True, squeeze=False)
+    figure, axes = plt.subplots(
+        len(panels),
+        1,
+        sharex=True,
+        squeeze=False,
+        figsize=(14, max(6, 4 * len(panels))),
+    )
     flat_axes = axes[:, 0]
     for axis, draw_panel in zip(flat_axes, panels, strict=True):
         draw_panel(axis)

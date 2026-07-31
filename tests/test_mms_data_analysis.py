@@ -74,6 +74,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     figure = plot_mms_data(mms_data)
 
     assert len(figure.axes) == 4
+    assert figure.get_size_inches().tolist() == [14.0, 16.0]
     assert np.issubdtype(figure.axes[0].lines[0].get_xdata().dtype, np.datetime64)
     assert figure.axes[0].lines[0].get_xdata()[0] == np.datetime64("1970-01-01T00:00:00")
     assert figure.axes[0].get_ylabel() == "B (nT)"
