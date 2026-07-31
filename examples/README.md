@@ -57,18 +57,18 @@ python examples/mms_data_analysis.py \
   --start "2015-10-16 13:06:00" --end "2015-10-16 13:07:00" --probe 1 --mode auto
 ```
 
-Vectors use GSE coordinates by default. To convert magnetic-field and velocity
-vectors to time-dependent GSM coordinates, pass `--coordinates gsm`:
+Vectors use GSE coordinates by default. When `--coordinates gsm` is selected,
+pySPEDAS transforms the magnetic-field and bulk-velocity vectors to
+time-dependent GSM coordinates; scalar density and temperature products remain
+unchanged:
 
 ```bash
 python examples/mms_data_analysis.py \
   --start "2018-12-19 19:40:00" \
   --end "2018-12-19 19:52:00" \
+  --probe 1 --mode auto \
   --coordinates gsm
 ```
-
-The coordinate selection affects vector products only; scalar density and
-temperature products are unchanged.
 
 For interactive exploration, launch `jupyter lab examples/mms_data_analysis.ipynb`.
 The notebook exposes the time range, probe, `auto`/`brst`/`fast` mode, and GSE
