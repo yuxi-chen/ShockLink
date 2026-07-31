@@ -227,12 +227,17 @@ def _convert_vector_coordinates(
     if coordinates == "gse":
         return converted
 
+    available = [
+        (product_name, converted[product_name])
+        for product_name in VECTOR_SERIES
+        if product_name in converted
+    ]
+    if not available:
+        return converted
+
     from pyspedas import cotrans
 
-    for product_name in VECTOR_SERIES:
-        source = converted.get(product_name)
-        if source is None:
-            continue
+    for product_name, source in available:
         destination = _converted_variable_name(source, coordinates)
         try:
             result = cotrans(

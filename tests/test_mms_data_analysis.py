@@ -423,6 +423,15 @@ def test_gse_coordinate_conversion_is_a_noop() -> None:
     assert _convert_vector_coordinates(series, "gse") == series
 
 
+def test_gsm_scalar_only_conversion_is_a_noop_without_pyspedas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delitem(sys.modules, "pyspedas", raising=False)
+    series = {"ion_density": "mms1_dis_numberdensity_fast"}
+
+    assert _convert_vector_coordinates(series, "gsm") == series
+
+
 def test_coordinate_conversion_reports_failed_product(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
