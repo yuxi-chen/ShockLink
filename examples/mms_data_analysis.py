@@ -222,18 +222,13 @@ def plot_mms_data(data: MMSData):
                 )
             )
     for species in ("ion", "electron"):
-        for suffix, label in (
-            ("temperature", "temperature"),
-            ("temperature_parallel", "parallel temperature"),
-            ("temperature_perpendicular", "perpendicular temperature"),
-        ):
-            name = f"{species}_{suffix}"
-            if name in series:
-                panels.append(
-                    lambda axis, name=name, title=f"{species.title()} {label}": _plot_scalar(
-                        axis, series[name], title, "eV"
-                    )
+        temperature = _total_temperature(series, species)
+        if temperature is not None:
+            panels.append(
+                lambda axis, temperature=temperature, species=species: _plot_scalar(
+                    axis, temperature, f"{species.title()} total temperature", "eV"
                 )
+            )
 
     if not panels:
         raise ValueError("No plot-able MMS time series were loaded.")
@@ -243,7 +238,7 @@ def plot_mms_data(data: MMSData):
         1,
         sharex=True,
         squeeze=False,
-        figsize=(12, max(6, 2 * len(panels))),
+        figsize=(10, max(5, 1.5 * len(panels))),
     )
     flat_axes = axes[:, 0]
     for axis, draw_panel in zip(flat_axes, panels, strict=True):
@@ -335,6 +330,31 @@ def _date_caption(series: Mapping[str, _TimeSeries]) -> str:
     return datetime.strptime(day, "%Y-%m-%d").strftime("%Y %b %d")
 
 
+def _total_temperature(
+    series: Mapping[str, _TimeSeries], species: str
+) -> _TimeSeries | None:
+    """Return the scalar temperature ``(T_parallel + 2 T_perpendicular) / 3``."""
+    parallel = series.get(f"{species}_temperature_parallel")
+    perpendicular = series.get(f"{species}_temperature_perpendicular")
+    if parallel is None or perpendicular is None:
+        return series.get(f"{species}_temperature")
+
+    times, parallel_indices, perpendicular_indices = np.intersect1d(
+        parallel.times, perpendicular.times, return_indices=True
+    )
+    if not len(times):
+        return None
+    values = (
+        parallel.values[parallel_indices] + 2 * perpendicular.values[perpendicular_indices]
+    ) / 3
+    return _TimeSeries(
+        times=times,
+        values=values,
+        name=f"{species.title()} total temperature",
+        units=parallel.units or perpendicular.units,
+    )
+
+
 def _statistics(values: np.ndarray) -> dict[str, float]:
     finite_values = values[np.isfinite(values)]
     if not len(finite_values):
@@ -389,7 +409,12 @@ def _plot_magnetic_field(axis: object, product: _TimeSeries) -> None:
     _plot_vector(axis, product, "B", "nT")
     times, values = product.times, product.values
     if values.ndim == 2 and values.shape[1] >= 3:
-        axis.plot(times, np.linalg.norm(values[:, :3], axis=1), label=f"{product.name or 'B'} magnitude")
+        axis.plot(
+            times,
+            np.linalg.norm(values[:, :3], axis=1),
+            color="black",
+            label=f"{product.name or 'B'} magnitude",
+        )
 
 
 def _plot_density(
@@ -411,7 +436,12 @@ def _plot_vector(axis: object, product: _TimeSeries, fallback_name: str, fallbac
     else:
         for index in range(min(values.shape[1], 3)):
             component = ("x", "y", "z")[index]
-            axis.plot(times, values[:, index], label=f"{label} {component}")
+            axis.plot(
+                times,
+                values[:, index],
+                color=("blue", "green", "red")[index],
+                label=f"{label} {component}",
+            )
     axis.set_ylabel(_axis_label(product, fallback_name, fallback_units))
 
 

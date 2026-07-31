@@ -30,7 +30,8 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
         "ni": np.array([1.0, 2.0, 3.0]),
         "ne": np.array([4.0, 5.0, 6.0]),
         "vi": np.array([[10.0, 20.0, 30.0], [20.0, 40.0, 60.0], [30.0, 60.0, 90.0]]),
-        "te": np.array([100.0, 200.0, 300.0]),
+        "te_parallel": np.array([100.0, 200.0, 300.0]),
+        "te_perpendicular": np.array([10.0, 20.0, 30.0]),
     }
     monkeypatch.setitem(
         sys.modules,
@@ -46,7 +47,8 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
             "ion_density": "ni",
             "electron_density": "ne",
             "ion_velocity": "vi",
-            "electron_temperature": "te",
+            "electron_temperature_parallel": "te_parallel",
+            "electron_temperature_perpendicular": "te_perpendicular",
         },
     )
 
@@ -75,7 +77,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     figure = plot_mms_data(mms_data)
 
     assert len(figure.axes) == 4
-    assert figure.get_size_inches().tolist() == [12.0, 8.0]
+    assert figure.get_size_inches().tolist() == [10.0, 6.0]
     time_formatter = figure.axes[-1].xaxis.get_major_formatter()
     assert isinstance(time_formatter, mdates.DateFormatter)
     assert time_formatter.fmt == "%H:%M:%S"
@@ -83,9 +85,16 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     assert np.issubdtype(figure.axes[0].lines[0].get_xdata().dtype, np.datetime64)
     assert figure.axes[0].lines[0].get_xdata()[0] == np.datetime64("1970-01-01T00:00:00")
     assert figure.axes[0].get_ylabel() == "B (nT)"
+    assert [line.get_color() for line in figure.axes[0].lines] == [
+        "blue",
+        "green",
+        "red",
+        "black",
+    ]
     assert figure.axes[1].get_ylabel() == "Density (cm⁻³)"
     assert figure.axes[2].get_ylabel() == "Ion velocity (km/s)"
-    assert figure.axes[3].get_ylabel() == "Electron temperature (eV)"
+    assert figure.axes[3].get_ylabel() == "Electron total temperature (eV)"
+    np.testing.assert_allclose(figure.axes[3].lines[0].get_ydata(), [40.0, 80.0, 120.0])
 
 
 def test_plot_mms_data_uses_pytplot_name_and_units_metadata(
