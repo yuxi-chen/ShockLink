@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC
 from pprint import pprint
 import sys
 
@@ -245,8 +246,8 @@ def plot_mms_data(data: MMSData):
         axis.grid(visible=True, alpha=0.3)
     time_locator = mdates.AutoDateLocator()
     flat_axes[-1].xaxis.set_major_locator(time_locator)
-    flat_axes[-1].xaxis.set_major_formatter(mdates.ConciseDateFormatter(time_locator))
-    flat_axes[-1].set_xlabel("Time")
+    flat_axes[-1].xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S", tz=UTC))
+    flat_axes[-1].set_xlabel("Time (UTC)")
     figure.suptitle(f"MMS {data.cadence} data")
     figure.tight_layout()
     return figure
