@@ -2,12 +2,80 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
+import matplotlib
+matplotlib.use("Agg")
+import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples"))
 
-from mms_data_analysis import load_mms_data
+from mms_data_analysis import MMSData, load_mms_data, plot_mms_data, summarize_data
+
+
+@pytest.fixture
+def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
+    timestamps = np.array([0.0, 1.0, 2.0])
+    values = {
+        "b": np.array([[1.0, 2.0, 3.0], [2.0, 4.0, 6.0], [3.0, 6.0, 9.0]]),
+        "ni": np.array([1.0, 2.0, 3.0]),
+        "ne": np.array([4.0, 5.0, 6.0]),
+        "vi": np.array([[10.0, 20.0, 30.0], [20.0, 40.0, 60.0], [30.0, 60.0, 90.0]]),
+        "te": np.array([100.0, 200.0, 300.0]),
+    }
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(
+            get_data=lambda name: SimpleNamespace(times=timestamps, y=values[name])
+        ),
+    )
+    return MMSData(
+        cadence="brst",
+        series={
+            "magnetic_field": "b",
+            "ion_density": "ni",
+            "electron_density": "ne",
+            "ion_velocity": "vi",
+            "electron_temperature": "te",
+        },
+    )
+
+
+def test_summarize_data_reports_scalar_and_vector_component_statistics(
+    mms_data: MMSData,
+) -> None:
+    summary = summarize_data(mms_data)
+
+    assert summary["ion_density"] == {
+        "count": 3,
+        "mean": 2.0,
+        "min": 1.0,
+        "max": 3.0,
+    }
+    assert summary["magnetic_field"]["x"] == {
+        "count": 3,
+        "mean": 2.0,
+        "min": 1.0,
+        "max": 3.0,
+    }
+    assert summary["ion_velocity"]["z"]["max"] == 90.0
+
+
+def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
+    figure = plot_mms_data(mms_data)
+
+    assert len(figure.axes) == 4
+    assert figure.axes[0].get_ylabel() == "B (nT)"
+    assert figure.axes[1].get_ylabel() == "Density (cm⁻³)"
+    assert figure.axes[2].get_ylabel() == "Ion velocity (km/s)"
+    assert figure.axes[3].get_ylabel() == "Electron temperature (eV)"
+
+
+def test_plot_mms_data_rejects_empty_products() -> None:
+    with pytest.raises(ValueError, match="No plot-able"):
+        plot_mms_data(MMSData(cadence="fast", series={}))
 
 
 def test_load_auto_prefers_burst_then_falls_back_to_fast() -> None:
