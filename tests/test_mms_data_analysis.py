@@ -296,6 +296,44 @@ def test_load_mms_data_defaults_to_gse() -> None:
     assert data.coordinates == "gse"
 
 
+def test_load_mms_data_propagates_explicit_gsm_to_loader() -> None:
+    requested: list[str] = []
+
+    def loader(
+        *, start: str, end: str, probe: int, cadence: str, coordinates: str
+    ) -> dict[str, str]:
+        requested.append(coordinates)
+        return {"magnetic_field": "mms1_fgm_b_gse_brst_l2_bvec"}
+
+    data = load_mms_data(
+        "2015-10-16 13:06:00",
+        "2015-10-16 13:07:00",
+        mode="brst",
+        coordinates="gsm",
+        loader=loader,
+    )
+
+    assert requested == ["gsm"]
+    assert data.coordinates == "gsm"
+
+
+def test_load_mms_data_preserves_positional_loader_slot() -> None:
+    def loader(
+        *, start: str, end: str, probe: int, cadence: str, coordinates: str
+    ) -> dict[str, str]:
+        return {"magnetic_field": "mms1_fgm_b_gse_brst_l2_bvec"}
+
+    data = load_mms_data(
+        "2015-10-16 13:06:00",
+        "2015-10-16 13:07:00",
+        1,
+        "brst",
+        loader,
+    )
+
+    assert data.coordinates == "gse"
+
+
 def test_load_mms_data_rejects_invalid_coordinates_before_loading() -> None:
     def loader(**_: object) -> dict[str, str]:
         pytest.fail("invalid coordinates must be rejected before loading")

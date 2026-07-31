@@ -102,8 +102,8 @@ def load_mms_data(
     end: str,
     probe: int = 1,
     mode: str = "auto",
-    coordinates: CoordinateSystem = "gse",
     loader: MMSLoader | None = None,
+    coordinates: CoordinateSystem = "gse",
 ) -> MMSData:
     """Load MMS magnetic field and ion/electron FPI moments.
 
