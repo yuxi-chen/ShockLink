@@ -315,6 +315,7 @@ def _metadata_text(metadata: object, field: str) -> str | None:
         )
     else:
         candidates = (
+            _nested_metadata(metadata, "plot_options", "yaxis_opt", "axis_subtitle"),
             metadata.get("units"),
             _nested_metadata(metadata, "data_att", "units"),
             _nested_metadata(metadata, "plot_options", "yaxis_opt", "units"),
@@ -334,6 +335,8 @@ def _nested_metadata(metadata: Mapping[str, object], *keys: str) -> object | Non
 def _axis_label(product: _TimeSeries, fallback_name: str, fallback_units: str) -> str:
     name = product.name or fallback_name
     units = product.units or fallback_units
+    if units.startswith("[") and units.endswith("]"):
+        return f"{name} {units}"
     return f"{name} ({units})" if units else name
 
 

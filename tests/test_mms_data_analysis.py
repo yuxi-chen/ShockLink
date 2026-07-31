@@ -93,7 +93,12 @@ def test_plot_mms_data_uses_pytplot_name_and_units_metadata(
         if metadata:
             return {
                 "data_att": {"units": "cm^-3"},
-                "plot_options": {"ytitle": "Ion number density"},
+                "plot_options": {
+                    "yaxis_opt": {
+                        "axis_label": "Ion number density",
+                        "axis_subtitle": "[cm^-3]",
+                    }
+                },
             }
         return product
 
@@ -103,7 +108,7 @@ def test_plot_mms_data_uses_pytplot_name_and_units_metadata(
         MMSData(cadence="fast", series={"ion_density": "density"})
     )
 
-    assert figure.axes[0].get_ylabel() == "Ion number density (cm^-3)"
+    assert figure.axes[0].get_ylabel() == "Ion number density [cm^-3]"
     assert figure.axes[0].get_legend().get_texts()[0].get_text() == "Ion number density"
 
 
