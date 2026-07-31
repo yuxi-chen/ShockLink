@@ -215,14 +215,12 @@ def plot_mms_data(data: MMSData):
     densities = [name for name in ("ion_density", "electron_density") if name in series]
     if densities:
         panels.append(lambda axis: _plot_density(axis, series, densities))
-    for species in ("ion", "electron"):
-        name = f"{species}_velocity"
-        if name in series:
-            panels.append(
-                lambda axis, name=name, species=species: _plot_vector(
-                    axis, series[name], f"{species.title()} velocity", "km/s"
-                )
+    if "ion_velocity" in series:
+        panels.append(
+            lambda axis: _plot_vector(
+                axis, series["ion_velocity"], "Ion velocity", "km/s"
             )
+        )
     for species in ("ion", "electron"):
         temperature = _total_temperature(series, species)
         if temperature is not None:

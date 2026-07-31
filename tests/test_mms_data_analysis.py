@@ -30,6 +30,7 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
         "ni": np.array([1.0, 2.0, 3.0]),
         "ne": np.array([4.0, 5.0, 6.0]),
         "vi": np.array([[10.0, 20.0, 30.0], [20.0, 40.0, 60.0], [30.0, 60.0, 90.0]]),
+        "ve": np.array([[40.0, 50.0, 60.0], [50.0, 60.0, 70.0], [60.0, 70.0, 80.0]]),
         "te_parallel": np.array([100.0, 200.0, 300.0]),
         "te_perpendicular": np.array([10.0, 20.0, 30.0]),
     }
@@ -48,6 +49,7 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
             "ion_density": "ni",
             "electron_density": "ne",
             "ion_velocity": "vi",
+            "electron_velocity": "ve",
             "electron_temperature_parallel": "te_parallel",
             "electron_temperature_perpendicular": "te_perpendicular",
         },
@@ -97,6 +99,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     assert figure.axes[1].get_ylabel() == "Density (cm⁻³)"
     assert figure.axes[2].get_ylabel() == "Ion velocity (km/s)"
     assert figure.axes[3].get_ylabel() == "Electron total temperature (eV)"
+    assert all("Electron velocity" not in axis.get_ylabel() for axis in figure.axes)
     np.testing.assert_allclose(figure.axes[3].lines[0].get_ydata(), [40.0, 80.0, 120.0])
 
 
