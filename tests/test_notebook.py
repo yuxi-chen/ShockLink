@@ -103,6 +103,32 @@ def test_mms_notebook_is_valid_clean_and_uses_public_example_api() -> None:
             assert cell.outputs == []
 
 
+def test_mms_notebook_guides_the_full_analysis_workflow() -> None:
+    notebook = nbformat.read(MMS_NOTEBOOK, as_version=4)
+    markdown = "\n".join(
+        cell.source for cell in notebook.cells if cell.cell_type == "markdown"
+    )
+
+    for heading in [
+        "## Requirements",
+        "## Parameters",
+        "## Download MMS data",
+        "## Inspect loaded products",
+        "## Summary statistics",
+        "## Plot data",
+        "## Troubleshooting",
+    ]:
+        assert heading in markdown
+
+    parameter_cell = next(
+        cell.source
+        for cell in notebook.cells
+        if cell.cell_type == "code" and "MODE = \"auto\"" in cell.source
+    )
+    for setting in ["START =", "END =", "PROBE =", "MODE ="]:
+        assert setting in parameter_cell
+
+
 def test_mms_notebook_imports_example_when_jupyter_starts_at_repository_root(
     monkeypatch,
 ) -> None:
