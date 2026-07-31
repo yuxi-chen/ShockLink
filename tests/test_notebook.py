@@ -1,5 +1,6 @@
 from pathlib import Path
 import ast
+import sys
 import tomllib
 
 import nbformat
@@ -100,3 +101,17 @@ def test_mms_notebook_is_valid_clean_and_uses_public_example_api() -> None:
         if cell.cell_type == "code":
             assert cell.execution_count is None
             assert cell.outputs == []
+
+
+def test_mms_notebook_imports_example_when_jupyter_starts_at_repository_root(
+    monkeypatch,
+) -> None:
+    notebook = nbformat.read(MMS_NOTEBOOK, as_version=4)
+    setup = next(cell.source for cell in notebook.cells if cell.cell_type == "code")
+    monkeypatch.chdir(ROOT)
+    monkeypatch.delitem(sys.modules, "mms_data_analysis", raising=False)
+
+    namespace: dict[str, object] = {}
+    exec(setup, namespace)
+
+    assert "load_mms_data" in namespace
