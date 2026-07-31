@@ -42,6 +42,7 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
     )
     return MMSData(
         cadence="brst",
+        probe=1,
         series={
             "magnetic_field": "b",
             "ion_density": "ni",
@@ -77,6 +78,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     figure = plot_mms_data(mms_data)
 
     assert len(figure.axes) == 4
+    assert figure._suptitle.get_text() == "MMS1 brst data"
     assert figure.get_size_inches().tolist() == [10.0, 6.0]
     time_formatter = figure.axes[-1].xaxis.get_major_formatter()
     assert isinstance(time_formatter, mdates.DateFormatter)
@@ -91,6 +93,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
         "red",
         "black",
     ]
+    assert all(line.get_linewidth() == 0.75 for axis in figure.axes for line in axis.lines)
     assert figure.axes[1].get_ylabel() == "Density (cm⁻³)"
     assert figure.axes[2].get_ylabel() == "Ion velocity (km/s)"
     assert figure.axes[3].get_ylabel() == "Electron total temperature (eV)"
@@ -122,7 +125,7 @@ def test_plot_mms_data_uses_pytplot_name_and_units_metadata(
         MMSData(cadence="fast", series={"ion_density": "density"})
     )
 
-    assert figure.axes[0].get_ylabel() == "Ion number density [cm^-3]"
+    assert figure.axes[0].get_ylabel() == "Density [cm^-3]"
     assert figure.axes[0].get_legend().get_texts()[0].get_text() == "Ion number density"
 
 
@@ -146,6 +149,7 @@ def test_load_auto_prefers_burst_then_falls_back_to_fast() -> None:
 
     assert requested == ["brst", "fast"]
     assert data.cadence == "fast"
+    assert data.probe == 1
     assert data.series == {"magnetic_field": "mms1_fgm_b_gse_fast_l2"}
 
 

@@ -19,6 +19,7 @@ import numpy as np
 
 Cadence = str
 MMSLoader = Callable[..., Mapping[str, str]]
+PLOT_LINE_WIDTH = 0.75
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,7 @@ class MMSData:
 
     cadence: Cadence
     series: Mapping[str, str]
+    probe: int | None = None
 
 
 @dataclass(frozen=True)
@@ -103,11 +105,11 @@ def load_mms_data(
     for cadence in cadences:
         series = dict(load(start=start, end=end, probe=probe, cadence=cadence))
         if _has_usable_series(series) or mode != "auto":
-            return MMSData(cadence=cadence, series=series)
+            return MMSData(cadence=cadence, series=series, probe=probe)
 
     # ``auto`` always has at least the two cadences above.  This makes the
     # return type explicit if a future cadence set becomes empty.
-    return MMSData(cadence="fast", series={})
+    return MMSData(cadence="fast", series={}, probe=probe)
 
 
 def _has_usable_series(series: Mapping[str, str]) -> bool:
@@ -249,7 +251,8 @@ def plot_mms_data(data: MMSData):
     flat_axes[-1].xaxis.set_major_locator(time_locator)
     flat_axes[-1].xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S", tz=UTC))
     flat_axes[-1].set_xlabel(f"Time (UTC)\n{_date_caption(series)}")
-    figure.suptitle(f"MMS {data.cadence} data")
+    spacecraft = f"MMS{data.probe}" if data.probe is not None else "MMS"
+    figure.suptitle(f"{spacecraft} {data.cadence} data")
     figure.tight_layout()
     return figure
 
@@ -398,7 +401,7 @@ def _nested_metadata(metadata: Mapping[str, object], *keys: str) -> object | Non
 
 
 def _axis_label(product: _TimeSeries, fallback_name: str, fallback_units: str) -> str:
-    name = product.name or fallback_name
+    name = fallback_name
     units = product.units or fallback_units
     if units.startswith("[") and units.endswith("]"):
         return f"{name} {units}"
@@ -413,6 +416,7 @@ def _plot_magnetic_field(axis: object, product: _TimeSeries) -> None:
             times,
             np.linalg.norm(values[:, :3], axis=1),
             color="black",
+            linewidth=PLOT_LINE_WIDTH,
             label=f"{product.name or 'B'} magnitude",
         )
 
@@ -424,7 +428,12 @@ def _plot_density(
 ) -> None:
     for name in names:
         product = series[name]
-        axis.plot(product.times, product.values, label=product.name or name.removesuffix("_density").title())
+        axis.plot(
+            product.times,
+            product.values,
+            linewidth=PLOT_LINE_WIDTH,
+            label=product.name or name.removesuffix("_density").title(),
+        )
     axis.set_ylabel(_axis_label(series[names[0]], "Density", "cm⁻³"))
 
 
@@ -432,7 +441,7 @@ def _plot_vector(axis: object, product: _TimeSeries, fallback_name: str, fallbac
     times, values = product.times, product.values
     label = product.name or fallback_name
     if values.ndim == 1:
-        axis.plot(times, values, label=label)
+        axis.plot(times, values, linewidth=PLOT_LINE_WIDTH, label=label)
     else:
         for index in range(min(values.shape[1], 3)):
             component = ("x", "y", "z")[index]
@@ -440,13 +449,19 @@ def _plot_vector(axis: object, product: _TimeSeries, fallback_name: str, fallbac
                 times,
                 values[:, index],
                 color=("blue", "green", "red")[index],
+                linewidth=PLOT_LINE_WIDTH,
                 label=f"{label} {component}",
             )
     axis.set_ylabel(_axis_label(product, fallback_name, fallback_units))
 
 
 def _plot_scalar(axis: object, product: _TimeSeries, fallback_name: str, fallback_units: str) -> None:
-    axis.plot(product.times, product.values, label=product.name or fallback_name)
+    axis.plot(
+        product.times,
+        product.values,
+        linewidth=PLOT_LINE_WIDTH,
+        label=product.name or fallback_name,
+    )
     axis.set_ylabel(_axis_label(product, fallback_name, fallback_units))
 
 
