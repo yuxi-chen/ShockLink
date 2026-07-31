@@ -234,12 +234,17 @@ def _convert_vector_coordinates(
         if source is None:
             continue
         destination = _converted_variable_name(source, coordinates)
-        result = cotrans(
-            name_in=source,
-            name_out=destination,
-            coord_in="gse",
-            coord_out=coordinates,
-        )
+        try:
+            result = cotrans(
+                name_in=source,
+                name_out=destination,
+                coord_in="gse",
+                coord_out=coordinates,
+            )
+        except Exception as error:
+            raise RuntimeError(
+                f"Could not convert MMS vector {source!r} from GSE to GSM."
+            ) from error
         if result != 1:
             raise RuntimeError(
                 f"Could not convert MMS vector {source!r} from GSE to GSM."

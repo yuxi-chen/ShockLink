@@ -434,3 +434,22 @@ def test_coordinate_conversion_reports_failed_product(
         _convert_vector_coordinates(
             {"ion_velocity": "mms1_dis_bulkv_gse_fast"}, "gsm"
         )
+
+
+def test_coordinate_conversion_wraps_cotrans_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pyspedas = ModuleType("pyspedas")
+
+    def cotrans(**_: str) -> int:
+        raise ValueError("missing transformation metadata")
+
+    pyspedas.cotrans = cotrans  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyspedas", pyspedas)
+
+    with pytest.raises(RuntimeError, match="mms1_fgm_b_gse_fast_l2_bvec") as error:
+        _convert_vector_coordinates(
+            {"magnetic_field": "mms1_fgm_b_gse_fast_l2_bvec"}, "gsm"
+        )
+
+    assert isinstance(error.value.__cause__, ValueError)
