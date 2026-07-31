@@ -45,6 +45,23 @@ checkpoints are not committed.
 
 ## Python scripts
 
+## MMS satellite-data analysis
+
+Install the optional MMS tools, then download and plot a short MMS interval.
+Automatic mode prefers burst data and uses fast survey data when burst is not
+available:
+
+```bash
+pip install -e ".[mms]"
+python examples/mms_data_analysis.py \
+  --start "2015-10-16 13:06:00" --end "2015-10-16 13:07:00" --probe 1 --mode auto
+```
+
+For interactive exploration, launch `jupyter lab examples/mms_data_analysis.ipynb`.
+The notebook exposes the time range, probe, and `auto`/`brst`/`fast` mode near
+the top, then uses the same public loading, summary, and plotting functions as
+the script.
+
 Read and summarize the sample:
 
 ```bash

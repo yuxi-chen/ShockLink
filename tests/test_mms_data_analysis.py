@@ -15,6 +15,7 @@ from mms_data_analysis import (
     MMSData,
     _load_pyspedas_products,
     load_mms_data,
+    parse_args,
     plot_mms_data,
     summarize_data,
 )
@@ -179,3 +180,23 @@ def test_default_loader_uses_fgm_survey_products_for_fast_mode(
     assert requests["fgm"]["data_rate"] == "srvy"
     assert requests["fpi"]["data_rate"] == "fast"
     assert series["magnetic_field"] == "mms1_fgm_b_gse_srvy_l2_bvec"
+
+
+def test_cli_parse_args_accepts_mms_interval_probe_and_cadence() -> None:
+    arguments = parse_args(
+        [
+            "--start",
+            "2015-10-16 13:06:00",
+            "--end",
+            "2015-10-16 13:07:00",
+            "--probe",
+            "3",
+            "--mode",
+            "fast",
+        ]
+    )
+
+    assert arguments.start == "2015-10-16 13:06:00"
+    assert arguments.end == "2015-10-16 13:07:00"
+    assert arguments.probe == 3
+    assert arguments.mode == "fast"
