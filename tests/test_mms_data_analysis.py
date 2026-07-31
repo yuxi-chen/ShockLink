@@ -73,6 +73,30 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     assert figure.axes[3].get_ylabel() == "Electron temperature (eV)"
 
 
+def test_plot_mms_data_uses_pytplot_name_and_units_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    product = SimpleNamespace(times=np.array([0.0, 1.0]), y=np.array([2.0, 3.0]))
+
+    def get_data(name: str, *, metadata: bool = False):
+        assert name == "density"
+        if metadata:
+            return {
+                "data_att": {"units": "cm^-3"},
+                "plot_options": {"ytitle": "Ion number density"},
+            }
+        return product
+
+    monkeypatch.setitem(sys.modules, "pytplot", SimpleNamespace(get_data=get_data))
+
+    figure = plot_mms_data(
+        MMSData(cadence="fast", series={"ion_density": "density"})
+    )
+
+    assert figure.axes[0].get_ylabel() == "Ion number density (cm^-3)"
+    assert figure.axes[0].get_legend().get_texts()[0].get_text() == "Ion number density"
+
+
 def test_plot_mms_data_rejects_empty_products() -> None:
     with pytest.raises(ValueError, match="No plot-able"):
         plot_mms_data(MMSData(cadence="fast", series={}))
