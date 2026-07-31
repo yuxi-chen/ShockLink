@@ -94,6 +94,7 @@ def test_mms_notebook_is_valid_clean_and_uses_public_example_api() -> None:
     ast.parse(code)
     assert "from mms_data_analysis import" in code
     assert "load_mms_data(" in code
+    assert "coordinates=COORDINATES" in code
     assert "summarize_data(" in code
     assert "plot_mms_data(" in code
     assert 'print(f"{name}: {series}")' in code
@@ -127,8 +128,10 @@ def test_mms_notebook_guides_the_full_analysis_workflow() -> None:
         for cell in notebook.cells
         if cell.cell_type == "code" and "MODE = \"auto\"" in cell.source
     )
-    for setting in ["START =", "END =", "PROBE =", "MODE ="]:
+    for setting in ["START =", "END =", "PROBE =", "MODE =", "COORDINATES ="]:
         assert setting in parameter_cell
+
+    assert "GSM" in markdown
 
 
 def test_mms_notebook_imports_example_when_jupyter_starts_at_repository_root(
