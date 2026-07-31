@@ -191,6 +191,7 @@ def plot_mms_data(data: MMSData):
     The figure contains only panels whose source products are available.
     """
     try:
+        import matplotlib.dates as mdates
         import matplotlib.pyplot as plt
     except ImportError as error:  # pragma: no cover - optional dependency
         raise ImportError(
@@ -242,6 +243,9 @@ def plot_mms_data(data: MMSData):
         draw_panel(axis)
         axis.legend(loc="best")
         axis.grid(visible=True, alpha=0.3)
+    time_locator = mdates.AutoDateLocator()
+    flat_axes[-1].xaxis.set_major_locator(time_locator)
+    flat_axes[-1].xaxis.set_major_formatter(mdates.ConciseDateFormatter(time_locator))
     flat_axes[-1].set_xlabel("Time")
     figure.suptitle(f"MMS {data.cadence} data")
     figure.tight_layout()

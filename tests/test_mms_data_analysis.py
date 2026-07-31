@@ -6,6 +6,7 @@ from types import ModuleType, SimpleNamespace
 
 import matplotlib
 matplotlib.use("Agg")
+from matplotlib import dates as mdates
 import numpy as np
 import pytest
 
@@ -75,6 +76,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
 
     assert len(figure.axes) == 4
     assert figure.get_size_inches().tolist() == [14.0, 16.0]
+    assert isinstance(figure.axes[-1].xaxis.get_major_formatter(), mdates.ConciseDateFormatter)
     assert np.issubdtype(figure.axes[0].lines[0].get_xdata().dtype, np.datetime64)
     assert figure.axes[0].lines[0].get_xdata()[0] == np.datetime64("1970-01-01T00:00:00")
     assert figure.axes[0].get_ylabel() == "B (nT)"
