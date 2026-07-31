@@ -24,3 +24,4 @@ venv/
 
 # Large local simulation outputs
 data/*.dat
+examples/pydata/

@@ -7,7 +7,7 @@ import nbformat
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOK = ROOT / "examples/extract_shock.ipynb"
-MMS_NOTEBOOK = ROOT / "examples/mms_data_analysis.ipynb"
+MMS_NOTEBOOK = ROOT / "examples/mms_example.ipynb"
 
 
 def _notebook() -> nbformat.NotebookNode:
@@ -96,6 +96,8 @@ def test_mms_notebook_is_valid_clean_and_uses_public_example_api() -> None:
     assert "load_mms_data(" in code
     assert "summarize_data(" in code
     assert "plot_mms_data(" in code
+    assert 'print(f"{name}: {series}")' in code
+    assert "series.label" not in code
     assert "--start" not in code
     for cell in notebook.cells:
         if cell.cell_type == "code":
