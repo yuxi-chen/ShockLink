@@ -75,10 +75,11 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     figure = plot_mms_data(mms_data)
 
     assert len(figure.axes) == 4
-    assert figure.get_size_inches().tolist() == [14.0, 16.0]
+    assert figure.get_size_inches().tolist() == [12.0, 8.0]
     time_formatter = figure.axes[-1].xaxis.get_major_formatter()
     assert isinstance(time_formatter, mdates.DateFormatter)
     assert time_formatter.fmt == "%H:%M:%S"
+    assert figure.axes[-1].get_xlabel() == "Time (UTC)\n1970 Jan 01"
     assert np.issubdtype(figure.axes[0].lines[0].get_xdata().dtype, np.datetime64)
     assert figure.axes[0].lines[0].get_xdata()[0] == np.datetime64("1970-01-01T00:00:00")
     assert figure.axes[0].get_ylabel() == "B (nT)"
@@ -184,6 +185,13 @@ def test_default_loader_uses_fgm_survey_products_for_fast_mode(
     projects.mms = mms  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "pyspedas", ModuleType("pyspedas"))
     monkeypatch.setitem(sys.modules, "pyspedas.projects", projects)
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(
+            get_data=lambda _: SimpleNamespace(times=np.array([1_445_000_800.0]))
+        ),
+    )
 
     series = _load_pyspedas_products(
         start="2015-10-16 13:06:00", end="2015-10-16 13:07:00", probe=1, cadence="fast"
@@ -192,6 +200,31 @@ def test_default_loader_uses_fgm_survey_products_for_fast_mode(
     assert requests["fgm"]["data_rate"] == "srvy"
     assert requests["fpi"]["data_rate"] == "fast"
     assert series["magnetic_field"] == "mms1_fgm_b_gse_srvy_l2_bvec"
+
+
+def test_default_loader_discards_products_outside_requested_interval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mms = ModuleType("mms")
+    mms.fgm = lambda **_: ["mms1_fgm_b_gse_srvy_l2_bvec"]  # type: ignore[attr-defined]
+    mms.fpi = lambda **_: []  # type: ignore[attr-defined]
+    projects = ModuleType("pyspedas.projects")
+    projects.mms = mms  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyspedas", ModuleType("pyspedas"))
+    monkeypatch.setitem(sys.modules, "pyspedas.projects", projects)
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(
+            get_data=lambda _: SimpleNamespace(times=np.array([1_445_000_800.0]))
+        ),
+    )
+
+    series = _load_pyspedas_products(
+        start="2018-12-19 19:40:00", end="2018-12-19 19:52:00", probe=1, cadence="fast"
+    )
+
+    assert series == {}
 
 
 def test_cli_parse_args_accepts_mms_interval_probe_and_cadence() -> None:

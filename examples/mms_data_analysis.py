@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC
+from datetime import UTC, datetime
 from pprint import pprint
 import sys
 
@@ -162,7 +162,13 @@ def _load_pyspedas_products(
         "ion_temperature_perpendicular": f"{prefix}dis_tempperp_{cadence}",
         "electron_temperature_perpendicular": f"{prefix}des_tempperp_{cadence}",
     }
-    return {name: variable for name, variable in expected.items() if variable in loaded}
+    start_time = _parse_utc_time(start)
+    end_time = _parse_utc_time(end)
+    return {
+        name: variable
+        for name, variable in expected.items()
+        if variable in loaded and _has_samples_in_interval(variable, start_time, end_time)
+    }
 
 
 def summarize_data(data: MMSData) -> dict[str, dict[str, float] | dict[str, dict[str, float]]]:
@@ -237,7 +243,7 @@ def plot_mms_data(data: MMSData):
         1,
         sharex=True,
         squeeze=False,
-        figsize=(14, max(6, 4 * len(panels))),
+        figsize=(12, max(6, 2 * len(panels))),
     )
     flat_axes = axes[:, 0]
     for axis, draw_panel in zip(flat_axes, panels, strict=True):
@@ -247,7 +253,7 @@ def plot_mms_data(data: MMSData):
     time_locator = mdates.AutoDateLocator()
     flat_axes[-1].xaxis.set_major_locator(time_locator)
     flat_axes[-1].xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S", tz=UTC))
-    flat_axes[-1].set_xlabel("Time (UTC)")
+    flat_axes[-1].set_xlabel(f"Time (UTC)\n{_date_caption(series)}")
     figure.suptitle(f"MMS {data.cadence} data")
     figure.tight_layout()
     return figure
@@ -293,6 +299,40 @@ def _to_datetime64(times: object) -> np.ndarray:
     if np.issubdtype(timestamps.dtype, np.datetime64):
         return timestamps
     return timestamps.astype("datetime64[s]")
+
+
+def _parse_utc_time(value: str) -> float:
+    """Parse the ISO-like time strings accepted by the MMS example."""
+    timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=UTC)
+    return timestamp.timestamp()
+
+
+def _has_samples_in_interval(variable: str, start: float, end: float) -> bool:
+    """Return whether a pytplot variable has data inside the requested interval."""
+    from pytplot import get_data
+
+    product = get_data(variable)
+    if product is None:
+        return False
+    try:
+        times = product.times
+    except AttributeError:
+        times = product[0]
+    timestamps = np.asarray(times)
+    if not len(timestamps):
+        return False
+    if np.issubdtype(timestamps.dtype, np.datetime64):
+        timestamps = timestamps.astype("datetime64[ns]").astype(np.int64) / 1_000_000_000
+    return bool(np.any((timestamps >= start) & (timestamps <= end)))
+
+
+def _date_caption(series: Mapping[str, _TimeSeries]) -> str:
+    """Format the first plotted UTC date in the same compact style as MMS plots."""
+    earliest = min(np.min(product.times) for product in series.values())
+    day = np.datetime_as_string(earliest.astype("datetime64[D]"), unit="D")
+    return datetime.strptime(day, "%Y-%m-%d").strftime("%Y %b %d")
 
 
 def _statistics(values: np.ndarray) -> dict[str, float]:
