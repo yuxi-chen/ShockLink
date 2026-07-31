@@ -80,10 +80,13 @@ def _load_pyspedas_products(
 
     trange = [start, end]
     probe_id = str(probe)
+    # FPI's survey product is called ``fast``; the corresponding FGM survey
+    # product is named ``srvy`` in the MMS archive.
+    fgm_cadence = "srvy" if cadence == "fast" else cadence
     fgm_variables = mms.fgm(
         trange=trange,
         probe=probe_id,
-        data_rate=cadence,
+        data_rate=fgm_cadence,
         level="l2",
         varformat="*_fgm_b_gse_*",
         time_clip=True,
@@ -100,7 +103,7 @@ def _load_pyspedas_products(
     loaded = set(fgm_variables or []) | set(fpi_variables or [])
     prefix = f"mms{probe_id}_"
     expected = {
-        "magnetic_field": f"{prefix}fgm_b_gse_{cadence}_l2_bvec",
+        "magnetic_field": f"{prefix}fgm_b_gse_{fgm_cadence}_l2_bvec",
         "ion_density": f"{prefix}dis_numberdensity_{cadence}",
         "electron_density": f"{prefix}des_numberdensity_{cadence}",
         "ion_velocity": f"{prefix}dis_bulkv_gse_{cadence}",

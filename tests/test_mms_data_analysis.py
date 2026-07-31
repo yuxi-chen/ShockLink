@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import matplotlib
 matplotlib.use("Agg")
@@ -11,7 +11,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples"))
 
-from mms_data_analysis import MMSData, load_mms_data, plot_mms_data, summarize_data
+from mms_data_analysis import (
+    MMSData,
+    _load_pyspedas_products,
+    load_mms_data,
+    plot_mms_data,
+    summarize_data,
+)
 
 
 @pytest.fixture
@@ -143,3 +149,33 @@ def test_load_burst_does_not_fall_back_to_fast() -> None:
 def test_load_rejects_invalid_mode(mode: str) -> None:
     with pytest.raises(ValueError, match="mode"):
         load_mms_data("2015-10-16", "2015-10-17", mode=mode, loader=lambda **_: {})
+
+
+def test_default_loader_uses_fgm_survey_products_for_fast_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests: dict[str, dict[str, object]] = {}
+    mms = ModuleType("mms")
+
+    def fgm(**kwargs: object) -> list[str]:
+        requests["fgm"] = kwargs
+        return ["mms1_fgm_b_gse_srvy_l2_bvec"]
+
+    def fpi(**kwargs: object) -> list[str]:
+        requests["fpi"] = kwargs
+        return ["mms1_dis_numberdensity_fast"]
+
+    mms.fgm = fgm  # type: ignore[attr-defined]
+    mms.fpi = fpi  # type: ignore[attr-defined]
+    projects = ModuleType("pyspedas.projects")
+    projects.mms = mms  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyspedas", ModuleType("pyspedas"))
+    monkeypatch.setitem(sys.modules, "pyspedas.projects", projects)
+
+    series = _load_pyspedas_products(
+        start="2015-10-16 13:06:00", end="2015-10-16 13:07:00", probe=1, cadence="fast"
+    )
+
+    assert requests["fgm"]["data_rate"] == "srvy"
+    assert requests["fpi"]["data_rate"] == "fast"
+    assert series["magnetic_field"] == "mms1_fgm_b_gse_srvy_l2_bvec"
