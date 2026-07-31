@@ -13,11 +13,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pprint import pprint
 import sys
+from typing import Literal
 
 import numpy as np
 
 
 Cadence = str
+CoordinateSystem = Literal["gse", "gsm"]
 MMSLoader = Callable[..., Mapping[str, str]]
 PLOT_LINE_WIDTH = 0.75
 
@@ -29,6 +31,7 @@ class MMSData:
     cadence: Cadence
     series: Mapping[str, str]
     probe: int | None = None
+    coordinates: CoordinateSystem = "gse"
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="auto",
         help="Cadence: auto prefers burst and falls back to fast (default).",
     )
+    parser.add_argument(
+        "--coordinates",
+        choices=("gse", "gsm"),
+        default="gse",
+        help="Vector coordinates: GSE (default) or time-dependent GSM.",
+    )
     return parser.parse_args(argv)
 
 
@@ -61,7 +70,11 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parse_args(argv)
     try:
         data = load_mms_data(
-            arguments.start, arguments.end, probe=arguments.probe, mode=arguments.mode
+            arguments.start,
+            arguments.end,
+            probe=arguments.probe,
+            mode=arguments.mode,
+            coordinates=arguments.coordinates,
         )
     except Exception as error:
         print(f"Could not download MMS data: {error}", file=sys.stderr)
@@ -89,6 +102,7 @@ def load_mms_data(
     end: str,
     probe: int = 1,
     mode: str = "auto",
+    coordinates: CoordinateSystem = "gse",
     loader: MMSLoader | None = None,
 ) -> MMSData:
     """Load MMS magnetic field and ion/electron FPI moments.
@@ -99,17 +113,34 @@ def load_mms_data(
     """
     if mode not in {"auto", "brst", "fast"}:
         raise ValueError("mode must be one of 'auto', 'brst', or 'fast'")
+    if coordinates not in {"gse", "gsm"}:
+        raise ValueError("coordinates must be either 'gse' or 'gsm'")
 
     load = loader or _load_pyspedas_products
     cadences = ("brst", "fast") if mode == "auto" else (mode,)
     for cadence in cadences:
-        series = dict(load(start=start, end=end, probe=probe, cadence=cadence))
+        series = dict(
+            load(
+                start=start,
+                end=end,
+                probe=probe,
+                cadence=cadence,
+                coordinates=coordinates,
+            )
+        )
         if _has_usable_series(series) or mode != "auto":
-            return MMSData(cadence=cadence, series=series, probe=probe)
+            return MMSData(
+                cadence=cadence,
+                series=series,
+                probe=probe,
+                coordinates=coordinates,
+            )
 
     # ``auto`` always has at least the two cadences above.  This makes the
     # return type explicit if a future cadence set becomes empty.
-    return MMSData(cadence="fast", series={}, probe=probe)
+    return MMSData(
+        cadence="fast", series={}, probe=probe, coordinates=coordinates
+    )
 
 
 def _has_usable_series(series: Mapping[str, str]) -> bool:
@@ -117,7 +148,12 @@ def _has_usable_series(series: Mapping[str, str]) -> bool:
 
 
 def _load_pyspedas_products(
-    *, start: str, end: str, probe: int, cadence: Cadence
+    *,
+    start: str,
+    end: str,
+    probe: int,
+    cadence: Cadence,
+    coordinates: CoordinateSystem = "gse",
 ) -> Mapping[str, str]:
     """Load the requested cadence and return the available moment variables."""
     try:

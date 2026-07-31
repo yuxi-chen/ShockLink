@@ -146,7 +146,9 @@ def test_plot_mms_data_rejects_empty_products() -> None:
 def test_load_auto_prefers_burst_then_falls_back_to_fast() -> None:
     requested: list[str] = []
 
-    def loader(*, start: str, end: str, probe: int, cadence: str) -> dict[str, str]:
+    def loader(
+        *, start: str, end: str, probe: int, cadence: str, coordinates: str
+    ) -> dict[str, str]:
         requested.append(cadence)
         return {} if cadence == "brst" else {"magnetic_field": "mms1_fgm_b_gse_fast_l2"}
 
@@ -165,7 +167,9 @@ def test_load_auto_prefers_burst_then_falls_back_to_fast() -> None:
 def test_load_burst_does_not_fall_back_to_fast() -> None:
     requested: list[str] = []
 
-    def loader(*, start: str, end: str, probe: int, cadence: str) -> dict[str, str]:
+    def loader(
+        *, start: str, end: str, probe: int, cadence: str, coordinates: str
+    ) -> dict[str, str]:
         requested.append(cadence)
         return {}
 
@@ -260,6 +264,8 @@ def test_cli_parse_args_accepts_mms_interval_probe_and_cadence() -> None:
             "3",
             "--mode",
             "fast",
+            "--coordinates",
+            "gsm",
         ]
     )
 
@@ -267,3 +273,45 @@ def test_cli_parse_args_accepts_mms_interval_probe_and_cadence() -> None:
     assert arguments.end == "2015-10-16 13:07:00"
     assert arguments.probe == 3
     assert arguments.mode == "fast"
+    assert arguments.coordinates == "gsm"
+
+
+def test_load_mms_data_defaults_to_gse() -> None:
+    requested: list[str] = []
+
+    def loader(
+        *, start: str, end: str, probe: int, cadence: str, coordinates: str
+    ) -> dict[str, str]:
+        requested.append(coordinates)
+        return {"magnetic_field": "mms1_fgm_b_gse_brst_l2_bvec"}
+
+    data = load_mms_data(
+        "2015-10-16 13:06:00",
+        "2015-10-16 13:07:00",
+        mode="brst",
+        loader=loader,
+    )
+
+    assert requested == ["gse"]
+    assert data.coordinates == "gse"
+
+
+def test_load_mms_data_rejects_invalid_coordinates_before_loading() -> None:
+    def loader(**_: object) -> dict[str, str]:
+        pytest.fail("invalid coordinates must be rejected before loading")
+
+    with pytest.raises(ValueError, match="coordinates"):
+        load_mms_data(
+            "2015-10-16",
+            "2015-10-17",
+            coordinates="sm",
+            loader=loader,
+        )
+
+
+def test_cli_coordinates_default_to_gse() -> None:
+    arguments = parse_args(
+        ["--start", "2015-10-16", "--end", "2015-10-17"]
+    )
+
+    assert arguments.coordinates == "gse"
