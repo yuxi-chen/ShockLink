@@ -92,7 +92,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     assert figure.axes[-1].get_xlabel() == "Time (UTC)\n1970 Jan 01"
     assert np.issubdtype(figure.axes[0].lines[0].get_xdata().dtype, np.datetime64)
     assert figure.axes[0].lines[0].get_xdata()[0] == np.datetime64("1970-01-01T00:00:00")
-    assert figure.axes[0].get_ylabel() == "B (nT)"
+    assert figure.axes[0].get_ylabel() == r"$B$ [nT]"
     assert [line.get_color() for line in figure.axes[0].lines] == [
         "blue",
         "green",
@@ -100,11 +100,11 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
         "black",
     ]
     assert all(line.get_linewidth() == 0.75 for axis in figure.axes for line in axis.lines)
-    assert figure.axes[1].get_ylabel() == "n [/cm^3]"
+    assert figure.axes[1].get_ylabel() == r"$n$ [/cm$^3$]"
     assert len(figure.axes[1].lines) == 1
-    assert figure.axes[2].get_ylabel() == "V_i [km/s]"
-    assert figure.axes[3].get_ylabel() == "T_i [eV]"
-    assert figure.axes[4].get_ylabel() == "T_e [eV]"
+    assert figure.axes[2].get_ylabel() == r"$V_i$ [km/s]"
+    assert figure.axes[3].get_ylabel() == r"$T_i$ [eV]"
+    assert figure.axes[4].get_ylabel() == r"$T_e$ [eV]"
     assert all("Electron velocity" not in axis.get_ylabel() for axis in figure.axes)
     np.testing.assert_allclose(figure.axes[4].lines[0].get_ydata(), [40.0, 80.0, 120.0])
 
@@ -134,7 +134,7 @@ def test_plot_mms_data_uses_pytplot_name_and_units_metadata(
         MMSData(cadence="fast", series={"ion_density": "density"})
     )
 
-    assert figure.axes[0].get_ylabel() == "n [/cm^3]"
+    assert figure.axes[0].get_ylabel() == r"$n$ [/cm$^3$]"
     assert figure.axes[0].get_legend().get_texts()[0].get_text() == "Ion number density"
 
 

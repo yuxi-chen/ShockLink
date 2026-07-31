@@ -217,7 +217,7 @@ def plot_mms_data(data: MMSData):
     if "ion_velocity" in series:
         panels.append(
             lambda axis: _plot_vector(
-                axis, series["ion_velocity"], "V_i", "[km/s]"
+                axis, series["ion_velocity"], r"$V_i$", "[km/s]"
             )
         )
     for species, symbol in (("ion", "i"), ("electron", "e")):
@@ -225,7 +225,7 @@ def plot_mms_data(data: MMSData):
         if temperature is not None:
             panels.append(
                 lambda axis, temperature=temperature, symbol=symbol: _plot_scalar(
-                    axis, temperature, f"T_{symbol}", "[eV]"
+                    axis, temperature, rf"$T_{symbol}$", "[eV]"
                 )
             )
 
@@ -406,7 +406,7 @@ def _axis_label(product: _TimeSeries, fallback_name: str, fallback_units: str) -
 
 
 def _plot_magnetic_field(axis: object, product: _TimeSeries) -> None:
-    _plot_vector(axis, product, "B", "nT")
+    _plot_vector(axis, product, r"$B$", "[nT]")
     times, values = product.times, product.values
     if values.ndim == 2 and values.shape[1] >= 3:
         axis.plot(
@@ -428,7 +428,7 @@ def _plot_density(
         linewidth=PLOT_LINE_WIDTH,
         label=product.name or "Ion density",
     )
-    axis.set_ylabel("n [/cm^3]")
+    axis.set_ylabel(r"$n$ [/cm$^3$]")
 
 
 def _plot_vector(axis: object, product: _TimeSeries, fallback_name: str, fallback_units: str) -> None:
