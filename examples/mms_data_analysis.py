@@ -90,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         print(
             f"Loaded MMS{arguments.probe} {data.cadence} data "
-            f"({data.coordinates.upper()})."
+            f"in {data.coordinates.upper()}."
         )
         pprint(summarize_data(data))
         figure = plot_mms_data(data)
