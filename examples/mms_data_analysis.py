@@ -88,7 +88,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        print(f"Loaded MMS{arguments.probe} {data.cadence} data.")
+        print(
+            f"Loaded MMS{arguments.probe} {data.cadence} data "
+            f"({data.coordinates.upper()})."
+        )
         pprint(summarize_data(data))
         figure = plot_mms_data(data)
         figure.show()
@@ -262,7 +265,8 @@ def summarize_data(data: MMSData) -> dict[str, dict[str, float] | dict[str, dict
     """Return finite-value statistics for each loaded MMS time series.
 
     Scalar products are summarized directly.  Vector products are summarized
-    by their GSE ``x``, ``y``, and ``z`` components.
+    by their ``x``, ``y``, and ``z`` components in the selected coordinate
+    system.
     """
     summary: dict[str, dict[str, float] | dict[str, dict[str, float]]] = {}
     for name, product in _resolve_series(data).items():
@@ -334,7 +338,9 @@ def plot_mms_data(data: MMSData):
     flat_axes[-1].xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S", tz=UTC))
     flat_axes[-1].set_xlabel(f"Time (UTC)\n{_date_caption(series)}")
     spacecraft = f"MMS{data.probe}" if data.probe is not None else "MMS"
-    figure.suptitle(f"{spacecraft} {data.cadence} data")
+    figure.suptitle(
+        f"{spacecraft} {data.cadence} data ({data.coordinates.upper()})"
+    )
     figure.tight_layout()
     return figure
 

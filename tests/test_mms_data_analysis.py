@@ -86,7 +86,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     figure = plot_mms_data(mms_data)
 
     assert len(figure.axes) == 5
-    assert figure._suptitle.get_text() == "MMS1 brst data"
+    assert figure._suptitle.get_text() == "MMS1 brst data (GSE)"
     assert figure.get_size_inches().tolist() == [10.0, 7.5]
     time_formatter = figure.axes[-1].xaxis.get_major_formatter()
     assert isinstance(time_formatter, mdates.DateFormatter)
@@ -109,6 +109,19 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     assert figure.axes[4].get_ylabel() == r"$T_e$ [eV]"
     assert all("Electron velocity" not in axis.get_ylabel() for axis in figure.axes)
     np.testing.assert_allclose(figure.axes[4].lines[0].get_ydata(), [40.0, 80.0, 120.0])
+
+
+def test_plot_mms_data_title_shows_gsm_coordinates(mms_data: MMSData) -> None:
+    gsm_data = MMSData(
+        cadence=mms_data.cadence,
+        probe=mms_data.probe,
+        series=mms_data.series,
+        coordinates="gsm",
+    )
+
+    figure = plot_mms_data(gsm_data)
+
+    assert figure._suptitle.get_text() == "MMS1 brst data (GSM)"
 
 
 def test_plot_mms_data_uses_pytplot_name_and_units_metadata(
