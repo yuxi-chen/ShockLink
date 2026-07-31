@@ -14,6 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples"))
 
 from mms_data_analysis import (
     MMSData,
+    _convert_vector_coordinates,
+    _converted_variable_name,
     _load_pyspedas_products,
     load_mms_data,
     parse_args,
@@ -353,3 +355,82 @@ def test_cli_coordinates_default_to_gse() -> None:
     )
 
     assert arguments.coordinates == "gse"
+
+
+def test_default_loader_converts_all_vectors_to_gsm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transformed: list[dict[str, str]] = []
+    mms = ModuleType("mms")
+    mms.fgm = lambda **_: ["mms1_fgm_b_gse_srvy_l2_bvec"]  # type: ignore[attr-defined]
+    mms.fpi = lambda **_: [  # type: ignore[attr-defined]
+        "mms1_dis_numberdensity_fast",
+        "mms1_dis_bulkv_gse_fast",
+        "mms1_des_bulkv_gse_fast",
+    ]
+
+    def cotrans(**kwargs: str) -> int:
+        transformed.append(kwargs)
+        return 1
+
+    pyspedas = ModuleType("pyspedas")
+    pyspedas.cotrans = cotrans  # type: ignore[attr-defined]
+    projects = ModuleType("pyspedas.projects")
+    projects.mms = mms  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyspedas", pyspedas)
+    monkeypatch.setitem(sys.modules, "pyspedas.projects", projects)
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(
+            get_data=lambda _: SimpleNamespace(times=np.array([1_545_248_400.0]))
+        ),
+    )
+
+    series = _load_pyspedas_products(
+        start="2018-12-19 19:40:00",
+        end="2018-12-19 19:52:00",
+        probe=1,
+        cadence="fast",
+        coordinates="gsm",
+    )
+
+    assert series == {
+        "magnetic_field": "mms1_fgm_b_gsm_srvy_l2_bvec",
+        "ion_density": "mms1_dis_numberdensity_fast",
+        "ion_velocity": "mms1_dis_bulkv_gsm_fast",
+        "electron_velocity": "mms1_des_bulkv_gsm_fast",
+    }
+    assert [call["name_in"] for call in transformed] == [
+        "mms1_fgm_b_gse_srvy_l2_bvec",
+        "mms1_dis_bulkv_gse_fast",
+        "mms1_des_bulkv_gse_fast",
+    ]
+    assert all(call["coord_in"] == "gse" for call in transformed)
+    assert all(call["coord_out"] == "gsm" for call in transformed)
+
+
+def test_gse_variable_name_falls_back_to_suffix_without_coordinate_token() -> None:
+    assert _converted_variable_name("custom_vector", "gsm") == "custom_vector_gsm"
+
+
+def test_gse_coordinate_conversion_is_a_noop() -> None:
+    series = {
+        "magnetic_field": "mms1_fgm_b_gse_srvy_l2_bvec",
+        "ion_velocity": "mms1_dis_bulkv_gse_fast",
+    }
+
+    assert _convert_vector_coordinates(series, "gse") == series
+
+
+def test_coordinate_conversion_reports_failed_product(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pyspedas = ModuleType("pyspedas")
+    pyspedas.cotrans = lambda **_: 0  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyspedas", pyspedas)
+
+    with pytest.raises(RuntimeError, match="mms1_dis_bulkv_gse_fast"):
+        _convert_vector_coordinates(
+            {"ion_velocity": "mms1_dis_bulkv_gse_fast"}, "gsm"
+        )

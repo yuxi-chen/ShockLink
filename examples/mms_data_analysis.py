@@ -22,6 +22,7 @@ Cadence = str
 CoordinateSystem = Literal["gse", "gsm"]
 MMSLoader = Callable[..., Mapping[str, str]]
 PLOT_LINE_WIDTH = 0.75
+VECTOR_SERIES = ("magnetic_field", "ion_velocity", "electron_velocity")
 
 
 @dataclass(frozen=True)
@@ -202,11 +203,49 @@ def _load_pyspedas_products(
     }
     start_time = _parse_utc_time(start)
     end_time = _parse_utc_time(end)
-    return {
+    series = {
         name: variable
         for name, variable in expected.items()
         if variable in loaded and _has_samples_in_interval(variable, start_time, end_time)
     }
+    return _convert_vector_coordinates(series, coordinates)
+
+
+def _converted_variable_name(variable: str, coordinates: CoordinateSystem) -> str:
+    """Return a deterministic output name for a coordinate conversion."""
+    token = "_gse_"
+    if token in variable:
+        return variable.replace(token, f"_{coordinates}_", 1)
+    return f"{variable}_{coordinates}"
+
+
+def _convert_vector_coordinates(
+    series: Mapping[str, str], coordinates: CoordinateSystem
+) -> dict[str, str]:
+    """Convert loaded GSE vectors to the requested coordinate system."""
+    converted = dict(series)
+    if coordinates == "gse":
+        return converted
+
+    from pyspedas import cotrans
+
+    for product_name in VECTOR_SERIES:
+        source = converted.get(product_name)
+        if source is None:
+            continue
+        destination = _converted_variable_name(source, coordinates)
+        result = cotrans(
+            name_in=source,
+            name_out=destination,
+            coord_in="gse",
+            coord_out=coordinates,
+        )
+        if result != 1:
+            raise RuntimeError(
+                f"Could not convert MMS vector {source!r} from GSE to GSM."
+            )
+        converted[product_name] = destination
+    return converted
 
 
 def summarize_data(data: MMSData) -> dict[str, dict[str, float] | dict[str, dict[str, float]]]:
