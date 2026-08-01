@@ -23,6 +23,7 @@ CoordinateSystem = Literal["gse", "gsm"]
 MMSLoader = Callable[..., Mapping[str, str]]
 PLOT_LINE_WIDTH = 0.75
 VECTOR_SERIES = ("magnetic_field", "ion_velocity", "electron_velocity")
+EARTH_RADIUS_KM = 6371.2
 
 
 @dataclass(frozen=True)
@@ -315,6 +316,10 @@ def average_plotted_values(data: MMSData) -> dict[str, float]:
             averages["magnetic_field_magnitude"] = _finite_mean(
                 np.linalg.norm(product.values[:, :3], axis=1)
             )
+    position = _mean_position_earth_radii(series)
+    if position is not None:
+        for component, value in zip(("x", "y", "z"), position, strict=True):
+            averages[f"satellite_location_{component}"] = float(value)
     for species in ("ion", "electron"):
         product = _total_temperature(series, species)
         if product is not None:
@@ -463,6 +468,16 @@ def _date_caption(series: Mapping[str, _TimeSeries]) -> str:
 
 
 def _position_caption(series: Mapping[str, _TimeSeries], spacecraft: str) -> str | None:
+    mean = _mean_position_earth_radii(series)
+    if mean is None:
+        return None
+    return (
+        f"{spacecraft} position (GSM): "
+        f"({mean[0]:.2f}, {mean[1]:.2f}, {mean[2]:.2f}) $R_E$"
+    )
+
+
+def _mean_position_earth_radii(series: Mapping[str, _TimeSeries]) -> np.ndarray | None:
     position = series.get("satellite_location")
     if position is None or position.values.ndim != 2 or position.values.shape[1] < 3:
         return None
@@ -470,12 +485,7 @@ def _position_caption(series: Mapping[str, _TimeSeries], spacecraft: str) -> str
     finite = np.all(np.isfinite(values), axis=1)
     if not np.any(finite):
         return None
-    mean = np.mean(values[finite], axis=0)
-    return (
-        f"{spacecraft} position (GSM): "
-        f"({mean[0]:.2f}, {mean[1]:.2f}, {mean[2]:.2f}) "
-        f"{(position.units or 'km').strip('[]')}"
-    )
+    return np.mean(values[finite], axis=0) / EARTH_RADIUS_KM
 
 
 def _total_temperature(

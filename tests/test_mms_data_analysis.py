@@ -34,7 +34,9 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
         "ne": np.array([4.0, 5.0, 6.0]),
         "vi": np.array([[10.0, 20.0, 30.0], [20.0, 40.0, 60.0], [30.0, 60.0, 90.0]]),
         "ve": np.array([[40.0, 50.0, 60.0], [50.0, 60.0, 70.0], [60.0, 70.0, 80.0]]),
-        "location": np.array([[2.0, -1.0, 0.5], [2.0, -1.0, 0.5], [2.0, -1.0, 0.5]]),
+        "location": np.array(
+            [[6371.2, -3185.6, 637.12], [6371.2, -3185.6, 637.12], [6371.2, -3185.6, 637.12]]
+        ),
         "ti_parallel": np.array([300.0, 600.0, 900.0]),
         "ti_perpendicular": np.array([30.0, 60.0, 90.0]),
         "te_parallel": np.array([100.0, 200.0, 300.0]),
@@ -94,6 +96,9 @@ def test_average_plotted_values_returns_only_displayed_means(mms_data: MMSData) 
     )
     assert averages["ion_density"] == pytest.approx(2.0)
     assert averages["ion_velocity_z"] == pytest.approx(60.0)
+    assert averages["satellite_location_x"] == pytest.approx(1.0)
+    assert averages["satellite_location_y"] == pytest.approx(-0.5)
+    assert averages["satellite_location_z"] == pytest.approx(0.1)
     assert averages["ion_temperature"] == pytest.approx(240.0)
     assert averages["electron_temperature"] == pytest.approx(80.0)
     assert "electron_density" not in averages
@@ -105,7 +110,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
 
     assert len(figure.axes) == 5
     assert figure._suptitle.get_text() == (
-        "MMS1 brst data (GSE)\nMMS1 position (GSM): (2.00, -1.00, 0.50) km"
+        "MMS1 brst data (GSE)\nMMS1 position (GSM): (1.00, -0.50, 0.10) $R_E$"
     )
     assert figure.get_size_inches().tolist() == [10.0, 7.5]
     time_formatter = figure.axes[-1].xaxis.get_major_formatter()
@@ -146,7 +151,7 @@ def test_plot_mms_data_title_shows_gsm_coordinates(mms_data: MMSData) -> None:
     figure = plot_mms_data(gsm_data)
 
     assert figure._suptitle.get_text() == (
-        "MMS1 brst data (GSM)\nMMS1 position (GSM): (2.00, -1.00, 0.50) km"
+        "MMS1 brst data (GSM)\nMMS1 position (GSM): (1.00, -0.50, 0.10) $R_E$"
     )
 
 
@@ -154,7 +159,7 @@ def test_plot_mms_data_title_shows_average_gsm_position(mms_data: MMSData) -> No
     figure = plot_mms_data(mms_data)
 
     assert figure._suptitle.get_text() == (
-        "MMS1 brst data (GSE)\nMMS1 position (GSM): (2.00, -1.00, 0.50) km"
+        "MMS1 brst data (GSE)\nMMS1 position (GSM): (1.00, -0.50, 0.10) $R_E$"
     )
 
 

@@ -70,8 +70,8 @@ python examples/mms_data_analysis.py \
   --coordinates gsm
 ```
 
-The figure subtitle reports the interval-averaged MMS position in GSM and km
-when MEC ephemeris data are available. The command also prints means for the
+The figure subtitle reports the interval-averaged MMS position in GSM and
+Earth radii (`$R_E$`) when MEC ephemeris data are available. The command also prints means for the
 displayed variables; total ion/electron temperatures and their means are
 shown in eV on the left-hand plot axis.
 

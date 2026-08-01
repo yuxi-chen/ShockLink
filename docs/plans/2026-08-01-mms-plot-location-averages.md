@@ -132,7 +132,7 @@ def test_average_plotted_values_returns_only_displayed_means(mms_data: MMSData) 
 
 Add a title test with a `satellite_location` pytplot series whose finite mean
 is `(2, -1, 0.5)` and assert the subtitle contains
-`MMS1 position (GSM): (2.00, -1.00, 0.50) km`.
+`MMS1 position (GSM): (1.00, -0.50, 0.10) $R_E$`.
 
 **Step 2: Run tests and verify failure**
 

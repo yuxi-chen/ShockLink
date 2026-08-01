@@ -14,9 +14,10 @@ as a named series in `MMSData`, filtered to the requested interval like the
 science products, and never receives a plot panel. Missing MEC data will not
 prevent the FGM/FPI plot from being produced.
 
-The title/subtitle will include the finite mean position using the MEC product
-units (currently km), for example `MMS1 position (GSM): (12.3, -4.5, 1.1) km`.
-The annotation is omitted when no finite position samples are available.
+The title/subtitle will include the finite mean position converted from the MEC
+product's km units to Earth radii, for example
+`MMS1 position (GSM): (1.23, -0.45, 0.11) $R_E$`. The annotation is omitted
+when no finite position samples are available.
 
 The existing `summarize_data` API remains available for full finite-value
 statistics. A new `average_plotted_values(data)` API returns only the means of
