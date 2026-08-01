@@ -73,7 +73,8 @@ python examples/mms_data_analysis.py \
 The figure subtitle reports the interval-averaged MMS position in GSM and
 Earth radii (`$R_E$`) when MEC ephemeris data are available. The command also prints means for the
 displayed variables; total ion/electron temperatures and their means are
-shown in eV on the left-hand plot axis.
+shown in eV on the left-hand plot axis, with a linked K scale on the right for
+the same temperature lines.
 
 For interactive exploration, launch `jupyter lab examples/mms_example.ipynb`.
 The notebook exposes the time range, probe, `auto`/`brst`/`fast` mode, and GSE
