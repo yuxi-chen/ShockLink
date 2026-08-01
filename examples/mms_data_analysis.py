@@ -353,8 +353,8 @@ def plot_mms_data(data: MMSData):
         temperature = _total_temperature(series, species)
         if temperature is not None:
             panels.append(
-                lambda axis, temperature=temperature, symbol=symbol: _plot_scalar(
-                    axis, temperature, rf"$T_{symbol}$", "[eV]"
+                lambda axis, temperature=temperature, symbol=symbol: _plot_temperature(
+                    axis, temperature, rf"$T_{symbol}$"
                 )
             )
 
@@ -610,6 +610,18 @@ def _plot_scalar(axis: object, product: _TimeSeries, fallback_name: str, fallbac
         label=product.name or fallback_name,
     )
     axis.set_ylabel(_axis_label(product, fallback_name, fallback_units))
+
+
+def _plot_temperature(axis: object, product: _TimeSeries, fallback_name: str) -> None:
+    axis.plot(
+        product.times,
+        product.values * EV_TO_K,
+        linewidth=PLOT_LINE_WIDTH,
+        label=product.name or fallback_name,
+    )
+    axis.yaxis.set_label_position("right")
+    axis.yaxis.tick_right()
+    axis.set_ylabel(f"{fallback_name} [K]")
 
 
 if __name__ == "__main__":
