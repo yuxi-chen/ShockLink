@@ -17,7 +17,6 @@ from mms_data_analysis import (
     _convert_vector_coordinates,
     _converted_variable_name,
     _load_pyspedas_products,
-    EV_TO_K,
     average_plotted_values,
     load_mms_data,
     parse_args,
@@ -95,8 +94,8 @@ def test_average_plotted_values_returns_only_displayed_means(mms_data: MMSData) 
     )
     assert averages["ion_density"] == pytest.approx(2.0)
     assert averages["ion_velocity_z"] == pytest.approx(60.0)
-    assert averages["ion_temperature"] == pytest.approx(240.0 * 11604.51812)
-    assert averages["electron_temperature"] == pytest.approx(80.0 * 11604.51812)
+    assert averages["ion_temperature"] == pytest.approx(240.0)
+    assert averages["electron_temperature"] == pytest.approx(80.0)
     assert "electron_density" not in averages
     assert "electron_velocity_x" not in averages
 
@@ -106,7 +105,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
 
     assert len(figure.axes) == 5
     assert figure._suptitle.get_text() == (
-        "MMS1 brst data (GSE)\nMMS1 position (GSM): (2.00, -1.00, 0.50) R_E"
+        "MMS1 brst data (GSE)\nMMS1 position (GSM): (2.00, -1.00, 0.50) km"
     )
     assert figure.get_size_inches().tolist() == [10.0, 7.5]
     time_formatter = figure.axes[-1].xaxis.get_major_formatter()
@@ -126,13 +125,13 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     assert figure.axes[1].get_ylabel() == r"$n$ [/cm$^3$]"
     assert len(figure.axes[1].lines) == 1
     assert figure.axes[2].get_ylabel() == r"$V_i$ [km/s]"
-    assert figure.axes[3].get_ylabel() == r"$T_i$ [K]"
-    assert figure.axes[4].get_ylabel() == r"$T_e$ [K]"
-    assert figure.axes[3].yaxis.get_label_position() == "right"
-    assert figure.axes[4].yaxis.get_label_position() == "right"
+    assert figure.axes[3].get_ylabel() == r"$T_i$ [eV]"
+    assert figure.axes[4].get_ylabel() == r"$T_e$ [eV]"
+    assert figure.axes[3].yaxis.get_label_position() == "left"
+    assert figure.axes[4].yaxis.get_label_position() == "left"
     assert all("Electron velocity" not in axis.get_ylabel() for axis in figure.axes)
     np.testing.assert_allclose(
-        figure.axes[4].lines[0].get_ydata(), np.array([40.0, 80.0, 120.0]) * EV_TO_K
+        figure.axes[4].lines[0].get_ydata(), [40.0, 80.0, 120.0]
     )
 
 
@@ -147,7 +146,7 @@ def test_plot_mms_data_title_shows_gsm_coordinates(mms_data: MMSData) -> None:
     figure = plot_mms_data(gsm_data)
 
     assert figure._suptitle.get_text() == (
-        "MMS1 brst data (GSM)\nMMS1 position (GSM): (2.00, -1.00, 0.50) R_E"
+        "MMS1 brst data (GSM)\nMMS1 position (GSM): (2.00, -1.00, 0.50) km"
     )
 
 
@@ -155,7 +154,7 @@ def test_plot_mms_data_title_shows_average_gsm_position(mms_data: MMSData) -> No
     figure = plot_mms_data(mms_data)
 
     assert figure._suptitle.get_text() == (
-        "MMS1 brst data (GSE)\nMMS1 position (GSM): (2.00, -1.00, 0.50) R_E"
+        "MMS1 brst data (GSE)\nMMS1 position (GSM): (2.00, -1.00, 0.50) km"
     )
 
 

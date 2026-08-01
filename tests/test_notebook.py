@@ -134,7 +134,7 @@ def test_mms_notebook_guides_the_full_analysis_workflow() -> None:
 
     assert "GSM" in markdown
     assert "averages" in markdown
-    assert "kelvin" in markdown.lower() or "[K]" in markdown
+    assert "eV" in markdown
 
 
 def test_mms_notebook_imports_example_when_jupyter_starts_at_repository_root(

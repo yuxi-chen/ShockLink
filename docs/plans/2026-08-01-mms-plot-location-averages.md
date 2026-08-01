@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add interval-averaged GSM spacecraft location annotations, plotted-variable averages, and right-axis kelvin temperature plots to the MMS example.
+**Goal:** Add interval-averaged GSM spacecraft location annotations, plotted-variable averages, and left-axis eV temperature plots to the MMS example.
 
-**Architecture:** Load optional native MEC GSM position data alongside the existing FGM/FPI products, retain it in `MMSData`, and use it only for a title/subtitle annotation. Add a separate `average_plotted_values` function so existing full summaries remain backward compatible. Convert total temperature from eV to K only in the plotting layer and place temperature labels/ticks on the right.
+**Architecture:** Load optional native MEC GSM position data alongside the existing FGM/FPI products, retain it in `MMSData`, and use it only for a title/subtitle annotation. Add a separate `average_plotted_values` function so existing full summaries remain backward compatible. Keep total temperatures in eV and place their labels/ticks on the left.
 
 **Tech Stack:** Python 3.11+, pySPEDAS/pytplot, NumPy, Matplotlib, Jupyter/nbformat, pytest
 
@@ -132,7 +132,7 @@ def test_average_plotted_values_returns_only_displayed_means(mms_data: MMSData) 
 
 Add a title test with a `satellite_location` pytplot series whose finite mean
 is `(2, -1, 0.5)` and assert the subtitle contains
-`MMS1 position (GSM): (2.00, -1.00, 0.50) R_E`.
+`MMS1 position (GSM): (2.00, -1.00, 0.50) km`.
 
 **Step 2: Run tests and verify failure**
 
@@ -190,7 +190,7 @@ git add examples/mms_data_analysis.py tests/test_mms_data_analysis.py
 git commit -m "feat: report MMS plotted averages"
 ```
 
-### Task 3: Plot temperatures in kelvin on the right axis
+### Task 3: Keep temperatures in eV on the left axis
 
 **Files:**
 - Modify: `examples/mms_data_analysis.py:300-365, 430-470`
@@ -201,13 +201,13 @@ git commit -m "feat: report MMS plotted averages"
 Update temperature-axis assertions:
 
 ```python
-assert figure.axes[3].get_ylabel() == r"$T_i$ [K]"
-assert figure.axes[4].get_ylabel() == r"$T_e$ [K]"
-assert figure.axes[3].yaxis.get_label_position() == "right"
-assert figure.axes[4].yaxis.get_label_position() == "right"
+assert figure.axes[3].get_ylabel() == r"$T_i$ [eV]"
+assert figure.axes[4].get_ylabel() == r"$T_e$ [eV]"
+assert figure.axes[3].yaxis.get_label_position() == "left"
+assert figure.axes[4].yaxis.get_label_position() == "left"
 np.testing.assert_allclose(
     figure.axes[4].lines[0].get_ydata(),
-    np.array([40.0, 80.0, 120.0]) * 11604.51812,
+    [40.0, 80.0, 120.0],
 )
 ```
 
@@ -217,28 +217,20 @@ Run: `pytest -q tests/test_mms_data_analysis.py::test_plot_mms_data_draws_availa
 
 Expected: FAIL because temperatures are still eV on the left axis.
 
-**Step 3: Implement kelvin right-axis plotting**
+**Step 3: Implement eV left-axis plotting**
 
-Define:
-
-```python
-EV_TO_K = 11604.51812
-```
-
-When drawing a temperature panel, pass `temperature.values * EV_TO_K` to a
-temperature-specific helper that sets the right-side label and ticks:
+When drawing a temperature panel, pass the total-temperature values through a
+temperature-specific helper that keeps the default left-side label and ticks:
 
 ```python
 def _plot_temperature(axis: object, product: _TimeSeries, fallback_name: str) -> None:
     axis.plot(
         product.times,
-        product.values * EV_TO_K,
+        product.values,
         linewidth=PLOT_LINE_WIDTH,
         label=product.name or fallback_name,
     )
-    axis.yaxis.set_label_position("right")
-    axis.yaxis.tick_right()
-    axis.set_ylabel(fallback_name + " [K]")
+    axis.set_ylabel(fallback_name + " [eV]")
 ```
 
 Use math-text fallback names `$T_i$` and `$T_e$`. Keep `_total_temperature`
@@ -254,7 +246,7 @@ Expected: all tests pass.
 
 ```bash
 git add examples/mms_data_analysis.py tests/test_mms_data_analysis.py
-git commit -m "feat: plot MMS temperatures in kelvin"
+git commit -m "fix: keep MMS temperatures in eV"
 ```
 
 ### Task 4: Update notebook and README output
@@ -267,7 +259,7 @@ git commit -m "feat: plot MMS temperatures in kelvin"
 **Step 1: Write failing notebook/documentation tests**
 
 Require notebook code to import and call `average_plotted_values`, and require
-markdown to mention GSM position, averages, and kelvin temperature output.
+markdown to mention GSM position, averages, and eV temperature output.
 
 **Step 2: Run tests and verify failure**
 

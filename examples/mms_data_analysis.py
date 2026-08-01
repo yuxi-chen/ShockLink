@@ -23,7 +23,6 @@ CoordinateSystem = Literal["gse", "gsm"]
 MMSLoader = Callable[..., Mapping[str, str]]
 PLOT_LINE_WIDTH = 0.75
 VECTOR_SERIES = ("magnetic_field", "ion_velocity", "electron_velocity")
-EV_TO_K = 11604.51812
 
 
 @dataclass(frozen=True)
@@ -319,7 +318,7 @@ def average_plotted_values(data: MMSData) -> dict[str, float]:
     for species in ("ion", "electron"):
         product = _total_temperature(series, species)
         if product is not None:
-            averages[f"{species}_temperature"] = _finite_mean(product.values) * EV_TO_K
+            averages[f"{species}_temperature"] = _finite_mean(product.values)
     return averages
 
 
@@ -474,7 +473,8 @@ def _position_caption(series: Mapping[str, _TimeSeries], spacecraft: str) -> str
     mean = np.mean(values[finite], axis=0)
     return (
         f"{spacecraft} position (GSM): "
-        f"({mean[0]:.2f}, {mean[1]:.2f}, {mean[2]:.2f}) R_E"
+        f"({mean[0]:.2f}, {mean[1]:.2f}, {mean[2]:.2f}) "
+        f"{(position.units or 'km').strip('[]')}"
     )
 
 
@@ -615,13 +615,11 @@ def _plot_scalar(axis: object, product: _TimeSeries, fallback_name: str, fallbac
 def _plot_temperature(axis: object, product: _TimeSeries, fallback_name: str) -> None:
     axis.plot(
         product.times,
-        product.values * EV_TO_K,
+        product.values,
         linewidth=PLOT_LINE_WIDTH,
         label=product.name or fallback_name,
     )
-    axis.yaxis.set_label_position("right")
-    axis.yaxis.tick_right()
-    axis.set_ylabel(f"{fallback_name} [K]")
+    axis.set_ylabel(f"{fallback_name} [eV]")
 
 
 if __name__ == "__main__":
