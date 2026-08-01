@@ -639,6 +639,11 @@ def _plot_temperature(axis: object, product: _TimeSeries, fallback_name: str) ->
         label=product.name or fallback_name,
     )
     axis.set_ylabel(f"{fallback_name} [eV]")
+    kelvin_axis = axis.secondary_yaxis(
+        "right",
+        functions=(_ev_to_kelvin, _kelvin_to_ev),
+    )
+    kelvin_axis.set_ylabel(f"{fallback_name} [K]")
 
 
 if __name__ == "__main__":

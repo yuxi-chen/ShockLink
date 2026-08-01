@@ -145,6 +145,15 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     assert figure.axes[4].get_ylabel() == r"$T_e$ [eV]"
     assert figure.axes[3].yaxis.get_label_position() == "left"
     assert figure.axes[4].yaxis.get_label_position() == "left"
+    assert len(figure.axes[3].lines) == 1
+    assert len(figure.axes[4].lines) == 1
+    np.testing.assert_allclose(figure.axes[4].lines[0].get_ydata(), [40.0, 80.0, 120.0])
+    ion_kelvin_axis = figure.axes[3].child_axes[0]
+    electron_kelvin_axis = figure.axes[4].child_axes[0]
+    assert ion_kelvin_axis.get_ylabel() == r"$T_i$ [K]"
+    assert electron_kelvin_axis.get_ylabel() == r"$T_e$ [K]"
+    assert ion_kelvin_axis.yaxis.get_label_position() == "right"
+    assert electron_kelvin_axis.yaxis.get_label_position() == "right"
     assert all("Electron velocity" not in axis.get_ylabel() for axis in figure.axes)
     np.testing.assert_allclose(
         figure.axes[4].lines[0].get_ydata(), [40.0, 80.0, 120.0]
