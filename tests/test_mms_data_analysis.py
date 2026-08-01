@@ -243,6 +243,61 @@ def test_default_loader_uses_fgm_survey_products_for_fast_mode(
     assert series["magnetic_field"] == "mms1_fgm_b_gse_srvy_l2_bvec"
 
 
+def test_default_loader_requests_mec_gsm_position_for_fast_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests: dict[str, dict[str, object]] = {}
+    mms = ModuleType("mms")
+    mms.fgm = lambda **_: []  # type: ignore[attr-defined]
+    mms.fpi = lambda **_: []  # type: ignore[attr-defined]
+
+    def mec(**kwargs: object) -> list[str]:
+        requests["mec"] = kwargs
+        return ["mms1_mec_r_gsm"]
+
+    mms.mec = mec  # type: ignore[attr-defined]
+    projects = ModuleType("pyspedas.projects")
+    projects.mms = mms  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyspedas", ModuleType("pyspedas"))
+    monkeypatch.setitem(sys.modules, "pyspedas.projects", projects)
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(
+            get_data=lambda _: SimpleNamespace(times=np.array([1_545_248_400.0]))
+        ),
+    )
+
+    series = _load_pyspedas_products(
+        start="2018-12-19 19:40:00", end="2018-12-19 19:52:00", probe=1, cadence="fast"
+    )
+
+    assert requests["mec"]["data_rate"] == "srvy"
+    assert requests["mec"]["varformat"] == "*_r_gsm"
+    assert series["satellite_location"] == "mms1_mec_r_gsm"
+
+
+def test_default_loader_tolerates_missing_mec_loader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mms = ModuleType("mms")
+    mms.fgm = lambda **_: []  # type: ignore[attr-defined]
+    mms.fpi = lambda **_: []  # type: ignore[attr-defined]
+    projects = ModuleType("pyspedas.projects")
+    projects.mms = mms  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyspedas", ModuleType("pyspedas"))
+    monkeypatch.setitem(sys.modules, "pyspedas.projects", projects)
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(get_data=lambda _: SimpleNamespace(times=np.array([]))),
+    )
+
+    assert _load_pyspedas_products(
+        start="2018-12-19 19:40:00", end="2018-12-19 19:52:00", probe=1, cadence="fast"
+    ) == {}
+
+
 def test_default_loader_discards_products_outside_requested_interval(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

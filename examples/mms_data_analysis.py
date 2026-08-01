@@ -189,7 +189,19 @@ def _load_pyspedas_products(
         varformat=["*numberdensity*", "*bulkv_gse*", "*temp*"],
         time_clip=True,
     )
-    loaded = set(fgm_variables or []) | set(fpi_variables or [])
+    mec_variables: list[str] = []
+    mec_loader = getattr(mms, "mec", None)
+    if callable(mec_loader):
+        mec_cadence = "srvy" if cadence == "fast" else cadence
+        mec_variables = mec_loader(
+            trange=trange,
+            probe=probe_id,
+            data_rate=mec_cadence,
+            level="l2",
+            varformat="*_r_gsm",
+            time_clip=True,
+        ) or []
+    loaded = set(fgm_variables or []) | set(fpi_variables or []) | set(mec_variables)
     prefix = f"mms{probe_id}_"
     expected = {
         "magnetic_field": f"{prefix}fgm_b_gse_{fgm_cadence}_l2_bvec",
@@ -203,6 +215,7 @@ def _load_pyspedas_products(
         "electron_temperature_parallel": f"{prefix}des_temppara_{cadence}",
         "ion_temperature_perpendicular": f"{prefix}dis_tempperp_{cadence}",
         "electron_temperature_perpendicular": f"{prefix}des_tempperp_{cadence}",
+        "satellite_location": f"{prefix}mec_r_gsm",
     }
     start_time = _parse_utc_time(start)
     end_time = _parse_utc_time(end)
