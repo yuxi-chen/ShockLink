@@ -17,6 +17,7 @@ from mms_data_analysis import (
     _convert_vector_coordinates,
     _converted_variable_name,
     _load_pyspedas_products,
+    average_plotted_values,
     load_mms_data,
     parse_args,
     plot_mms_data,
@@ -33,6 +34,7 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
         "ne": np.array([4.0, 5.0, 6.0]),
         "vi": np.array([[10.0, 20.0, 30.0], [20.0, 40.0, 60.0], [30.0, 60.0, 90.0]]),
         "ve": np.array([[40.0, 50.0, 60.0], [50.0, 60.0, 70.0], [60.0, 70.0, 80.0]]),
+        "location": np.array([[2.0, -1.0, 0.5], [2.0, -1.0, 0.5], [2.0, -1.0, 0.5]]),
         "ti_parallel": np.array([300.0, 600.0, 900.0]),
         "ti_perpendicular": np.array([30.0, 60.0, 90.0]),
         "te_parallel": np.array([100.0, 200.0, 300.0]),
@@ -54,6 +56,7 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
             "electron_density": "ne",
             "ion_velocity": "vi",
             "electron_velocity": "ve",
+            "satellite_location": "location",
             "ion_temperature_parallel": "ti_parallel",
             "ion_temperature_perpendicular": "ti_perpendicular",
             "electron_temperature_parallel": "te_parallel",
@@ -82,11 +85,28 @@ def test_summarize_data_reports_scalar_and_vector_component_statistics(
     assert summary["ion_velocity"]["z"]["max"] == 90.0
 
 
+def test_average_plotted_values_returns_only_displayed_means(mms_data: MMSData) -> None:
+    averages = average_plotted_values(mms_data)
+
+    assert averages["magnetic_field_x"] == pytest.approx(2.0)
+    assert averages["magnetic_field_magnitude"] == pytest.approx(
+        np.mean(np.linalg.norm(np.array([[1, 2, 3], [2, 4, 6], [3, 6, 9]]), axis=1))
+    )
+    assert averages["ion_density"] == pytest.approx(2.0)
+    assert averages["ion_velocity_z"] == pytest.approx(60.0)
+    assert averages["ion_temperature"] == pytest.approx(240.0 * 11604.51812)
+    assert averages["electron_temperature"] == pytest.approx(80.0 * 11604.51812)
+    assert "electron_density" not in averages
+    assert "electron_velocity_x" not in averages
+
+
 def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     figure = plot_mms_data(mms_data)
 
     assert len(figure.axes) == 5
-    assert figure._suptitle.get_text() == "MMS1 brst data (GSE)"
+    assert figure._suptitle.get_text() == (
+        "MMS1 brst data (GSE)\nMMS1 position (GSM): (2.00, -1.00, 0.50) R_E"
+    )
     assert figure.get_size_inches().tolist() == [10.0, 7.5]
     time_formatter = figure.axes[-1].xaxis.get_major_formatter()
     assert isinstance(time_formatter, mdates.DateFormatter)
@@ -122,6 +142,14 @@ def test_plot_mms_data_title_shows_gsm_coordinates(mms_data: MMSData) -> None:
     figure = plot_mms_data(gsm_data)
 
     assert figure._suptitle.get_text() == "MMS1 brst data (GSM)"
+
+
+def test_plot_mms_data_title_shows_average_gsm_position(mms_data: MMSData) -> None:
+    figure = plot_mms_data(mms_data)
+
+    assert figure._suptitle.get_text() == (
+        "MMS1 brst data (GSE)\nMMS1 position (GSM): (2.00, -1.00, 0.50) R_E"
+    )
 
 
 def test_plot_mms_data_uses_pytplot_name_and_units_metadata(

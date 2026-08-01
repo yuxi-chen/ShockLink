@@ -23,6 +23,7 @@ CoordinateSystem = Literal["gse", "gsm"]
 MMSLoader = Callable[..., Mapping[str, str]]
 PLOT_LINE_WIDTH = 0.75
 VECTOR_SERIES = ("magnetic_field", "ion_velocity", "electron_velocity")
+EV_TO_K = 11604.51812
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,7 @@ def main(argv: list[str] | None = None) -> int:
             f"in {data.coordinates.upper()}."
         )
         pprint(summarize_data(data))
+        pprint(average_plotted_values(data))
         figure = plot_mms_data(data)
         figure.show()
     except Exception as error:
@@ -296,6 +298,31 @@ def summarize_data(data: MMSData) -> dict[str, dict[str, float] | dict[str, dict
     return summary
 
 
+def average_plotted_values(data: MMSData) -> dict[str, float]:
+    """Return finite means for the variables shown by :func:`plot_mms_data`."""
+    series = _resolve_series(data)
+    averages: dict[str, float] = {}
+    for key in ("magnetic_field", "ion_density", "ion_velocity"):
+        product = series.get(key)
+        if product is None:
+            continue
+        if product.values.ndim == 1:
+            averages[key] = _finite_mean(product.values)
+            continue
+        for index, component in enumerate(("x", "y", "z")):
+            if index < product.values.shape[1]:
+                averages[f"{key}_{component}"] = _finite_mean(product.values[:, index])
+        if key == "magnetic_field" and product.values.shape[1] >= 3:
+            averages["magnetic_field_magnitude"] = _finite_mean(
+                np.linalg.norm(product.values[:, :3], axis=1)
+            )
+    for species in ("ion", "electron"):
+        product = _total_temperature(series, species)
+        if product is not None:
+            averages[f"{species}_temperature"] = _finite_mean(product.values) * EV_TO_K
+    return averages
+
+
 def plot_mms_data(data: MMSData):
     """Plot all available MMS magnetic-field and FPI moment products.
 
@@ -351,9 +378,11 @@ def plot_mms_data(data: MMSData):
     flat_axes[-1].xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S", tz=UTC))
     flat_axes[-1].set_xlabel(f"Time (UTC)\n{_date_caption(series)}")
     spacecraft = f"MMS{data.probe}" if data.probe is not None else "MMS"
-    figure.suptitle(
-        f"{spacecraft} {data.cadence} data ({data.coordinates.upper()})"
-    )
+    title = f"{spacecraft} {data.cadence} data ({data.coordinates.upper()})"
+    position_caption = _position_caption(series, spacecraft)
+    if position_caption is not None:
+        title = f"{title}\n{position_caption}"
+    figure.suptitle(title)
     figure.tight_layout()
     return figure
 
@@ -434,6 +463,21 @@ def _date_caption(series: Mapping[str, _TimeSeries]) -> str:
     return datetime.strptime(day, "%Y-%m-%d").strftime("%Y %b %d")
 
 
+def _position_caption(series: Mapping[str, _TimeSeries], spacecraft: str) -> str | None:
+    position = series.get("satellite_location")
+    if position is None or position.values.ndim != 2 or position.values.shape[1] < 3:
+        return None
+    values = position.values[:, :3]
+    finite = np.all(np.isfinite(values), axis=1)
+    if not np.any(finite):
+        return None
+    mean = np.mean(values[finite], axis=0)
+    return (
+        f"{spacecraft} position (GSM): "
+        f"({mean[0]:.2f}, {mean[1]:.2f}, {mean[2]:.2f}) R_E"
+    )
+
+
 def _total_temperature(
     series: Mapping[str, _TimeSeries], species: str
 ) -> _TimeSeries | None:
@@ -469,6 +513,11 @@ def _statistics(values: np.ndarray) -> dict[str, float]:
         "min": float(np.min(finite_values)),
         "max": float(np.max(finite_values)),
     }
+
+
+def _finite_mean(values: np.ndarray) -> float:
+    finite_values = values[np.isfinite(values)]
+    return float(np.mean(finite_values)) if len(finite_values) else float("nan")
 
 
 def _metadata_text(metadata: object, field: str) -> str | None:
