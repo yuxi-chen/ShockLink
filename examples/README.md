@@ -70,6 +70,11 @@ python examples/mms_data_analysis.py \
   --coordinates gsm
 ```
 
+The figure subtitle reports the interval-averaged MMS position in GSM when
+MEC ephemeris data are available. The command also prints means for the
+displayed variables; total ion/electron temperatures and their means are
+shown in kelvin on the right-hand plot axis.
+
 For interactive exploration, launch `jupyter lab examples/mms_example.ipynb`.
 The notebook exposes the time range, probe, `auto`/`brst`/`fast` mode, and GSE
 or GSM coordinate selection near the top, then uses the same public loading,
