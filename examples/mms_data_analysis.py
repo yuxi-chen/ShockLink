@@ -24,6 +24,15 @@ MMSLoader = Callable[..., Mapping[str, str]]
 PLOT_LINE_WIDTH = 0.75
 VECTOR_SERIES = ("magnetic_field", "ion_velocity", "electron_velocity")
 EARTH_RADIUS_KM = 6371.2
+EV_TO_K = 11604.51812
+
+
+def _ev_to_kelvin(values: object) -> np.ndarray:
+    return np.asarray(values) * EV_TO_K
+
+
+def _kelvin_to_ev(values: object) -> np.ndarray:
+    return np.asarray(values) / EV_TO_K
 
 
 @dataclass(frozen=True)

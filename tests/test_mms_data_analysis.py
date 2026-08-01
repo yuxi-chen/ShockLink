@@ -16,6 +16,8 @@ from mms_data_analysis import (
     MMSData,
     _convert_vector_coordinates,
     _converted_variable_name,
+    _ev_to_kelvin,
+    _kelvin_to_ev,
     _load_pyspedas_products,
     average_plotted_values,
     load_mms_data,
@@ -23,6 +25,15 @@ from mms_data_analysis import (
     plot_mms_data,
     summarize_data,
 )
+
+
+def test_temperature_unit_conversion_is_reversible() -> None:
+    values_ev = np.array([0.0, 1.0, 10.0, 100.0])
+
+    values_k = _ev_to_kelvin(values_ev)
+
+    np.testing.assert_allclose(values_k, values_ev * 11604.51812)
+    np.testing.assert_allclose(_kelvin_to_ev(values_k), values_ev)
 
 
 @pytest.fixture
