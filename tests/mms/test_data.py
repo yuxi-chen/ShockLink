@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from shocklink._mms_data import (
+from shocklink.mms.data import (
     _ev_to_kelvin,
     _kelvin_to_ev,
     _resolve_series,

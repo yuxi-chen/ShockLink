@@ -17,13 +17,13 @@ def test_generic_dataset_operations_are_separate_from_tecplot() -> None:
 def test_mms_private_modules_do_not_import_public_facade() -> None:
     root = Path(__file__).resolve().parents[1]
     for module in (
-        "_mms_data.py",
-        "_mms_loading.py",
-        "_mms_analysis.py",
-        "_mms_plotting.py",
-        "_mms_cli.py",
+        "data.py",
+        "loading.py",
+        "analysis.py",
+        "plotting.py",
+        "cli.py",
     ):
-        tree = ast.parse((root / "src/shocklink" / module).read_text())
+        tree = ast.parse((root / "src/shocklink/mms" / module).read_text())
         imported_modules = {
             node.module
             for node in ast.walk(tree)

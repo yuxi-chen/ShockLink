@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from shocklink._mms_data import (
+from .data import (
     _finite_mean,
     _mean_position_earth_radii,
     _resolve_series,
     _total_temperature,
 )
-from shocklink._mms_data import MMSData
+from .data import MMSData
 
 
 PLOTTED_DIRECT_PRODUCTS = ("magnetic_field", "ion_density", "ion_velocity")

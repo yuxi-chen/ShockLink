@@ -44,7 +44,8 @@ The review also found small sources of accidental complexity:
 - Make MMS analysis an installable `shocklink.mms` feature.
 - Keep the existing user-facing API stable.
 - Keep optional pySPEDAS and Matplotlib imports lazy.
-- Preserve the repository's enforced flat `src/shocklink` module layout.
+- Keep the top-level package clean by grouping the MMS domain in an explicit
+  `src/shocklink/mms/` subpackage.
 - Give each source and test module one clear responsibility.
 - Remove confirmed dead code and centralize shared interval behavior.
 - Keep `examples/mms_data_analysis.py` as a minimal executable smoke test.
@@ -57,8 +58,8 @@ The review also found small sources of accidental complexity:
 - Make pySPEDAS or Matplotlib required core dependencies.
 - Redesign the notebook workflow or plot styling.
 - Preserve imports of underscored helpers from the old example module.
-- Introduce a nested `src/shocklink/mms/` package; the repository explicitly
-  enforces flat source modules.
+- Change unrelated source modules or introduce nested packages for domains
+  that do not need their own cohesive API.
 
 ## Public API
 
@@ -87,15 +88,16 @@ optional feature explicitly with `from shocklink import mms` or imports from
 
 ## Source architecture
 
-The implementation remains flat under `src/shocklink`:
+The general package remains flat, with MMS as the explicit domain-package
+exception:
 
-### `src/shocklink/mms.py`
+### `src/shocklink/mms/__init__.py`
 
 Public façade only. It imports and re-exports the supported names from the
 private MMS modules and defines `__all__`. It contains no downloading,
 analysis, or plotting implementation.
 
-### `src/shocklink/_mms_data.py`
+### `src/shocklink/mms/data.py`
 
 Owns shared data concepts and transformations:
 
@@ -111,7 +113,7 @@ An internal interval object or a single interval-bounds helper will parse
 Python datetime representations. This removes repeated ad hoc conversions
 without changing the public string-based API.
 
-### `src/shocklink/_mms_loading.py`
+### `src/shocklink/mms/loading.py`
 
 Owns external MMS acquisition:
 
@@ -125,7 +127,7 @@ Owns external MMS acquisition:
 pySPEDAS and pytplot imports remain inside functions so a base ShockLink
 installation can import the MMS API without optional dependencies.
 
-### `src/shocklink/_mms_analysis.py`
+### `src/shocklink/mms/analysis.py`
 
 Owns pure numerical outputs:
 
@@ -134,10 +136,10 @@ Owns pure numerical outputs:
 - scalar/vector statistics;
 - names of quantities included in the default plot averages.
 
-It consumes resolved series from `_mms_data` and contains no loading or
+It consumes resolved series from `data.py` and contains no loading or
 Matplotlib code.
 
-### `src/shocklink/_mms_plotting.py`
+### `src/shocklink/mms/plotting.py`
 
 Owns figure construction:
 
@@ -154,12 +156,12 @@ contains the resolved product, renderer, and label information required to
 draw one panel. The special derived-temperature panels are constructed
 explicitly after the direct product panels.
 
-### `src/shocklink/_mms_cli.py`
+### `src/shocklink/mms/cli.py`
 
 Owns `parse_args` and `main`. It orchestrates public loading, analysis, and
 plotting operations and retains current exit codes and user-facing errors.
 
-Dependencies point inward toward `_mms_data`; private feature modules do not
+Dependencies point inward toward `data.py`; feature modules do not
 import the public `mms` façade. This prevents circular imports.
 
 ## Example and notebook
@@ -238,13 +240,14 @@ internal algorithms may import the owning private module, but the public API
 test defines the compatibility contract.
 
 Notebook and source-layout tests will be updated to require package imports
-and to continue enforcing flat source modules. Every move uses a red-green
+and to continue enforcing the flat top-level source convention while allowing
+the documented MMS domain-package exception. Every move uses a red-green
 cycle: add the destination-facing test, observe failure, move the minimum
 behavior, and run the focused suite before the next responsibility.
 
 ## Migration sequence
 
-1. Define the public API contract and add the flat MMS module skeleton.
+1. Define the public API contract and add the nested MMS package skeleton.
 2. Move shared models and interval/series resolution.
 3. Move loading and coordinate conversion.
 4. Move summaries and averages.
@@ -264,11 +267,11 @@ This has the smallest diff but leaves reusable scientific behavior outside the
 installed package and keeps one large, coupled module. It does not satisfy the
 new ownership requirement.
 
-### Create `src/shocklink/mms/` as a subpackage
+### Keep all MMS modules flat
 
-This gives natural nested names, but conflicts with the repository's tested
-flat source layout. Flat private modules provide equivalent separation while
-respecting current architecture.
+This avoids changing the source-layout rule but leaves six domain files mixed
+with unrelated top-level modules. The explicit MMS subpackage is cleaner and
+is now covered by a targeted source-layout exception test.
 
 ### Put all behavior in `src/shocklink/mms.py`
 

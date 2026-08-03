@@ -9,7 +9,7 @@ from functools import partial
 
 import numpy as np
 
-from shocklink._mms_data import (
+from .data import (
     MMSData,
     ResolvedSeries,
     TimeBounds,

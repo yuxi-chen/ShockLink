@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 
 import numpy as np
 
-from shocklink._mms_data import CoordinateSystem, MMSData, TimeBounds
+from .data import CoordinateSystem, MMSData, TimeBounds
 
 
 MMSLoader = Callable[..., Mapping[str, str]]

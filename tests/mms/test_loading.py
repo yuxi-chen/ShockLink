@@ -6,7 +6,7 @@ import sys
 import numpy as np
 import pytest
 
-from shocklink._mms_loading import (
+from shocklink.mms.loading import (
     _converted_variable_name,
     _convert_vector_coordinates,
     _load_pyspedas_products,

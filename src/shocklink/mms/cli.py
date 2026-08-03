@@ -6,9 +6,9 @@ import argparse
 from pprint import pprint
 import sys
 
-from shocklink._mms_analysis import average_plotted_values, summarize_data
-from shocklink._mms_loading import load_mms_data
-from shocklink._mms_plotting import plot_mms_data
+from .analysis import average_plotted_values, summarize_data
+from .loading import load_mms_data
+from .plotting import plot_mms_data
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

@@ -9,8 +9,8 @@ matplotlib.use("Agg")
 from matplotlib import dates as mdates
 import numpy as np
 
-from shocklink._mms_data import _resolve_series
-from shocklink._mms_plotting import _build_panels
+from shocklink.mms.data import _resolve_series
+from shocklink.mms.plotting import _build_panels
 from shocklink.mms import MMSData, plot_mms_data
 
 

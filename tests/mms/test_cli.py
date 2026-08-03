@@ -39,7 +39,7 @@ def test_cli_coordinates_default_to_gse() -> None:
 
 
 def test_main_reports_download_failure(monkeypatch, capsys) -> None:
-    import shocklink._mms_cli as cli
+    import shocklink.mms.cli as cli
 
     def raising_loader(*_args, **_kwargs):
         raise RuntimeError("network unavailable")
@@ -53,7 +53,7 @@ def test_main_reports_download_failure(monkeypatch, capsys) -> None:
 
 
 def test_main_reports_empty_data(monkeypatch, capsys) -> None:
-    import shocklink._mms_cli as cli
+    import shocklink.mms.cli as cli
     from shocklink.mms import MMSData
 
     monkeypatch.setattr(
@@ -69,7 +69,7 @@ def test_main_reports_empty_data(monkeypatch, capsys) -> None:
 
 
 def test_main_runs_summary_average_and_plot_workflow(monkeypatch, capsys) -> None:
-    import shocklink._mms_cli as cli
+    import shocklink.mms.cli as cli
     from shocklink.mms import MMSData
 
     calls: list[str] = []

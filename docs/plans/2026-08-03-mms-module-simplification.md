@@ -12,6 +12,27 @@
 
 ---
 
+## Layout adjustment
+
+The implementation below was executed first with flat private MMS modules.
+The final cleanup groups those modules into the explicit domain-package
+exception:
+
+```text
+src/shocklink/mms/
+├── __init__.py
+├── data.py
+├── loading.py
+├── analysis.py
+├── plotting.py
+└── cli.py
+```
+
+Relative imports inside this package replace the earlier `_mms_*` imports.
+`tests/test_source_layout.py` explicitly allows this one cohesive domain
+package while continuing to require unrelated ShockLink modules to remain
+top-level. The public import remains `from shocklink.mms import ...`.
+
 ## Compatibility contract
 
 The completed refactor must support:
