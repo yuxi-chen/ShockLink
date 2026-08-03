@@ -397,7 +397,7 @@ def plot_mms_data(data: MMSData):
     if position_caption is not None:
         title = f"{title}\n{position_caption}"
     figure.suptitle(title)
-    figure.tight_layout()
+    figure.tight_layout(h_pad=0.1)
     return figure
 
 

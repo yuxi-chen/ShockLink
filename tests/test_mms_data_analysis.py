@@ -124,6 +124,8 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
         "MMS1 brst data (GSE)\nMMS1 position (GSM): (1.00, -0.50, 0.10) $R_E$"
     )
     assert figure.get_size_inches().tolist() == [10.0, 7.5]
+    vertical_gap = figure.axes[0].get_position().y0 - figure.axes[1].get_position().y1
+    assert vertical_gap < 0.03
     time_formatter = figure.axes[-1].xaxis.get_major_formatter()
     assert isinstance(time_formatter, mdates.DateFormatter)
     assert time_formatter.fmt == "%H:%M:%S"
