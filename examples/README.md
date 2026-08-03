@@ -57,6 +57,14 @@ python examples/mms_data_analysis.py \
   --start "2015-10-16 13:06:00" --end "2015-10-16 13:07:00" --probe 1 --mode auto
 ```
 
+The reusable implementation is provided by `shocklink.mms`; the example
+script is only a thin executable entry point. Python callers can use the same
+workflow directly:
+
+```python
+from shocklink.mms import load_mms_data, plot_mms_data
+```
+
 Vectors use GSE coordinates by default. When `--coordinates gsm` is selected,
 pySPEDAS transforms the magnetic-field and bulk-velocity vectors to
 time-dependent GSM coordinates; scalar density and temperature products remain

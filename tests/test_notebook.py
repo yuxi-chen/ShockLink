@@ -92,7 +92,8 @@ def test_mms_notebook_is_valid_clean_and_uses_public_example_api() -> None:
     nbformat.validate(notebook)
     code = "\n".join(cell.source for cell in notebook.cells if cell.cell_type == "code")
     ast.parse(code)
-    assert "from mms_data_analysis import" in code
+    assert "from shocklink.mms import" in code
+    assert "from mms_data_analysis import" not in code
     assert "load_mms_data(" in code
     assert "coordinates=COORDINATES" in code
     assert "summarize_data(" in code
@@ -139,15 +140,16 @@ def test_mms_notebook_guides_the_full_analysis_workflow() -> None:
     assert "right axis in K" in markdown
 
 
-def test_mms_notebook_imports_example_when_jupyter_starts_at_repository_root(
+def test_mms_notebook_imports_package_when_jupyter_starts_at_repository_root(
     monkeypatch,
 ) -> None:
     notebook = nbformat.read(MMS_NOTEBOOK, as_version=4)
     setup = next(cell.source for cell in notebook.cells if cell.cell_type == "code")
     monkeypatch.chdir(ROOT)
-    monkeypatch.delitem(sys.modules, "mms_data_analysis", raising=False)
+    monkeypatch.delitem(sys.modules, "shocklink.mms", raising=False)
 
     namespace: dict[str, object] = {}
     exec(setup, namespace)
 
     assert "load_mms_data" in namespace
+    assert "plot_mms_data" in namespace
