@@ -172,6 +172,8 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     assert electron_kelvin_axis.get_ylabel() == r"$T_e$ [K]"
     assert ion_kelvin_axis.yaxis.get_label_position() == "right"
     assert electron_kelvin_axis.yaxis.get_label_position() == "right"
+    assert ion_kelvin_axis.yaxis.labelpad == -2
+    assert electron_kelvin_axis.yaxis.labelpad == -2
     assert all("Electron velocity" not in axis.get_ylabel() for axis in figure.axes)
     np.testing.assert_allclose(
         figure.axes[4].lines[0].get_ydata(), [40.0, 80.0, 120.0]
@@ -228,6 +230,30 @@ def test_plot_mms_data_uses_pytplot_name_and_units_metadata(
 
     assert figure.axes[0].get_ylabel() == r"$n$ [/cm$^3$]"
     assert figure.axes[0].get_legend() is None
+
+
+def test_plot_mms_data_clips_samples_to_requested_interval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    product = SimpleNamespace(
+        times=np.array([0.0, 10.0, 20.0]),
+        y=np.array([1.0, 2.0, 3.0]),
+    )
+    monkeypatch.setitem(sys.modules, "pytplot", SimpleNamespace(get_data=lambda _: product))
+
+    figure = plot_mms_data(
+        MMSData(
+            cadence="fast",
+            series={"ion_density": "density"},
+            start="1970-01-01 00:00:10",
+            end="1970-01-01 00:00:20",
+        )
+    )
+
+    np.testing.assert_array_equal(
+        figure.axes[0].lines[0].get_xdata(),
+        np.array(["1970-01-01T00:00:10", "1970-01-01T00:00:20"], dtype="datetime64[s]"),
+    )
 
 
 def test_plot_mms_data_rejects_empty_products() -> None:

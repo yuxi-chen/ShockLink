@@ -43,6 +43,8 @@ class MMSData:
     series: Mapping[str, str]
     probe: int | None = None
     coordinates: CoordinateSystem = "gse"
+    start: str | None = None
+    end: str | None = None
 
 
 @dataclass(frozen=True)
@@ -149,12 +151,19 @@ def load_mms_data(
                 series=series,
                 probe=probe,
                 coordinates=coordinates,
+                start=start,
+                end=end,
             )
 
     # ``auto`` always has at least the two cadences above.  This makes the
     # return type explicit if a future cadence set becomes empty.
     return MMSData(
-        cadence="fast", series={}, probe=probe, coordinates=coordinates
+        cadence="fast",
+        series={},
+        probe=probe,
+        coordinates=coordinates,
+        start=start,
+        end=end,
     )
 
 
@@ -430,12 +439,21 @@ def _resolve_series(data: MMSData) -> dict[str, _TimeSeries]:
         values_array = np.asarray(values)
         if values_array.ndim not in (1, 2) or not len(values_array):
             continue
+        times_array = _to_datetime64(times)
+        if data.start is not None and data.end is not None:
+            start_time = np.datetime64(int(_parse_utc_time(data.start)), "s")
+            end_time = np.datetime64(int(_parse_utc_time(data.end)), "s")
+            interval = (times_array >= start_time) & (times_array <= end_time)
+            times_array = times_array[interval]
+            values_array = values_array[interval]
+            if not len(times_array):
+                continue
         try:
             metadata = get_data(variable, metadata=True) or {}
         except TypeError:
             metadata = {}
         resolved[name] = _TimeSeries(
-            times=_to_datetime64(times),
+            times=times_array,
             values=values_array,
             name=_metadata_text(metadata, "name"),
             units=_metadata_text(metadata, "units"),
@@ -648,7 +666,7 @@ def _plot_temperature(axis: object, product: _TimeSeries, fallback_name: str) ->
         "right",
         functions=(_ev_to_kelvin, _kelvin_to_ev),
     )
-    kelvin_axis.set_ylabel(f"{fallback_name} [K]")
+    kelvin_axis.set_ylabel(f"{fallback_name} [K]", labelpad=-2)
 
 
 def _vector_component_label(fallback_name: str, component: str) -> str:
