@@ -125,7 +125,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     )
     assert figure.get_size_inches().tolist() == [10.0, 7.5]
     vertical_gap = figure.axes[0].get_position().y0 - figure.axes[1].get_position().y1
-    assert vertical_gap < 0.03
+    assert vertical_gap < 0.02
     time_formatter = figure.axes[-1].xaxis.get_major_formatter()
     assert isinstance(time_formatter, mdates.DateFormatter)
     assert time_formatter.fmt == "%H:%M:%S"
@@ -146,6 +146,7 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
         r"$|B|$",
     ]
     assert figure.axes[0].get_legend() is not None
+    assert figure.axes[0].get_legend()._ncols == 4
     assert all(line.get_linewidth() == 0.75 for axis in figure.axes for line in axis.lines)
     assert figure.axes[1].get_ylabel() == r"$n$ [/cm$^3$]"
     assert len(figure.axes[1].lines) == 1

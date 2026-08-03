@@ -384,8 +384,15 @@ def plot_mms_data(data: MMSData):
     flat_axes = axes[:, 0]
     for axis, draw_panel in zip(flat_axes, panels, strict=True):
         draw_panel(axis)
-        if axis.get_legend_handles_labels()[0]:
-            axis.legend(loc="best")
+        handles, _ = axis.get_legend_handles_labels()
+        if handles:
+            axis.legend(
+                loc="best",
+                ncols=len(handles),
+                columnspacing=0.8,
+                handletextpad=0.3,
+                borderaxespad=0.2,
+            )
         axis.grid(visible=True, alpha=0.3)
     time_locator = mdates.AutoDateLocator()
     flat_axes[-1].xaxis.set_major_locator(time_locator)
@@ -398,6 +405,7 @@ def plot_mms_data(data: MMSData):
         title = f"{title}\n{position_caption}"
     figure.suptitle(title)
     figure.tight_layout(h_pad=0.1)
+    figure.subplots_adjust(hspace=0.02)
     return figure
 
 
