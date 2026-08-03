@@ -168,12 +168,13 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
     np.testing.assert_allclose(figure.axes[4].lines[0].get_ydata(), [40.0, 80.0, 120.0])
     ion_kelvin_axis = figure.axes[3].child_axes[0]
     electron_kelvin_axis = figure.axes[4].child_axes[0]
-    assert ion_kelvin_axis.get_ylabel() == r"$T_i$ [K]"
-    assert electron_kelvin_axis.get_ylabel() == r"$T_e$ [K]"
+    assert ion_kelvin_axis.get_ylabel() == "[K]"
+    assert electron_kelvin_axis.get_ylabel() == "[K]"
     assert ion_kelvin_axis.yaxis.get_label_position() == "right"
     assert electron_kelvin_axis.yaxis.get_label_position() == "right"
-    assert ion_kelvin_axis.yaxis.labelpad == -2
-    assert electron_kelvin_axis.yaxis.labelpad == -2
+    figure.canvas.draw()
+    assert ion_kelvin_axis.yaxis.get_offset_text().get_text() == ""
+    assert electron_kelvin_axis.yaxis.get_offset_text().get_text() == ""
     assert all("Electron velocity" not in axis.get_ylabel() for axis in figure.axes)
     np.testing.assert_allclose(
         figure.axes[4].lines[0].get_ydata(), [40.0, 80.0, 120.0]
@@ -253,6 +254,15 @@ def test_plot_mms_data_clips_samples_to_requested_interval(
     np.testing.assert_array_equal(
         figure.axes[0].lines[0].get_xdata(),
         np.array(["1970-01-01T00:00:10", "1970-01-01T00:00:20"], dtype="datetime64[s]"),
+    )
+    np.testing.assert_allclose(
+        figure.axes[0].get_xlim(),
+        mdates.date2num(
+            np.array(
+                ["1970-01-01T00:00:10", "1970-01-01T00:00:20"],
+                dtype="datetime64[s]",
+            )
+        ),
     )
 
 

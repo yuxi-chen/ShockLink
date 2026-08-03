@@ -406,6 +406,11 @@ def plot_mms_data(data: MMSData):
     time_locator = mdates.AutoDateLocator()
     flat_axes[-1].xaxis.set_major_locator(time_locator)
     flat_axes[-1].xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S", tz=UTC))
+    if data.start is not None and data.end is not None:
+        flat_axes[-1].set_xlim(
+            datetime.fromtimestamp(_parse_utc_time(data.start), tz=UTC),
+            datetime.fromtimestamp(_parse_utc_time(data.end), tz=UTC),
+        )
     flat_axes[-1].set_xlabel(f"Time (UTC)\n{_date_caption(series)}")
     spacecraft = f"MMS{data.probe}" if data.probe is not None else "MMS"
     title = f"{spacecraft} {data.cadence} data ({data.coordinates.upper()})"
@@ -656,6 +661,8 @@ def _plot_scalar(axis: object, product: _TimeSeries, fallback_name: str, fallbac
 
 
 def _plot_temperature(axis: object, product: _TimeSeries, fallback_name: str) -> None:
+    from matplotlib.ticker import FuncFormatter
+
     axis.plot(
         product.times,
         product.values,
@@ -666,7 +673,18 @@ def _plot_temperature(axis: object, product: _TimeSeries, fallback_name: str) ->
         "right",
         functions=(_ev_to_kelvin, _kelvin_to_ev),
     )
-    kelvin_axis.set_ylabel(f"{fallback_name} [K]", labelpad=-2)
+    kelvin_axis.set_ylabel("[K]")
+    kelvin_axis.yaxis.set_major_formatter(FuncFormatter(_format_kelvin_tick))
+
+
+def _format_kelvin_tick(value: float, _position: float | None = None) -> str:
+    if value == 0:
+        return "0"
+    exponent = int(np.floor(np.log10(abs(value))))
+    if abs(exponent) >= 3:
+        coefficient = value / 10**exponent
+        return rf"${coefficient:g}\times10^{{{exponent}}}$"
+    return f"{value:g}"
 
 
 def _vector_component_label(fallback_name: str, component: str) -> str:
