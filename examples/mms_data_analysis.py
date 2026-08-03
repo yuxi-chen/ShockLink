@@ -384,7 +384,8 @@ def plot_mms_data(data: MMSData):
     flat_axes = axes[:, 0]
     for axis, draw_panel in zip(flat_axes, panels, strict=True):
         draw_panel(axis)
-        axis.legend(loc="best")
+        if axis.get_legend_handles_labels()[0]:
+            axis.legend(loc="best")
         axis.grid(visible=True, alpha=0.3)
     time_locator = mdates.AutoDateLocator()
     flat_axes[-1].xaxis.set_major_locator(time_locator)
@@ -586,7 +587,7 @@ def _plot_magnetic_field(axis: object, product: _TimeSeries) -> None:
             np.linalg.norm(values[:, :3], axis=1),
             color="black",
             linewidth=PLOT_LINE_WIDTH,
-            label=f"{product.name or 'B'} magnitude",
+            label=r"$|B|$",
         )
 
 
@@ -598,16 +599,14 @@ def _plot_density(
         product.times,
         product.values,
         linewidth=PLOT_LINE_WIDTH,
-        label=product.name or "Ion density",
     )
     axis.set_ylabel(r"$n$ [/cm$^3$]")
 
 
 def _plot_vector(axis: object, product: _TimeSeries, fallback_name: str, fallback_units: str) -> None:
     times, values = product.times, product.values
-    label = product.name or fallback_name
     if values.ndim == 1:
-        axis.plot(times, values, linewidth=PLOT_LINE_WIDTH, label=label)
+        axis.plot(times, values, linewidth=PLOT_LINE_WIDTH, label=fallback_name)
     else:
         for index in range(min(values.shape[1], 3)):
             component = ("x", "y", "z")[index]
@@ -616,7 +615,7 @@ def _plot_vector(axis: object, product: _TimeSeries, fallback_name: str, fallbac
                 values[:, index],
                 color=("blue", "green", "red")[index],
                 linewidth=PLOT_LINE_WIDTH,
-                label=f"{label} {component}",
+                label=_vector_component_label(fallback_name, component),
             )
     axis.set_ylabel(_axis_label(product, fallback_name, fallback_units))
 
@@ -626,7 +625,6 @@ def _plot_scalar(axis: object, product: _TimeSeries, fallback_name: str, fallbac
         product.times,
         product.values,
         linewidth=PLOT_LINE_WIDTH,
-        label=product.name or fallback_name,
     )
     axis.set_ylabel(_axis_label(product, fallback_name, fallback_units))
 
@@ -636,7 +634,6 @@ def _plot_temperature(axis: object, product: _TimeSeries, fallback_name: str) ->
         product.times,
         product.values,
         linewidth=PLOT_LINE_WIDTH,
-        label=product.name or fallback_name,
     )
     axis.set_ylabel(f"{fallback_name} [eV]")
     kelvin_axis = axis.secondary_yaxis(
@@ -644,6 +641,13 @@ def _plot_temperature(axis: object, product: _TimeSeries, fallback_name: str) ->
         functions=(_ev_to_kelvin, _kelvin_to_ev),
     )
     kelvin_axis.set_ylabel(f"{fallback_name} [K]")
+
+
+def _vector_component_label(fallback_name: str, component: str) -> str:
+    symbol = fallback_name.strip("$")
+    if symbol == "V_i":
+        return rf"$V_{{i,{component}}}$"
+    return rf"${symbol}_{component}$"
 
 
 if __name__ == "__main__":

@@ -137,16 +137,31 @@ def test_plot_mms_data_draws_available_products(mms_data: MMSData) -> None:
         "red",
         "black",
     ]
+    assert [line.get_label() for line in figure.axes[0].lines] == [
+        r"$B_x$",
+        r"$B_y$",
+        r"$B_z$",
+        r"$|B|$",
+    ]
+    assert figure.axes[0].get_legend() is not None
     assert all(line.get_linewidth() == 0.75 for axis in figure.axes for line in axis.lines)
     assert figure.axes[1].get_ylabel() == r"$n$ [/cm$^3$]"
     assert len(figure.axes[1].lines) == 1
+    assert figure.axes[1].get_legend() is None
     assert figure.axes[2].get_ylabel() == r"$V_i$ [km/s]"
+    assert [line.get_label() for line in figure.axes[2].lines] == [
+        r"$V_{i,x}$",
+        r"$V_{i,y}$",
+        r"$V_{i,z}$",
+    ]
     assert figure.axes[3].get_ylabel() == r"$T_i$ [eV]"
     assert figure.axes[4].get_ylabel() == r"$T_e$ [eV]"
     assert figure.axes[3].yaxis.get_label_position() == "left"
     assert figure.axes[4].yaxis.get_label_position() == "left"
     assert len(figure.axes[3].lines) == 1
     assert len(figure.axes[4].lines) == 1
+    assert figure.axes[3].get_legend() is None
+    assert figure.axes[4].get_legend() is None
     np.testing.assert_allclose(figure.axes[4].lines[0].get_ydata(), [40.0, 80.0, 120.0])
     ion_kelvin_axis = figure.axes[3].child_axes[0]
     electron_kelvin_axis = figure.axes[4].child_axes[0]
@@ -209,7 +224,7 @@ def test_plot_mms_data_uses_pytplot_name_and_units_metadata(
     )
 
     assert figure.axes[0].get_ylabel() == r"$n$ [/cm$^3$]"
-    assert figure.axes[0].get_legend().get_texts()[0].get_text() == "Ion number density"
+    assert figure.axes[0].get_legend() is None
 
 
 def test_plot_mms_data_rejects_empty_products() -> None:
