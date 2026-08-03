@@ -26,7 +26,7 @@ def load_mms_data(
         raise ValueError("mode must be one of 'auto', 'brst', or 'fast'")
     if coordinates not in {"gse", "gsm"}:
         raise ValueError("coordinates must be either 'gse' or 'gsm'")
-    bounds = TimeBounds.from_strings(start, end)
+    TimeBounds.from_strings(start, end)
 
     load = loader or _load_pyspedas_products
     cadences = ("brst", "fast") if mode == "auto" else (mode,)
