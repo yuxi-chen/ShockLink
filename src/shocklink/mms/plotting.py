@@ -9,6 +9,8 @@ from functools import partial
 
 import numpy as np
 
+from shocklink.constants import CARTESIAN_COMPONENTS
+
 from .data import (
     MMSData,
     ResolvedSeries,
@@ -168,12 +170,15 @@ def _plot_vector(
     if values.ndim == 1:
         axis.plot(times, values, linewidth=PLOT_LINE_WIDTH, label=fallback_name)
     else:
-        for index in range(min(values.shape[1], 3)):
-            component = ("x", "y", "z")[index]
+        for index, (component, color) in enumerate(
+            zip(CARTESIAN_COMPONENTS, ("blue", "green", "red"), strict=True)
+        ):
+            if index >= values.shape[1]:
+                break
             axis.plot(
                 times,
                 values[:, index],
-                color=("blue", "green", "red")[index],
+                color=color,
                 linewidth=PLOT_LINE_WIDTH,
                 label=_vector_component_label(fallback_name, component),
             )

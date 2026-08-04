@@ -7,13 +7,13 @@ from collections.abc import Mapping
 import math
 import sys
 
+from shocklink.constants import EV_TO_K
 from shocklink.mms import average_plotted_values, load_mms_data
 from shocklink.swmf import SolarWindValues
 from shocklink.swmf import generate_param_file
 from shocklink.utilities import midpoint_datetime, parse_datetime
 
 
-EV_TO_K = 11604.51812
 
 
 def _required_average(averages: Mapping[str, float], name: str) -> float:

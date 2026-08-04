@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from shocklink.constants import CARTESIAN_COMPONENTS
+
 from .data import (
     _finite_mean,
     _mean_position_earth_radii,
@@ -29,7 +31,11 @@ def summarize_data(
 
         components: dict[str, dict[str, float]] = {}
         for index in range(values.shape[1]):
-            label = ("x", "y", "z")[index] if index < 3 else f"component_{index}"
+            label = (
+                CARTESIAN_COMPONENTS[index]
+                if index < len(CARTESIAN_COMPONENTS)
+                else f"component_{index}"
+            )
             components[label] = _statistics(values[:, index])
         summary[name] = components
     return summary
@@ -46,7 +52,7 @@ def average_plotted_values(data: MMSData) -> dict[str, float]:
         if product.values.ndim == 1:
             averages[key] = _finite_mean(product.values)
             continue
-        for index, component in enumerate(("x", "y", "z")):
+        for index, component in enumerate(CARTESIAN_COMPONENTS):
             if index < product.values.shape[1]:
                 averages[f"{key}_{component}"] = _finite_mean(
                     product.values[:, index]
@@ -58,7 +64,7 @@ def average_plotted_values(data: MMSData) -> dict[str, float]:
 
     position = _mean_position_earth_radii(series)
     if position is not None:
-        for component, value in zip(("x", "y", "z"), position, strict=True):
+        for component, value in zip(CARTESIAN_COMPONENTS, position, strict=True):
             averages[f"satellite_location_{component}"] = float(value)
     for species in ("ion", "electron"):
         product = _total_temperature(series, species)
