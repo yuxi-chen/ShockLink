@@ -11,7 +11,7 @@ from shocklink.constants import EV_TO_K
 from shocklink.mms import average_plotted_values, load_mms_data
 from shocklink.swmf import SolarWindValues
 from shocklink.swmf import generate_param_file
-from shocklink.utilities import midpoint_datetime, parse_datetime
+from shocklink.utilities import TimeBounds, midpoint_datetime, parse_datetime
 
 
 
@@ -74,12 +74,11 @@ def main(argv: list[str] | None = None) -> int:
         if not data.series:
             raise RuntimeError("No MMS data were available for this interval")
         solar_wind = solar_wind_from_averages(average_plotted_values(data))
-        start = parse_datetime(arguments.mms_start)
-        end = parse_datetime(arguments.mms_end)
+        bounds = TimeBounds.from_strings(arguments.mms_start, arguments.mms_end)
         start_time = (
             parse_datetime(arguments.start_time)
             if arguments.start_time
-            else midpoint_datetime(start, end)
+            else midpoint_datetime(bounds.start, bounds.end)
         )
         generate_param_file(arguments.input, arguments.output, start_time, solar_wind)
     except Exception as error:

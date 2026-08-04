@@ -4,25 +4,16 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Literal
 
 import numpy as np
 
-from shocklink.constants import EARTH_RADIUS_KM, EV_TO_K
-from shocklink.utilities import parse_datetime
+from shocklink.constants import EARTH_RADIUS_KM
+from shocklink.utilities import TimeBounds
 
 
 Cadence = Literal["brst", "fast"] | str
 CoordinateSystem = Literal["gse", "gsm"]
-
-
-def _ev_to_kelvin(values: object) -> np.ndarray:
-    return np.asarray(values) * EV_TO_K
-
-
-def _kelvin_to_ev(values: object) -> np.ndarray:
-    return np.asarray(values) / EV_TO_K
 
 
 @dataclass(frozen=True)
@@ -44,32 +35,6 @@ class ResolvedSeries:
     times: np.ndarray
     values: np.ndarray
     units: str | None = None
-
-
-@dataclass(frozen=True)
-class TimeBounds:
-    """Inclusive UTC bounds shared by loading, resolution, and plotting."""
-
-    start: datetime
-    end: datetime
-
-    @classmethod
-    def from_strings(cls, start: str, end: str) -> TimeBounds:
-        parsed = cls(parse_datetime(start), parse_datetime(end))
-        if parsed.start > parsed.end:
-            raise ValueError("start time must not be after end time")
-        return parsed
-
-    @property
-    def unix(self) -> tuple[float, float]:
-        return self.start.timestamp(), self.end.timestamp()
-
-    @property
-    def numpy(self) -> tuple[np.datetime64, np.datetime64]:
-        return (
-            np.datetime64(self.start.replace(tzinfo=None)),
-            np.datetime64(self.end.replace(tzinfo=None)),
-        )
 
 
 def _resolve_series(data: MMSData) -> dict[str, ResolvedSeries]:
@@ -124,11 +89,6 @@ def _to_datetime64(times: object) -> np.ndarray:
     if np.issubdtype(timestamps.dtype, np.datetime64):
         return timestamps
     return timestamps.astype("datetime64[s]")
-
-
-def _parse_utc_time(value: str) -> float:
-    """Parse an ISO-like time string as a Unix timestamp."""
-    return parse_datetime(value).timestamp()
 
 
 def _total_temperature(

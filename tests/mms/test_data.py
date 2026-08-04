@@ -2,22 +2,19 @@ from __future__ import annotations
 
 import numpy as np
 
-from shocklink.mms.data import (
-    _ev_to_kelvin,
-    _kelvin_to_ev,
-    _resolve_series,
-    _total_temperature,
-)
+from shocklink.constants import EV_TO_K
+from shocklink.mms.data import _resolve_series, _total_temperature
 from shocklink.mms import MMSData
+from shocklink.utilities import ev_to_kelvin, kelvin_to_ev
 
 
 def test_temperature_unit_conversion_is_reversible() -> None:
     values_ev = np.array([0.0, 1.0, 10.0, 100.0])
 
-    values_k = _ev_to_kelvin(values_ev)
+    values_k = ev_to_kelvin(values_ev)
 
-    np.testing.assert_allclose(values_k, values_ev * 11604.51812)
-    np.testing.assert_allclose(_kelvin_to_ev(values_k), values_ev)
+    np.testing.assert_allclose(values_k, values_ev * EV_TO_K)
+    np.testing.assert_allclose(kelvin_to_ev(values_k), values_ev)
 
 
 def test_resolve_series_clips_to_requested_interval(monkeypatch) -> None:

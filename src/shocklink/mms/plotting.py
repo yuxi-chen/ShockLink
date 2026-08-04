@@ -10,13 +10,11 @@ from functools import partial
 import numpy as np
 
 from shocklink.constants import CARTESIAN_COMPONENTS
+from shocklink.utilities import TimeBounds, ev_to_kelvin, kelvin_to_ev
 
 from .data import (
     MMSData,
     ResolvedSeries,
-    TimeBounds,
-    _ev_to_kelvin,
-    _kelvin_to_ev,
     _mean_position_earth_radii,
     _resolve_series,
     _total_temperature,
@@ -195,7 +193,7 @@ def _plot_temperature(
     axis.plot(product.times, product.values, linewidth=PLOT_LINE_WIDTH)
     axis.set_ylabel(f"{fallback_name} [eV]")
     kelvin_axis = axis.secondary_yaxis(
-        "right", functions=(_ev_to_kelvin, _kelvin_to_ev)
+        "right", functions=(ev_to_kelvin, kelvin_to_ev)
     )
     kelvin_axis.set_ylabel("[K]")
     kelvin_axis.yaxis.set_major_formatter(FuncFormatter(_format_kelvin_tick))
