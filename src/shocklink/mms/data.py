@@ -9,6 +9,8 @@ from typing import Literal
 
 import numpy as np
 
+from shocklink.utilities import parse_datetime
+
 
 Cadence = Literal["brst", "fast"] | str
 CoordinateSystem = Literal["gse", "gsm"]
@@ -54,7 +56,7 @@ class TimeBounds:
 
     @classmethod
     def from_strings(cls, start: str, end: str) -> TimeBounds:
-        parsed = cls(_parse_utc_datetime(start), _parse_utc_datetime(end))
+        parsed = cls(parse_datetime(start), parse_datetime(end))
         if parsed.start > parsed.end:
             raise ValueError("start time must not be after end time")
         return parsed
@@ -125,16 +127,9 @@ def _to_datetime64(times: object) -> np.ndarray:
     return timestamps.astype("datetime64[s]")
 
 
-def _parse_utc_datetime(value: str) -> datetime:
-    timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    if timestamp.tzinfo is None:
-        timestamp = timestamp.replace(tzinfo=UTC)
-    return timestamp.astimezone(UTC)
-
-
 def _parse_utc_time(value: str) -> float:
     """Parse an ISO-like time string as a Unix timestamp."""
-    return _parse_utc_datetime(value).timestamp()
+    return parse_datetime(value).timestamp()
 
 
 def _total_temperature(
