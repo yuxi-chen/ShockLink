@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
 
+import shocklink.mms_swmf as mms_swmf
 from shocklink.mms_swmf import solar_wind_from_averages
 from shocklink.swmf import SolarWindValues
 
@@ -76,3 +81,142 @@ def test_solar_wind_from_averages_rejects_nonfinite_values() -> None:
                 "magnetic_field_z": 1.0,
             }
         )
+
+
+def _averages() -> dict[str, float]:
+    return {
+        "ion_density": 5.0,
+        "ion_temperature": 2.0,
+        "electron_temperature": 3.0,
+        "ion_velocity_x": -400.0,
+        "ion_velocity_y": 20.0,
+        "ion_velocity_z": 30.0,
+        "magnetic_field_x": -5.0,
+        "magnetic_field_y": 2.0,
+        "magnetic_field_z": 1.0,
+    }
+
+
+def test_parse_args_accepts_workflow_options() -> None:
+    arguments = mms_swmf.parse_args(
+        [
+            "--mms-start",
+            "2018-12-19 19:40:00",
+            "--mms-end",
+            "2018-12-19 19:52:00",
+            "--input",
+            "template.in",
+            "--output",
+            "generated.in",
+            "--start-time",
+            "2018-12-19 19:52:00",
+            "--probe",
+            "3",
+            "--mode",
+            "fast",
+        ]
+    )
+
+    assert arguments.mms_start == "2018-12-19 19:40:00"
+    assert arguments.mms_end == "2018-12-19 19:52:00"
+    assert arguments.input == "template.in"
+    assert arguments.output == "generated.in"
+    assert arguments.start_time == "2018-12-19 19:52:00"
+    assert arguments.probe == 3
+    assert arguments.mode == "fast"
+
+
+def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    calls: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        mms_swmf,
+        "load_mms_data",
+        lambda *args, **kwargs: calls.update(load=(args, kwargs))
+        or SimpleNamespace(series={"magnetic_field": "b"}),
+    )
+    monkeypatch.setattr(mms_swmf, "average_plotted_values", lambda _data: _averages())
+
+    def write_output(template, output, start_time, solar_wind) -> None:
+        calls["write"] = (template, output, start_time, solar_wind)
+
+    monkeypatch.setattr(mms_swmf, "generate_param_file", write_output)
+
+    output = tmp_path / "generated.in"
+    result = mms_swmf.main(
+        [
+            "--mms-start",
+            "2018-12-19 19:40:00",
+            "--mms-end",
+            "2018-12-19 19:52:00",
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert result == 0
+    assert calls["load"] == (
+        ("2018-12-19 19:40:00", "2018-12-19 19:52:00"),
+        {"probe": 1, "mode": "auto", "coordinates": "gsm"},
+    )
+    template, path, start_time, solar_wind = calls["write"]
+    assert template == "data/Param/PARAM.in.Earth"
+    assert path == str(output)
+    assert start_time == datetime(2018, 12, 19, 19, 46, tzinfo=UTC)
+    assert solar_wind == solar_wind_from_averages(_averages())
+    assert f"Wrote SWMF input to {output}" in capsys.readouterr().out
+
+
+def test_main_honors_explicit_start_time(monkeypatch) -> None:
+    monkeypatch.setattr(
+        mms_swmf,
+        "load_mms_data",
+        lambda *_args, **_kwargs: SimpleNamespace(series={"magnetic_field": "b"}),
+    )
+    monkeypatch.setattr(mms_swmf, "average_plotted_values", lambda _data: _averages())
+    captured: list[datetime] = []
+    monkeypatch.setattr(
+        mms_swmf,
+        "generate_param_file",
+        lambda _template, _output, start_time, _solar_wind: captured.append(start_time),
+    )
+
+    result = mms_swmf.main(
+        [
+            "--mms-start",
+            "2018-12-19 19:40:00",
+            "--mms-end",
+            "2018-12-19 19:52:00",
+            "--start-time",
+            "2018-12-19T14:52:00-05:00",
+            "--output",
+            "generated.in",
+        ]
+    )
+
+    assert result == 0
+    assert captured == [datetime(2018, 12, 19, 19, 52, tzinfo=UTC)]
+
+
+def test_main_reports_mms_failure(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        mms_swmf,
+        "load_mms_data",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("offline")),
+    )
+
+    result = mms_swmf.main(
+        [
+            "--mms-start",
+            "2018-12-19 19:40:00",
+            "--mms-end",
+            "2018-12-19 19:52:00",
+            "--output",
+            "generated.in",
+        ]
+    )
+
+    assert result == 1
+    assert "Could not create SWMF input" in capsys.readouterr().err

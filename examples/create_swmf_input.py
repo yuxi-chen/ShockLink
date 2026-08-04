@@ -1,4 +1,4 @@
-from shocklink.swmf import main
+from shocklink.mms_swmf import main
 
 
 if __name__ == "__main__":
