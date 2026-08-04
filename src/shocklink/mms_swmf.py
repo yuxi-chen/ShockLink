@@ -7,7 +7,7 @@ from collections.abc import Mapping
 import math
 import sys
 
-from shocklink.constants import EV_TO_K
+from shocklink.constants import CARTESIAN_COMPONENTS, EV_TO_K
 from shocklink.mms import average_plotted_values, load_mms_data
 from shocklink.swmf import SolarWindValues
 from shocklink.swmf import generate_param_file
@@ -26,24 +26,28 @@ def _required_average(averages: Mapping[str, float], name: str) -> float:
     return value
 
 
+def _vector_average(
+    averages: Mapping[str, float], prefix: str
+) -> tuple[float, float, float]:
+    x, y, z = (
+        _required_average(averages, f"{prefix}_{component}")
+        for component in CARTESIAN_COMPONENTS
+    )
+    return x, y, z
+
+
 def solar_wind_from_averages(averages: Mapping[str, float]) -> SolarWindValues:
     """Map GSM MMS averages to SWMF solar-wind values."""
     density = _required_average(averages, "ion_density")
     ion_temperature = _required_average(averages, "ion_temperature")
     electron_temperature = _required_average(averages, "electron_temperature")
-    velocity = tuple(
-        _required_average(averages, f"ion_velocity_{component}")
-        for component in "xyz"
-    )
-    magnetic_field = tuple(
-        _required_average(averages, f"magnetic_field_{component}")
-        for component in "xyz"
-    )
+    velocity = _vector_average(averages, "ion_velocity")
+    magnetic_field = _vector_average(averages, "magnetic_field")
     return SolarWindValues(
         density=density,
         temperature_kelvin=(ion_temperature + electron_temperature) * EV_TO_K,
-        velocity=velocity,  # type: ignore[arg-type]
-        magnetic_field=magnetic_field,  # type: ignore[arg-type]
+        velocity=velocity,
+        magnetic_field=magnetic_field,
     )
 
 

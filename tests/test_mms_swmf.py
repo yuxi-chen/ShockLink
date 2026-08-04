@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 import shocklink.mms_swmf as mms_swmf
+from shocklink.constants import CARTESIAN_COMPONENTS
 from shocklink.mms_swmf import solar_wind_from_averages
 from shocklink.swmf import SolarWindValues
 
@@ -81,6 +82,36 @@ def test_solar_wind_from_averages_rejects_nonfinite_values() -> None:
                 "magnetic_field_z": 1.0,
             }
         )
+
+
+@pytest.mark.parametrize("prefix", ["ion_velocity", "magnetic_field"])
+@pytest.mark.parametrize("component", CARTESIAN_COMPONENTS)
+def test_vector_average_requires_every_component(prefix: str, component: str) -> None:
+    averages = {
+        "ion_density": 1.0,
+        "ion_temperature": 1.0,
+        "electron_temperature": 1.0,
+        "ion_velocity_x": 1.0,
+        "ion_velocity_y": 1.0,
+        "ion_velocity_z": 1.0,
+        "magnetic_field_x": 1.0,
+        "magnetic_field_y": 1.0,
+        "magnetic_field_z": 1.0,
+    }
+    del averages[f"{prefix}_{component}"]
+
+    with pytest.raises(ValueError, match=f"{prefix}_{component}"):
+        solar_wind_from_averages(averages)
+
+
+def test_vector_average_collects_cartesian_components() -> None:
+    from shocklink.mms_swmf import _vector_average
+
+    averages = {
+        f"velocity_{component}": index
+        for index, component in enumerate(CARTESIAN_COMPONENTS)
+    }
+    assert _vector_average(averages, "velocity") == (0.0, 1.0, 2.0)
 
 
 def _averages() -> dict[str, float]:
