@@ -1,0 +1,354 @@
+! This is the input used for bow shock geometry study.
+! Use the same configuration as test_swpc.
+
+#COMPONENTMAP		For nightly test
+GM  0 -1 -1 -1		CompMap 0:nProc-1 multithreaded
+IE -2 -1  1  		CompMap last 2 PE-s
+
+#ECHO
+T			DoEcho
+
+#TIMEACCURATE
+F			IsTimeAccurate
+
+#CHECKSTOP
+T			DoCheckStop
+1000			DnCheckStop
+0.01			DtCheckStop
+
+#CHECKSTOPFILE
+T			DoCheckStopFile
+
+#CPUTIMEMAX
+6000.0			CpuTimeMax
+
+INCLUDE
+RESTART.in		NameRestartFile
+
+#SAVERESTART
+T			DoSaveRestart
+10000			DnSaveRestart
+-1.0			DtSaveRestart
+
+#STARTTIME
+2023			iYear
+12			iMonth
+16			iDay
+11			iHour
+30			iMinute
+0			iSecond
+0			FracSecond
+
+
+#BEGIN_COMP GM ---------------------------------------------------------------
+
+INCLUDE
+GM/restartIN/restart.H
+
+#GRIDBLOCKALL
+12000			MaxBlock (for the whole simulation)
+
+
+#GRID
+1			nRootBlock1
+1			nRootBlock2
+1			nRootBlock3
+-224.			xMin
+ 32.			xMax
+-128.			yMin
+ 128.			yMax
+-128.			zMin
+ 128.			zMax
+
+#NONCONSERVATIVE
+T			UseNonConservative
+
+#CONSERVATIVECRITERIA
+1			nConservCrit
+parabola		TypeConservCrit
+ 5.0			xParabolaConserv
+15.0			yParabolaConserv
+
+! Maximum resolution initially
+#GRIDRESOLUTION
+1./4			Resolution
+initial			StringShape
+
+! Minimum resolution in the computational domain
+#GRIDRESOLUTION
+8.0			Resolution
+all			StringShape
+
+#GRIDRESOLUTION
+1.0			Resolution
+box			StringShape
+ -20.0			xMinBox
+ -16.0			yMinBox
+ -16.0			zMinBox
+  20.0			xMaxBox
+  16.0			yMaxBox
+  16.0			zMaxBox
+
+! r currents resolution for the ionosphere
+#GRIDRESOLUTION
+1/4			Resolution
+shell0			StringShape
+2.5			RadiusInner
+3.5			Radius
+
+! Resolve inner magnetosphere
+#GRIDRESOLUTION
+1/2			Resolution
+box			StringShape
+-30.0			xMinBox
+-20.0			yMinBox
+-20.0			zMinBox
+ 15.0			xMaxBox
+ 20.0			yMaxBox
+ 20.0			zMaxBox
+
+
+! Dayside reconnection
+#GRIDRESOLUTION
+1/2			Resolution
+box			StringShape
+4			xMinBox
+-8.0			yMinBox
+-8.0			zMinBox
+12			xMaxBox
+ 8.0			yMaxBox
+ 8.0			zMaxBox
+
+#MAGNETOSPHERE
+T			UseBody
+2.5			rBody
+3.5			rCurrents
+8.0			BodyNDim (/ccm) density for fixed BC for rho_BLK
+2.5e4			BodyTDim (K) temperature for fixed BC for P_BLK
+
+! Pressures below pMinDim are replaced with pMinDim.
+#MINIMUMPRESSURE
+1e-5			pMinDim [nPa]
+
+#MINIMUMDENSITY
+1e-2			RhoMinDim [amu/cc]
+
+#OUTERBOUNDARY
+outflow			TypeBc1
+vary			TypeBc2
+float			TypeBc3
+float			TypeBc4
+float			TypeBc5
+float			TypeBc6
+
+#INNERBOUNDARY
+ionosphere		TypeBcBody
+
+#PLASMA
+1			FluidMass
+1			IonCharge
+1			ElectronTemperatureRatio
+
+#SOLARWIND
+5.63			SwNDim  [n/cc]
+1e5			SwTDim  [K]
+-500			SwUxDim [km/s]
+0			SwUyDim [km/s]
+0			SwUzDim [km/s]
+-7.52			SwBxDim [nT]
+2.67			SwByDim [nT]
+2.67			SwBzDim [nT]
+
+#SCHEME
+1			nOrder
+Rusanov			TypeFlux
+
+#TIMESTEPPING
+1			nStage
+0.60			CflExpl
+
+#BORIS
+F			UseBorisCorrection
+
+#TEST
+krylov			StringTest
+
+--------------Hall begin---------------
+#HALLRESISTIVITY
+F			UseHallResist (rest of parameters read only if true)
+16.0			HallFactorMax
+1.0			HallCmaxFactor  1.0 !!!
+
+
+
+#REGION
+box1			NameRegion
+box tapered		StringShape
+-60			xMinBox
+-30			yMinBox
+-20			zMinBox
+20			xMaxBox
+30			yMaxBox
+20			zMaxBox
+1			Taper
+
+#REGION
+sphere1			NameRegion
+sphere0 tapered		StringShape
+3			Radius
+0.5			Taper
+
+REGION
+polars			NameRegion
+doubleconez0 tapered		StringShape
+12			Height
+2.0			Radius
+0.2			Taper
+
+#HALLREGION
++box1 -sphere1		StringHallRegion
+
+
+#SEMIIMPLICIT
+F			UseSemiImplicit
+
+#SEMIKRYLOV
+GMRES			TypeKrylov  (GMRES, BICGSTAB, CG)
+0.001			ErrorMaxKrylov
+100			MaxMatvecKrylov
+
+#SEMIPRECONDITIONER
+T			DoPrecond (rest of parameters are read if true)
+MBILU			TypePrecond (MBILU, BILU, DILU, GS, BLOCKJACOBI, JACOBI, HYPRE)
+0.5			PrecondParam (0 to 1, read for MBILU preconditioner only)
+
+
+--------------Hall end---------------
+
+
+#SAVEPLOT
+3			nPlotFile
+y=0 VAR idl		StringPlot		StringPlot
+10000			DnSavePlot
+-0.1			DtSavePlot
+-1.			DxSavePlot
+{MHD} dx		NameVars
+g rbody			NamePars
+z=0 VAR idl		StringPlot		StringPlot
+10000			DnSavePlot
+-0.1			DtSavePlot
+-1.			DxSavePlot
+{MHD} dx		NameVars
+g rbody			NamePars
+3d VAR tcp		StringPlot              StringPlot
+300000			DnSavePlot
+-1			DtSavePlot
+rho ux uy uz bx by bz p		NameVars
+{default} rbody		NamePars
+
+#SAVEONEFILE
+T			DoSaveOneIdlFile
+
+#SAVEINITIAL
+F			DoSaveInitial
+
+
+#SAVELOGFILE
+T			DoSaveLogfile
+RAW			StringLog
+1000			DnSaveLogfile
+-1.			DtSaveLogfile
+
+
+#END_COMP GM -----------------------------------------------------------------
+
+
+#STOP
+5000			MaxIter
+-1.			TimeMax
+
+#RUN ##########################################################################
+
+#STOP
+10000			MaxIter
+-1.			TimeMax
+
+
+#BEGIN_COMP GM ---------------------------------------------------------------
+
+#AMR
+100			DnRefine
+F			DoAutoRefine
+
+#GRIDRESOLUTION
+1/4			Resolution
+shell0			StringShape
+2.5			RadiusInner
+3.5			Radius
+
+#GRIDRESOLUTION
+1/4			Resolution
+box			StringShape
+-5.0			xMinBox
+-15.0			yMinBox
+-15.0			zMinBox
+ 15.0			xMaxBox
+ 15.0			yMaxBox
+ 15.0			zMaxBox
+
+
+! Bowshock
+#GRIDRESOLUTION
+1/8			Resolution
+box			StringShape
+6			xMinBox
+-12.0			yMinBox
+-12.0			zMinBox
+15			xMaxBox
+ 12.0			yMaxBox
+ 12.0			zMaxBox
+
+#END_COMP GM -----------------------------------------------------------------
+
+#RUN ##########################################################################
+
+#BEGIN_COMP GM ---------------------------------------------------------------
+
+#SCHEME
+2			nOrder
+Rusanov			TypeFlux
+mc3			TypeLimiter
+1.5			LimiterBeta
+
+#TIMESTEPPING
+2			nStage
+0.6			CflExpl
+
+
+#END_COMP GM -----------------------------------------------------------------
+
+#STOP
+13000			MaxIter
+-1.			TimeMax
+
+#RUN ##########################################################################
+
+#BEGIN_COMP GM ---------------------------------------------------------------
+
+#SCHEME
+2			nOrder
+Linde			TypeFlux
+mc3			TypeLimiter
+1.5			LimiterBeta
+
+#TIMESTEPPING
+2			nStage
+0.6			CflExpl
+
+
+#END_COMP GM -----------------------------------------------------------------
+
+
+#STOP
+15000			MaxIter
+-1.			TimeMax
