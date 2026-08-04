@@ -282,7 +282,12 @@ def _real_numeric_array(
         raise DatasetError(numeric_message) from error
 
 
-def _surface_axis(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
+def _surface_axis(
+    values: ArrayLike,
+    *,
+    label: str,
+    minimum_size: int = 1,
+) -> NDArray[np.float64]:
     """Return a validated regular-surface coordinate axis."""
 
     axis = _real_numeric_array(
@@ -292,19 +297,13 @@ def _surface_axis(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
     )
     if axis.ndim != 1 or axis.size == 0:
         raise DatasetError(f"{label} coordinates must be a nonempty 1D array")
+    if axis.size < minimum_size:
+        minimum_text = "three" if minimum_size == 3 else str(minimum_size)
+        raise DatasetError(f"{label} coordinates must contain at least {minimum_text} values")
     if not np.isfinite(axis).all():
         raise DatasetError(f"{label} coordinates must be finite")
     if axis.size > 1 and np.any(np.diff(axis) <= 0.0):
         raise DatasetError(f"{label} coordinates must be strictly increasing")
-    return axis
-
-
-def _normal_axis(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
-    """Return a coordinate axis suitable for normal differentiation."""
-
-    axis = _surface_axis(values, label=label)
-    if axis.size < 3:
-        raise DatasetError(f"{label} coordinates must contain at least three values")
     return axis
 
 
@@ -603,6 +602,18 @@ def _surface_x_values(
     )
 
 
+def _unit_vectors(
+    values: NDArray[np.float64], *, positive_message: str
+) -> NDArray[np.float64]:
+    """Normalize finite vectors with scale-safe intermediate arithmetic."""
+
+    scales = np.max(np.abs(values), axis=-1)
+    if np.any(scales <= 0.0):
+        raise DatasetError(positive_message)
+    unit = values / scales[..., np.newaxis]
+    return unit / np.linalg.norm(unit, axis=-1, keepdims=True)
+
+
 def _refine_surface_minima(
     *,
     x_values: NDArray[np.float64],
@@ -847,8 +858,8 @@ def calc_bow_shock_normals(
     ``surface_x``.  Second-order edge stencils provide lower edge accuracy.
     """
 
-    y_values = _normal_axis(y, label="Y")
-    z_values = _normal_axis(z, label="Z")
+    y_values = _surface_axis(y, label="Y", minimum_size=3)
+    z_values = _surface_axis(z, label="Z", minimum_size=3)
     filled_surface = _normal_surface(
         surface_x,
         shape=(len(y_values), len(z_values)),
@@ -1005,17 +1016,14 @@ def calc_bow_shock_normal_angle(
     if not np.isfinite(vector_values).all():
         raise DatasetError("Bow-shock reference vector must be finite")
 
-    normal_scales = np.max(np.abs(normal_values), axis=-1)
-    vector_scale = np.max(np.abs(vector_values))
-    if np.any(normal_scales <= 0.0):
-        raise DatasetError("Bow-shock normal magnitudes must be positive")
-    if vector_scale <= 0.0:
-        raise DatasetError("Bow-shock reference vector magnitude must be positive")
-
-    normal_unit = normal_values / normal_scales[..., np.newaxis]
-    normal_unit /= np.linalg.norm(normal_unit, axis=-1, keepdims=True)
-    vector_unit = vector_values / vector_scale
-    vector_unit /= np.linalg.norm(vector_unit)
+    normal_unit = _unit_vectors(
+        normal_values,
+        positive_message="Bow-shock normal magnitudes must be positive",
+    )
+    vector_unit = _unit_vectors(
+        vector_values,
+        positive_message="Bow-shock reference vector magnitude must be positive",
+    )
     dot_products = np.sum(normal_unit * vector_unit, axis=-1)
     return np.degrees(np.arccos(np.clip(dot_products, -1.0, 1.0)))
 
