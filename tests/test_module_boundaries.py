@@ -30,3 +30,23 @@ def test_mms_private_modules_do_not_import_public_facade() -> None:
             if isinstance(node, ast.ImportFrom)
         }
         assert "shocklink.mms" not in imported_modules
+
+
+def test_swmf_does_not_import_mms_or_integration_workflow() -> None:
+    root = Path(__file__).resolve().parents[1]
+    tree = ast.parse((root / "src/shocklink/swmf.py").read_text())
+    imported_modules = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+    }
+    imported_names = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    assert "shocklink.mms" not in imported_modules
+    assert "shocklink.mms_swmf" not in imported_modules
+    assert "load_mms_data" not in imported_names
+    assert "average_plotted_values" not in imported_names
