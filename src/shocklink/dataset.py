@@ -109,13 +109,24 @@ def calc_velocity_divergence(
     return dataset
 
 
+def _float_array(
+    value: Sequence[float], *, numeric_message: str
+) -> NDArray[np.float64]:
+    """Convert a sequence to float64 while preserving caller-level errors."""
+
+    try:
+        return np.asarray(value, dtype=np.float64)
+    except (TypeError, ValueError) as error:
+        raise DatasetError(numeric_message) from error
+
+
 def _vector3(value: Sequence[float], *, label: str) -> NDArray[np.float64]:
     """Validate a finite three-component vector."""
 
-    try:
-        vector = np.asarray(value, dtype=np.float64)
-    except (TypeError, ValueError) as error:
-        raise DatasetError(f"Cut {label} must contain three numbers") from error
+    vector = _float_array(
+        value,
+        numeric_message=f"Cut {label} must contain three numbers",
+    )
     if vector.shape != (3,):
         raise DatasetError(f"Cut {label} must contain exactly three values")
     if not np.isfinite(vector).all():
@@ -324,10 +335,10 @@ def _plot_range(
 
     if value is None:
         return None
-    try:
-        limits = np.asarray(value, dtype=np.float64)
-    except (TypeError, ValueError) as error:
-        raise DatasetError(f"{name} must contain two numeric values") from error
+    limits = _float_array(
+        value,
+        numeric_message=f"{name} must contain two numeric values",
+    )
     if limits.shape != (2,):
         raise DatasetError(f"{name} must contain exactly two values")
     if not np.isfinite(limits).all():
