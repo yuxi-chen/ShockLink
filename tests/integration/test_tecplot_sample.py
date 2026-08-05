@@ -11,6 +11,7 @@ from shocklink.bowshock import (
     fit_bow_shock,
     get_bow_shock_surface,
 )
+from shocklink.connectivity import analyze_shock_connection
 from shocklink.dataset import (
     calc_velocity_divergence,
     get_2d_cut,
@@ -110,3 +111,18 @@ def test_real_batsrus_sample_extracts_bow_shock_surface_array() -> None:
     finite = surface[np.isfinite(surface)]
     assert finite.min() >= region.bounds.x_min
     assert finite.max() <= region.bounds.x_max
+
+    connection = analyze_shock_connection(
+        surface,
+        normals,
+        y=y,
+        z=z,
+        mms_position=(0.0, 0.0, 0.0),
+        bavg=(1.0, 0.0, 0.0),
+    )
+
+    assert len(connection.intersections) >= 1
+    assert np.isfinite(connection.selected_intersection.point).all()
+    assert connection.selected_intersection.distance > 0.0
+    assert 0.0 <= connection.selected_intersection.theta_bn_deg <= 90.0
+    assert connection.surface_mesh.n_cells > 0
