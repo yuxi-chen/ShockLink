@@ -45,6 +45,20 @@ checkpoints are not committed.
 
 ## Python scripts
 
+### MMS–bow-shock connection
+
+Install the optional MMS dependencies and read [the connection guide](../docs/mms-bow-shock-connection.md), then run:
+
+```bash
+pip install -e ".[mms]"
+```
+
+```bash
+PYTHONPATH=src python examples/mms_bow_shock_connection.py data/3d.dat \
+  --mms-start "2023-12-16 11:29:30" \
+  --mms-end "2023-12-16 11:30:30" --probe 1 --mode auto
+```
+
 ## MMS satellite-data analysis
 
 Install the optional MMS tools, then download and plot a short MMS interval.
