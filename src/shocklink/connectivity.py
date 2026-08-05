@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pyvista as pv
@@ -10,6 +11,10 @@ from numpy.typing import ArrayLike, NDArray
 
 from shocklink.exceptions import DatasetError, GeometryError
 from shocklink.bowshock import calc_bow_shock_normal_angle
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 NORMAL_NAME = "shock_normal"
 ANGLE_NAME = "theta_Bn [deg]"
@@ -277,11 +282,12 @@ def plot_shock_angle_contour(
     *,
     ax: object | None = None,
     levels: ArrayLike | None = None,
-) -> object:
+) -> tuple[Figure, Axes]:
     """Plot the acute shock-normal angle on the extracted Y-Z shock map.
 
     Matplotlib is imported only when this function is called.  The supplied
-    axes is reused and returned; otherwise a new axes is created.
+    axes is reused and returned; otherwise a new axes is created.  Returns
+    ``(figure, axes)`` (a Matplotlib ``Figure`` and ``Axes`` pair).
     """
     try:
         import matplotlib.pyplot as plt

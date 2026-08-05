@@ -240,3 +240,18 @@ def test_plot_shock_connection_3d_adds_named_actors() -> None:
     names = set(plotter.actors)
     assert {"earth", "bow_shock", "mms", "intersection", "field_line", "bavg_arrow"} <= names
     plotter.close()
+
+
+def test_plot_shock_connection_3d_zero_distance_hit_has_continuation() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    theta = np.zeros(surface_x.shape)
+    mesh = _build_surface_mesh(surface_x, normals, theta, y=y, z=z)
+    mms = np.array([5.0, 0.0, 0.0])
+    hit = ShockIntersection(mms, 0.0, 0.0, 0, [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], 0.0)
+    result = ShockConnection(mms, np.array([1.0, 0.0, 0.0]), np.array([1.0, 0.0, 0.0]),
+        y, z, theta, mesh, (hit,))
+    plotter = pv.Plotter(off_screen=True)
+    plot_shock_connection_3d(result, plotter=plotter, show=False)
+    line_points = plotter.actors["field_line"].mapper.dataset.points
+    assert np.linalg.norm(line_points[-1] - line_points[0]) > 0.0
+    plotter.close()
