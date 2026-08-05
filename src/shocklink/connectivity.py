@@ -70,12 +70,12 @@ def _build_surface_mesh(
         raise DatasetError(f"Shock-normal angle must have shape {shape}")
     if np.isinf(surface).any():
         raise DatasetError("Bow-shock surface must not contain infinity")
-    if not np.isfinite(normal_values).all():
-        raise DatasetError("Bow-shock normals must be finite")
-    if not np.isfinite(angles[np.isfinite(surface)]).all():
+    valid = np.isfinite(surface)
+    if not np.isfinite(normal_values[valid]).all():
+        raise DatasetError("Bow-shock normals must be finite where surface is observed")
+    if not np.isfinite(angles[valid]).all():
         raise DatasetError("Shock-normal angle must be finite where surface is observed")
 
-    valid = np.isfinite(surface)
     yy, zz = np.meshgrid(y_values, z_values, indexing="ij")
     cell_valid = (
         valid[:-1, :-1]

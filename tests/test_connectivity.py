@@ -86,3 +86,31 @@ def test_build_surface_mesh_allows_angle_nan_at_missing_surface_points() -> None
     mesh = _build_surface_mesh(surface_x, normals, theta, y=y, z=z)
 
     assert mesh.n_cells == 6
+
+
+def test_build_surface_mesh_allows_nonfinite_point_data_at_surface_holes() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    surface_x[0, 0] = np.nan
+    normals[0, 0] = np.nan
+    theta = np.full(surface_x.shape, 30.0)
+    theta[0, 0] = np.nan
+
+    mesh = _build_surface_mesh(surface_x, normals, theta, y=y, z=z)
+
+    assert mesh.n_cells == 6
+
+
+def test_build_surface_mesh_rejects_nonfinite_normals_on_observed_points() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    normals[1, 1] = np.nan
+
+    with pytest.raises(DatasetError, match="normals must be finite where surface is observed"):
+        _build_surface_mesh(surface_x, normals, np.full(surface_x.shape, 30.0), y=y, z=z)
+
+
+def test_build_surface_mesh_rejects_surface_with_no_complete_cells() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    surface_x[:, :] = np.nan
+
+    with pytest.raises(GeometryError, match="no complete observed cells"):
+        _build_surface_mesh(surface_x, normals, np.full(surface_x.shape, 30.0), y=y, z=z)
