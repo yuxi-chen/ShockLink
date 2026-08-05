@@ -178,3 +178,17 @@ def test_analyze_rejects_no_intersection_and_bad_inputs() -> None:
     with pytest.raises(DatasetError):
         analyze_shock_connection(surface_x, normals, y=y, z=z,
             mms_position=[0., 0., 0.], bavg=[0., 0., 0.])
+
+
+def test_coplanar_displaced_line_is_not_ambiguous() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    with pytest.raises(GeometryError, match="does not intersect"):
+        analyze_shock_connection(surface_x, normals, y=y, z=z,
+            mms_position=[5.0, 2.0, 0.0], bavg=[0.0, 0.0, 1.0])
+
+
+def test_coplanar_overlapping_line_is_ambiguous() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    with pytest.raises(GeometryError, match="ambiguous"):
+        analyze_shock_connection(surface_x, normals, y=y, z=z,
+            mms_position=[5.0, 0.0, 0.0], bavg=[0.0, 0.0, 1.0])

@@ -200,7 +200,8 @@ def _line_triangle_intersections(
                 edge = b - a
                 denom = cross2(line_d, edge)
                 if abs(denom) > tolerance:
-                    if 0.0 <= cross2(a, edge) / denom <= 1.0:
+                    # Segment parameter is cross(a, line_d) / cross(line_d, edge).
+                    if 0.0 <= cross2(a, line_d) / denom <= 1.0:
                         overlaps = True
                 elif abs(cross2(a, line_d)) <= tolerance:
                     # Collinear line/edge: any finite edge segment is overlap.
