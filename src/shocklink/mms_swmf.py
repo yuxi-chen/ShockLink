@@ -9,8 +9,7 @@ import sys
 
 from shocklink.constants import CARTESIAN_COMPONENTS, EV_TO_K
 from shocklink.mms import average_plotted_values, load_mms_data
-from shocklink.swmf import SolarWindValues
-from shocklink.swmf import generate_param_file
+from shocklink.swmf import MMSLocation, SolarWindValues, generate_param_file
 from shocklink.utilities import TimeBounds, midpoint_datetime, parse_datetime
 
 
@@ -51,6 +50,12 @@ def solar_wind_from_averages(averages: Mapping[str, float]) -> SolarWindValues:
     )
 
 
+def mms_location_from_averages(averages: Mapping[str, float]) -> MMSLocation:
+    """Map interval-averaged GSM MMS position values in Earth radii."""
+    x, y, z = _vector_average(averages, "satellite_location")
+    return MMSLocation(x, y, z)
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mms-start", required=True, help="MMS interval start time")
@@ -77,14 +82,18 @@ def main(argv: list[str] | None = None) -> int:
         )
         if not data.series:
             raise RuntimeError("No MMS data were available for this interval")
-        solar_wind = solar_wind_from_averages(average_plotted_values(data))
+        averages = average_plotted_values(data)
+        solar_wind = solar_wind_from_averages(averages)
+        location = mms_location_from_averages(averages)
         bounds = TimeBounds.from_strings(arguments.mms_start, arguments.mms_end)
         start_time = (
             parse_datetime(arguments.start_time)
             if arguments.start_time
             else midpoint_datetime(bounds.start, bounds.end)
         )
-        generate_param_file(arguments.input, arguments.output, start_time, solar_wind)
+        generate_param_file(
+            arguments.input, arguments.output, start_time, solar_wind, location
+        )
     except Exception as error:
         print(f"Could not create SWMF input: {error}", file=sys.stderr)
         return 1

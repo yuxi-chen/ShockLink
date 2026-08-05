@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from shocklink.swmf import SolarWindValues, generate_param_file, replace_param_values
+from shocklink.swmf import (
+    MMSLocation,
+    SolarWindValues,
+    generate_param_file,
+    replace_param_values,
+)
 
 
 TEMPLATE = """#STARTTIME
@@ -92,3 +97,22 @@ def test_replace_param_values_rejects_malformed_sections() -> None:
             datetime(2018, 12, 19, 19, 46, tzinfo=UTC),
             SolarWindValues(1.0, 2.0, (3.0, 4.0, 5.0), (6.0, 7.0, 8.0)),
         )
+
+
+def test_replace_param_values_adds_mms_location_after_starttime() -> None:
+    result = replace_param_values(
+        TEMPLATE,
+        datetime(2020, 12, 9, 8, 0, 8, tzinfo=UTC),
+        SolarWindValues(1.0, 2.0, (3.0, 4.0, 5.0), (6.0, 7.0, 8.0)),
+        MMSLocation(10.8, 9.9, -5.5),
+    )
+
+    location = (
+        "! MMS Location at 2020-12-09 08:00:08\n"
+        "10.8                 GSM_X\n"
+        "9.9                  GSM_Y\n"
+        "-5.5                 GSM_Z\n"
+    )
+    assert location in result
+    assert result.index(location) > result.index("#STARTTIME")
+    assert result.index(location) < result.index("#SOLARWIND")

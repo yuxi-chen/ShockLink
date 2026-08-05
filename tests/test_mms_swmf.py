@@ -9,7 +9,7 @@ import pytest
 import shocklink.mms_swmf as mms_swmf
 from shocklink.constants import CARTESIAN_COMPONENTS
 from shocklink.mms_swmf import solar_wind_from_averages
-from shocklink.swmf import SolarWindValues
+from shocklink.swmf import MMSLocation, SolarWindValues
 
 
 def test_solar_wind_from_averages_maps_mms_values() -> None:
@@ -84,6 +84,16 @@ def test_solar_wind_from_averages_rejects_nonfinite_values() -> None:
         )
 
 
+def test_mms_location_from_averages_maps_gsm_earth_radii() -> None:
+    assert mms_swmf.mms_location_from_averages(
+        {
+            "satellite_location_x": 10.8,
+            "satellite_location_y": 9.9,
+            "satellite_location_z": -5.5,
+        }
+    ) == MMSLocation(10.8, 9.9, -5.5)
+
+
 @pytest.mark.parametrize("prefix", ["ion_velocity", "magnetic_field"])
 @pytest.mark.parametrize("component", CARTESIAN_COMPONENTS)
 def test_vector_average_requires_every_component(prefix: str, component: str) -> None:
@@ -125,6 +135,9 @@ def _averages() -> dict[str, float]:
         "magnetic_field_x": -5.0,
         "magnetic_field_y": 2.0,
         "magnetic_field_z": 1.0,
+        "satellite_location_x": 10.8,
+        "satellite_location_y": 9.9,
+        "satellite_location_z": -5.5,
     }
 
 
@@ -170,8 +183,8 @@ def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
     )
     monkeypatch.setattr(mms_swmf, "average_plotted_values", lambda _data: _averages())
 
-    def write_output(template, output, start_time, solar_wind) -> None:
-        calls["write"] = (template, output, start_time, solar_wind)
+    def write_output(template, output, start_time, solar_wind, location) -> None:
+        calls["write"] = (template, output, start_time, solar_wind, location)
 
     monkeypatch.setattr(mms_swmf, "generate_param_file", write_output)
 
@@ -192,11 +205,12 @@ def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
         ("2018-12-19 19:40:00", "2018-12-19 19:52:00"),
         {"probe": 1, "mode": "auto", "coordinates": "gsm"},
     )
-    template, path, start_time, solar_wind = calls["write"]
+    template, path, start_time, solar_wind, location = calls["write"]
     assert template == "data/Param/PARAM.in.Earth"
     assert path == str(output)
     assert start_time == datetime(2018, 12, 19, 19, 46, tzinfo=UTC)
     assert solar_wind == solar_wind_from_averages(_averages())
+    assert location == mms_swmf.mms_location_from_averages(_averages())
     assert f"Wrote SWMF input to {output}" in capsys.readouterr().out
 
 
@@ -211,7 +225,7 @@ def test_main_honors_explicit_start_time(monkeypatch) -> None:
     monkeypatch.setattr(
         mms_swmf,
         "generate_param_file",
-        lambda _template, _output, start_time, _solar_wind: captured.append(start_time),
+        lambda _template, _output, start_time, _solar_wind, _location: captured.append(start_time),
     )
 
     result = mms_swmf.main(

@@ -49,13 +49,27 @@ class SolarWindValues:
                 raise ValueError(f"{name} must be finite")
 
 
+@dataclass(frozen=True)
+class MMSLocation:
+    """MMS GSM position in Earth radii."""
+
+    x: float
+    y: float
+    z: float
+
+    def __post_init__(self) -> None:
+        for name, value in zip(("x", "y", "z"), (self.x, self.y, self.z), strict=True):
+            if not math.isfinite(float(value)):
+                raise ValueError(f"MMS location {name} must be finite")
+
+
 def _format_number(value: float) -> str:
     return f"{value:.12g}"
 
 
 def _replace_section(
     lines: list[str], marker: str, fields: tuple[str, ...], values: tuple[str, ...]
-) -> None:
+) -> int:
     try:
         marker_index = next(index for index, line in enumerate(lines) if line.strip() == marker)
     except StopIteration as error:
@@ -85,10 +99,42 @@ def _replace_section(
         lines[index] = (
             f"{match.group('lead')}{value}{match.group('between')}{match.group('rest')}{newline}"
         )
+    return max(field_indices.values())
+
+
+def _location_lines(
+    start_time: datetime, location: MMSLocation, newline: str
+) -> list[str]:
+    timestamp = start_time.strftime("%Y-%m-%d %H:%M:%S")
+    if start_time.microsecond:
+        timestamp += f".{start_time.microsecond:06d}".rstrip("0")
+    return [
+        f"! MMS Location at {timestamp}{newline}",
+        f"{_format_number(location.x):<21}GSM_X{newline}",
+        f"{_format_number(location.y):<21}GSM_Y{newline}",
+        f"{_format_number(location.z):<21}GSM_Z{newline}",
+    ]
+
+
+def _replace_location(
+    lines: list[str], start_index: int, start_time: datetime, location: MMSLocation
+) -> None:
+    newline = "\r\n" if lines[start_index].endswith("\r\n") else "\n"
+    replacement = _location_lines(start_time, location, newline)
+    location_start = start_index + 1
+    if lines[location_start : location_start + 1] and lines[location_start].startswith(
+        "! MMS Location at "
+    ):
+        lines[location_start : location_start + 4] = replacement
+        return
+    lines[location_start:location_start] = replacement
 
 
 def replace_param_values(
-    template: str, start_time: datetime, solar_wind: SolarWindValues
+    template: str,
+    start_time: datetime,
+    solar_wind: SolarWindValues,
+    location: MMSLocation | None = None,
 ) -> str:
     """Replace the STARTTIME and SOLARWIND values in a template string."""
     start_time = start_time.astimezone(UTC)
@@ -108,7 +154,9 @@ def replace_param_values(
         *(_format_number(value) for value in solar_wind.magnetic_field),
     )
     lines = template.splitlines(keepends=True)
-    _replace_section(lines, "#STARTTIME", STARTTIME_FIELDS, start_values)
+    start_section_end = _replace_section(lines, "#STARTTIME", STARTTIME_FIELDS, start_values)
+    if location is not None:
+        _replace_location(lines, start_section_end, start_time, location)
     _replace_section(lines, "#SOLARWIND", SOLARWIND_FIELDS, solar_values)
     return "".join(lines)
 
@@ -118,10 +166,11 @@ def generate_param_file(
     output_path: str | Path,
     start_time: datetime,
     solar_wind: SolarWindValues,
+    location: MMSLocation | None = None,
 ) -> None:
     """Read a template, update two sections, and write a new parameter file."""
     with Path(template_path).open(newline="") as source:
         template = source.read()
-    result = replace_param_values(template, start_time, solar_wind)
+    result = replace_param_values(template, start_time, solar_wind, location)
     with Path(output_path).open("w", newline="") as destination:
         destination.write(result)
