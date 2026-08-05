@@ -209,8 +209,11 @@ def test_connection_notebook_documents_launch_and_portable_parameters() -> None:
     source = "\n".join(cell.source for cell in notebook.cells)
 
     assert 'DATA_PATH = Path("../data/3d.dat")' in source
-    assert "MMS_START =" in source
-    assert "MMS_END =" in source
+    assert "MMS_WINDOW_SECONDS = 300.0" in source
+    assert "parse_datetime" in source
+    assert "event_time" in source
+    assert "mms_start =" in source
+    assert "mms_end =" in source
     assert "jupyter lab examples/shock_connection.ipynb" in source
     assert 'pv.set_jupyter_backend("static")' in source
     assert 'plotter.show(jupyter_backend="static")' in source
