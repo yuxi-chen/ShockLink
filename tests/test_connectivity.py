@@ -9,6 +9,8 @@ from shocklink.connectivity import (
     ShockIntersection,
     _build_surface_mesh,
     analyze_shock_connection,
+    plot_shock_angle_contour,
+    plot_shock_connection_3d,
 )
 from shocklink.exceptions import DatasetError, GeometryError
 
@@ -195,3 +197,35 @@ def test_coplanar_overlapping_line_is_ambiguous() -> None:
     with pytest.raises(GeometryError, match="ambiguous"):
         analyze_shock_connection(surface_x, normals, y=y, z=z,
             mms_position=[5.0, 0.0, 0.0], bavg=[0.0, 0.0, 1.0])
+
+
+def test_plot_shock_angle_contour_masks_holes_and_marks_intersection() -> None:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    y, z, surface_x, normals = _plane_inputs()
+    surface_x[0, 0] = np.nan
+    result = analyze_shock_connection(surface_x, normals, y=y, z=z,
+        mms_position=[0., 0., 0.], bavg=[1., 0., 0.])
+    fig, ax = plt.subplots()
+    returned = plot_shock_angle_contour(result, ax=ax)
+    assert returned is ax
+    assert ax.get_aspect() in (1.0, "equal")
+    assert ax.get_xlabel() == "Y [R_E]"
+    assert ax.get_ylabel() == "Z [R_E]"
+    assert any("intersection" in str(coll.get_label()).lower() for coll in ax.collections)
+    assert len(ax.texts) >= 1
+    plt.close(fig)
+
+
+def test_plot_shock_connection_3d_adds_named_actors() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    result = analyze_shock_connection(surface_x, normals, y=y, z=z,
+        mms_position=[0., 0., 0.], bavg=[1., 0., 0.])
+    plotter = pv.Plotter(off_screen=True)
+    returned = plot_shock_connection_3d(result, plotter=plotter, show=False)
+    assert returned is plotter
+    names = set(plotter.actors)
+    assert {"earth", "bow_shock", "mms", "intersection", "field_line", "bavg_arrow"} <= names
+    plotter.close()

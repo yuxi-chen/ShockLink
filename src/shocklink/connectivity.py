@@ -272,4 +272,91 @@ def analyze_shock_connection(
     return ShockConnection(mms, field, direction, y_values, z_values, angles, mesh, tuple(intersections))
 
 
-__all__ = ["ShockConnection", "ShockIntersection", "analyze_shock_connection"]
+def plot_shock_angle_contour(
+    connection: ShockConnection,
+    *,
+    ax: object | None = None,
+    levels: ArrayLike | None = None,
+) -> object:
+    """Plot the acute shock-normal angle on the extracted Y-Z shock map.
+
+    Matplotlib is imported only when this function is called.  The supplied
+    axes is reused and returned; otherwise a new axes is created.
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError as error:  # pragma: no cover - depends on optional extra
+        raise ImportError("plot_shock_angle_contour requires matplotlib") from error
+    if ax is None:
+        _, ax = plt.subplots()
+    angles = np.ma.masked_invalid(np.asarray(connection.theta_bn_deg, dtype=float).T)
+    contour_levels = np.linspace(0.0, 90.0, 19) if levels is None else np.asarray(levels, dtype=float)
+    if contour_levels.ndim != 1 or contour_levels.size < 2:
+        raise DatasetError("Contour levels must contain at least two values")
+    if not np.isfinite(contour_levels).all() or np.any(np.diff(contour_levels) <= 0.0):
+        raise DatasetError("Contour levels must be finite and strictly increasing")
+    mesh = ax.contourf(connection.y, connection.z, angles, levels=contour_levels, vmin=0.0, vmax=90.0)
+    colorbar = ax.figure.colorbar(mesh, ax=ax)
+    colorbar.set_label(ANGLE_NAME)
+    hit = connection.selected_intersection
+    ax.scatter([hit.point[1]], [hit.point[2]], color="black", edgecolors="white", zorder=5,
+               label="intersection")
+    ax.annotate(
+        f"intersection\n({hit.point[0]:.2f}, {hit.point[1]:.2f}, {hit.point[2]:.2f}) R_E\n"
+        f"θBn={hit.theta_bn_deg:.1f}°",
+        xy=(hit.point[1], hit.point[2]), xytext=(8, 8), textcoords="offset points",
+    )
+    ax.set_xlabel("Y [R_E]")
+    ax.set_ylabel("Z [R_E]")
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_title("Bow-shock magnetic connection angle")
+    return ax
+
+
+def plot_shock_connection_3d(
+    connection: ShockConnection,
+    *,
+    plotter: pv.Plotter | None = None,
+    show: bool = True,
+) -> pv.Plotter:
+    """Render Earth, the colored shock, MMS, and its straight field connection."""
+    if plotter is None:
+        plotter = pv.Plotter()
+    hit = connection.selected_intersection
+    mms = np.asarray(connection.mms_position, dtype=float)
+    hit_point = np.asarray(hit.point, dtype=float)
+    direction_to_hit = np.sign(hit.line_parameter) * np.asarray(connection.field_direction)
+    extension = max(hit.distance * 0.2, 0.1)
+    line_end = hit_point + extension * direction_to_hit
+
+    plotter.add_mesh(pv.Sphere(radius=1.0), color="cornflowerblue", name="earth", smooth_shading=True)
+    plotter.add_mesh(
+        connection.surface_mesh, scalars=ANGLE_NAME, clim=(0.0, 90.0), cmap="viridis",
+        name="bow_shock", show_scalar_bar=True, scalar_bar_args={"title": ANGLE_NAME},
+    )
+    plotter.add_mesh(pv.Sphere(radius=0.08, center=mms), color="red", name="mms")
+    plotter.add_mesh(pv.Sphere(radius=0.1, center=hit_point), color="yellow", name="intersection")
+    plotter.add_mesh(pv.Line(mms, line_end), color="white", line_width=4, name="field_line")
+    arrow_scale = max(0.5, 0.25 * max(hit.distance, 1.0))
+    plotter.add_mesh(
+        pv.Arrow(start=mms, direction=np.asarray(connection.field_direction), scale=arrow_scale),
+        color="orange", name="bavg_arrow",
+    )
+    try:
+        plotter.add_point_labels(
+            np.vstack((mms, hit_point)), ["MMS", "intersection"], name="connection_labels",
+            point_size=0, font_size=14, shape=None, always_visible=True,
+        )
+    except TypeError:  # compatibility with older PyVista point-label signatures
+        plotter.add_point_labels(np.vstack((mms, hit_point)), ["MMS", "intersection"], name="connection_labels")
+    plotter.add_axes()
+    plotter.show_grid()
+    if show:
+        plotter.show()
+    return plotter
+
+
+__all__ = [
+    "ShockConnection", "ShockIntersection", "analyze_shock_connection",
+    "plot_shock_angle_contour", "plot_shock_connection_3d",
+]
