@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
 WORKFLOW_GUIDE = ROOT / "docs/bow-shock-workflow.md"
 WORKFLOW_EXAMPLE = ROOT / "examples/bow_shock_workflow.py"
+CONNECTION_GUIDE = ROOT / "docs/mms-bow-shock-connection.md"
+CONNECTION_EXAMPLE = ROOT / "examples/mms_bow_shock_connection.py"
 
 PUBLIC_WORKFLOW_FUNCTIONS = (
     "read_tecplot",
@@ -170,6 +172,54 @@ def test_workflow_example_compiles_and_uses_only_public_api() -> None:
     imported_names = {alias.name for node in shocklink_imports for alias in node.names}
     assert set(PUBLIC_WORKFLOW_FUNCTIONS) <= imported_names
     assert all(not name.startswith("_") for name in imported_names)
+
+
+def test_connection_guide_documents_scientific_conventions() -> None:
+    text = CONNECTION_GUIDE.read_text()
+    for required in (
+        "analyze_shock_connection",
+        "plot_shock_angle_contour",
+        "plot_shock_connection_3d",
+        "r(s)",
+        "0–90",
+        "closest",
+        "GSM",
+        "R_E",
+    ):
+        assert required in text
+
+
+def test_connection_example_compiles_and_uses_public_api() -> None:
+    source = CONNECTION_EXAMPLE.read_text()
+    compile(source, str(CONNECTION_EXAMPLE), "exec")
+    tree = ast.parse(source)
+    imports = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        and node.module is not None
+        and node.module.startswith("shocklink.")
+        for alias in node.names
+    }
+    assert {
+        "analyze_shock_connection",
+        "plot_shock_angle_contour",
+        "plot_shock_connection_3d",
+        "load_mms_data",
+        "average_plotted_values",
+    } <= imports
+    assert all(not name.startswith("_") for name in imports)
+    for flag in ("--mms-start", "--mms-end", "--probe", "--mode"):
+        assert flag in source
+
+
+def test_connection_readmes_link_guide_and_example() -> None:
+    readme = README.read_text()
+    examples = (ROOT / "examples/README.md").read_text()
+    assert "docs/mms-bow-shock-connection.md" in readme
+    assert "examples/mms_bow_shock_connection.py" in readme
+    assert "../docs/mms-bow-shock-connection.md" in examples
+    assert "mms_bow_shock_connection.py" in examples
 
 
 def test_workflow_example_reports_surface_and_normal_quality() -> None:
