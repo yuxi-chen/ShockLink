@@ -279,6 +279,8 @@ def test_plot_shock_angle_contour_rejects_levels_outside_fixed_range() -> None:
         plot_shock_angle_contour(result, levels=[-1.0, 45.0, 90.0])
     with pytest.raises(DatasetError, match="between 0 and 90"):
         plot_shock_angle_contour(result, levels=[0.0, 45.0, 91.0])
+    with pytest.raises(DatasetError, match="finite and strictly increasing"):
+        plot_shock_angle_contour(result, levels=[0.0, "bad", 90.0])
 
 
 def test_plot_shock_connection_3d_adds_named_actors() -> None:

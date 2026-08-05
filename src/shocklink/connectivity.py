@@ -331,11 +331,15 @@ def plot_shock_angle_contour(
     if ax is None:
         _, ax = plt.subplots()
     angles = np.ma.masked_invalid(np.asarray(connection.theta_bn_deg, dtype=float).T)
-    contour_levels = (
-        np.linspace(0.0, 90.0, 19)
-        if levels is None
-        else np.asarray(levels, dtype=float)
-    )
+    if levels is None:
+        contour_levels = np.linspace(0.0, 90.0, 19)
+    else:
+        try:
+            contour_levels = np.asarray(levels, dtype=float)
+        except (TypeError, ValueError) as error:
+            raise DatasetError(
+                "Contour levels must be finite and strictly increasing"
+            ) from error
     if contour_levels.ndim != 1 or contour_levels.size < 2:
         raise DatasetError("Contour levels must contain at least two values")
     if not np.isfinite(contour_levels).all() or np.any(np.diff(contour_levels) <= 0.0):
