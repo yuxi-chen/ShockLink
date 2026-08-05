@@ -146,7 +146,8 @@ def test_analyze_shock_connection_searches_both_field_directions() -> None:
 
 
 def test_analyze_shock_connection_selects_crossing_closest_to_mms() -> None:
-    y = np.array([-2.0, -1.0, 0.0, 1.0, 2.0]); z = np.array([-1.0, 0.0, 1.0])
+    y = np.array([-2.0, -1.0, 0.0, 1.0, 2.0])
+    z = np.array([-1.0, 0.0, 1.0])
     yy, zz = np.meshgrid(y, z, indexing="ij")
     surface_x = yy**2
     normals = np.stack((np.ones_like(yy), -2.0 * yy, np.zeros_like(zz)), axis=-1)
@@ -160,11 +161,13 @@ def test_analyze_shock_connection_selects_crossing_closest_to_mms() -> None:
 
 
 def test_analyze_masks_holes_and_freezes_arrays() -> None:
-    y, z, surface_x, normals = _plane_inputs(); surface_x[0, 0] = np.nan
+    y, z, surface_x, normals = _plane_inputs()
+    surface_x[0, 0] = np.nan
     result = analyze_shock_connection(surface_x, normals, y=y, z=z,
         mms_position=[0., 0., 0.], bavg=[1., 0., 0.])
     assert np.isnan(result.theta_bn_deg[0, 0])
-    with pytest.raises(ValueError): result.mms_position[0] = 2.
+    with pytest.raises(ValueError):
+        result.mms_position[0] = 2.
 
 
 def test_analyze_rejects_no_intersection_and_bad_inputs() -> None:
