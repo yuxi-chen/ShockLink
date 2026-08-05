@@ -2,14 +2,60 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 import pyvista as pv
 from numpy.typing import ArrayLike, NDArray
 
 from shocklink.exceptions import DatasetError, GeometryError
+from shocklink.bowshock import calc_bow_shock_normal_angle
 
 NORMAL_NAME = "shock_normal"
 ANGLE_NAME = "theta_Bn [deg]"
+
+
+def _frozen(values: ArrayLike) -> NDArray[np.float64]:
+    array = np.array(values, dtype=np.float64, copy=True)
+    array.setflags(write=False)
+    return array
+
+
+@dataclass(frozen=True, slots=True)
+class ShockIntersection:
+    point: NDArray[np.float64]
+    line_parameter: float
+    distance: float
+    face_index: int
+    barycentric: NDArray[np.float64]
+    shock_normal: NDArray[np.float64]
+    theta_bn_deg: float
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "point", _frozen(self.point))
+        object.__setattr__(self, "barycentric", _frozen(self.barycentric))
+        object.__setattr__(self, "shock_normal", _frozen(self.shock_normal))
+
+
+@dataclass(frozen=True, slots=True)
+class ShockConnection:
+    mms_position: NDArray[np.float64]
+    bavg: NDArray[np.float64]
+    field_direction: NDArray[np.float64]
+    y: NDArray[np.float64]
+    z: NDArray[np.float64]
+    theta_bn_deg: NDArray[np.float64]
+    surface_mesh: pv.PolyData
+    intersections: tuple[ShockIntersection, ...]
+
+    def __post_init__(self) -> None:
+        for name in ("mms_position", "bavg", "field_direction", "y", "z", "theta_bn_deg"):
+            object.__setattr__(self, name, _frozen(getattr(self, name)))
+        object.__setattr__(self, "surface_mesh", self.surface_mesh.copy(deep=True))
+
+    @property
+    def selected_intersection(self) -> ShockIntersection:
+        return self.intersections[0]
 
 
 def _real_array(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
@@ -105,3 +151,124 @@ def _build_surface_mesh(
     mesh.point_data[NORMAL_NAME] = normal_values[valid]
     mesh.point_data[ANGLE_NAME] = angles[valid]
     return mesh
+
+
+def _line_triangle_intersections(
+    mesh: pv.PolyData,
+    *,
+    origin: NDArray[np.float64],
+    direction: NDArray[np.float64],
+    tolerance: float,
+) -> list[ShockIntersection]:
+    faces = np.asarray(mesh.faces).reshape(-1, 4)[:, 1:]
+    vertices = np.asarray(mesh.points, dtype=np.float64)
+    scale = max(float(np.linalg.norm(vertices - origin, axis=1).max()), 1.0)
+    triangles = (vertices[faces] - origin) / scale
+    v0 = triangles[:, 0]
+    edge1 = triangles[:, 1] - v0
+    edge2 = triangles[:, 2] - v0
+    pvec = np.cross(np.broadcast_to(direction, edge2.shape), edge2)
+    determinant = np.einsum("ij,ij->i", edge1, pvec)
+    inverse = np.zeros_like(determinant)
+    nonparallel = np.abs(determinant) > tolerance
+    inverse[nonparallel] = 1.0 / determinant[nonparallel]
+    tvec = -v0
+    u = np.einsum("ij,ij->i", tvec, pvec) * inverse
+    qvec = np.cross(tvec, edge1)
+    v = np.einsum("j,ij->i", direction, qvec) * inverse
+    s_scaled = np.einsum("ij,ij->i", edge2, qvec) * inverse
+    inside = nonparallel & (u >= -tolerance) & (v >= -tolerance) & (u + v <= 1.0 + tolerance)
+
+    # A line lying in a triangle's plane has infinitely many intersections.
+    for index in np.flatnonzero(~nonparallel):
+        normal = np.cross(edge1[index], edge2[index])
+        if np.linalg.norm(normal) == 0.0:
+            continue
+        if abs(float(np.dot(normal, tvec[index]))) <= tolerance * np.linalg.norm(normal):
+            drop = int(np.argmax(np.abs(normal)))
+            keep = [axis for axis in range(3) if axis != drop]
+            tri2 = triangles[index][:, keep]
+            line0 = np.zeros(2)
+            line_d = direction[keep]
+            def cross2(a: np.ndarray, b: np.ndarray) -> float:
+                return float(a[0] * b[1] - a[1] * b[0])
+            # Point-in-triangle test for the line origin.
+            signs = [cross2(tri2[(k + 1) % 3] - tri2[k], line0 - tri2[k]) for k in range(3)]
+            overlaps = min(signs) >= -tolerance or max(signs) <= tolerance
+            for k in range(3):
+                a, b = tri2[k], tri2[(k + 1) % 3]
+                edge = b - a
+                denom = cross2(line_d, edge)
+                if abs(denom) > tolerance:
+                    if 0.0 <= cross2(a, edge) / denom <= 1.0:
+                        overlaps = True
+                elif abs(cross2(a, line_d)) <= tolerance:
+                    # Collinear line/edge: any finite edge segment is overlap.
+                    overlaps = True
+            if overlaps:
+                raise GeometryError("Field line overlaps the shock surface; intersection is ambiguous")
+
+    normals = np.asarray(mesh.point_data[NORMAL_NAME], dtype=np.float64)
+    result: list[ShockIntersection] = []
+    for index in np.flatnonzero(inside):
+        bary = np.array([1.0 - u[index] - v[index], u[index], v[index]])
+        parameter = float(s_scaled[index] * scale)
+        point = origin + parameter * direction
+        shock_normal = bary @ normals[faces[index]]
+        norm = np.linalg.norm(shock_normal)
+        if not np.isfinite(norm) or norm == 0.0:
+            raise GeometryError("Shock normal at intersection must be finite and nonzero")
+        shock_normal = shock_normal / norm
+        theta = float(calc_bow_shock_normal_angle(shock_normal, direction, acute=True))
+        result.append(ShockIntersection(point, parameter, abs(parameter), int(index), bary, shock_normal, theta))
+    result.sort(key=lambda hit: hit.distance)
+    unique: list[ShockIntersection] = []
+    for hit in result:
+        if not unique or np.linalg.norm(hit.point - unique[-1].point) > tolerance * scale:
+            unique.append(hit)
+    return unique
+
+
+def analyze_shock_connection(
+    surface_x: ArrayLike,
+    normals: ArrayLike,
+    *,
+    y: ArrayLike,
+    z: ArrayLike,
+    mms_position: ArrayLike,
+    bavg: ArrayLike,
+    tolerance: float = 1.0e-9,
+) -> ShockConnection:
+    """Analyze an infinite straight GSM field line and its bow-shock hits."""
+    y_values = _axis(y, label="Y")
+    z_values = _axis(z, label="Z")
+    surface = _real_array(surface_x, label="Bow-shock surface")
+    normal_values = _real_array(normals, label="Bow-shock normals")
+    mms = _vector(mms_position, label="MMS position", nonzero=False)
+    field = _vector(bavg, label="Bavg", nonzero=True)
+    try:
+        relative_tolerance = float(tolerance)
+    except (TypeError, ValueError) as error:
+        raise DatasetError("Intersection tolerance must be finite and positive") from error
+    if not np.isfinite(relative_tolerance) or relative_tolerance <= 0.0:
+        raise DatasetError("Intersection tolerance must be finite and positive")
+    expected = (len(y_values), len(z_values))
+    if surface.shape != expected:
+        raise DatasetError(f"Bow-shock surface must have shape {expected}")
+    if normal_values.shape != expected + (3,):
+        raise DatasetError(f"Bow-shock normals must have shape {expected + (3,)}")
+    direction = field / np.linalg.norm(field)
+    angles = np.full(expected, np.nan, dtype=np.float64)
+    valid = np.isfinite(surface)
+    if np.isfinite(normal_values[valid]).all():
+        angles[valid] = calc_bow_shock_normal_angle(normal_values[valid], field, acute=True)
+    else:
+        raise DatasetError("Bow-shock normals must be finite where surface is observed")
+    mesh = _build_surface_mesh(surface, normal_values, angles, y=y_values, z=z_values)
+    intersections = _line_triangle_intersections(mesh, origin=mms, direction=direction, tolerance=relative_tolerance)
+    if not intersections:
+        raise GeometryError("Straight MMS field line does not intersect observed shock coverage")
+    return ShockConnection(mms, field, direction, y_values, z_values, angles, mesh, tuple(intersections))
+
+
+__all__ = ["ShockConnection", "ShockIntersection", "analyze_shock_connection"]

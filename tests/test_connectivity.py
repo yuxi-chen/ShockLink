@@ -4,7 +4,12 @@ import numpy as np
 import pytest
 import pyvista as pv
 
-from shocklink.connectivity import _build_surface_mesh
+from shocklink.connectivity import (
+    ShockConnection,
+    ShockIntersection,
+    _build_surface_mesh,
+    analyze_shock_connection,
+)
 from shocklink.exceptions import DatasetError, GeometryError
 
 
@@ -114,3 +119,62 @@ def test_build_surface_mesh_rejects_surface_with_no_complete_cells() -> None:
 
     with pytest.raises(GeometryError, match="no complete observed cells"):
         _build_surface_mesh(surface_x, normals, np.full(surface_x.shape, 30.0), y=y, z=z)
+
+
+def test_analyze_shock_connection_finds_shared_vertex_once() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    result = analyze_shock_connection(surface_x, normals, y=y, z=z,
+                                       mms_position=[0.0, 0.0, 0.0], bavg=[2.0, 0.0, 0.0])
+    assert isinstance(result, ShockConnection)
+    assert len(result.intersections) == 1
+    hit = result.selected_intersection
+    assert isinstance(hit, ShockIntersection)
+    np.testing.assert_allclose(hit.point, [5.0, 0.0, 0.0])
+    assert hit.line_parameter == pytest.approx(5.0)
+    assert hit.distance == pytest.approx(5.0)
+    np.testing.assert_allclose(hit.shock_normal, [1.0, 0.0, 0.0])
+    assert hit.theta_bn_deg == pytest.approx(0.0)
+    np.testing.assert_allclose(result.field_direction, [1.0, 0.0, 0.0])
+    np.testing.assert_allclose(result.theta_bn_deg, 0.0)
+
+
+def test_analyze_shock_connection_searches_both_field_directions() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    result = analyze_shock_connection(surface_x, normals, y=y, z=z,
+                                       mms_position=[0.0, 0.0, 0.0], bavg=[-4.0, 0.0, 0.0])
+    assert result.selected_intersection.line_parameter == pytest.approx(-5.0)
+
+
+def test_analyze_shock_connection_selects_crossing_closest_to_mms() -> None:
+    y = np.array([-2.0, -1.0, 0.0, 1.0, 2.0]); z = np.array([-1.0, 0.0, 1.0])
+    yy, zz = np.meshgrid(y, z, indexing="ij")
+    surface_x = yy**2
+    normals = np.stack((np.ones_like(yy), -2.0 * yy, np.zeros_like(zz)), axis=-1)
+    normals /= np.linalg.norm(normals, axis=-1, keepdims=True)
+    result = analyze_shock_connection(surface_x, normals, y=y, z=z,
+        mms_position=[1.0, 0.8, 0.0], bavg=[0.0, 3.0, 0.0])
+    assert len(result.intersections) == 2
+    np.testing.assert_allclose(result.selected_intersection.point, [1.0, 1.0, 0.0])
+    assert result.selected_intersection.line_parameter == pytest.approx(0.2)
+    assert result.intersections[1].line_parameter == pytest.approx(-1.8)
+
+
+def test_analyze_masks_holes_and_freezes_arrays() -> None:
+    y, z, surface_x, normals = _plane_inputs(); surface_x[0, 0] = np.nan
+    result = analyze_shock_connection(surface_x, normals, y=y, z=z,
+        mms_position=[0., 0., 0.], bavg=[1., 0., 0.])
+    assert np.isnan(result.theta_bn_deg[0, 0])
+    with pytest.raises(ValueError): result.mms_position[0] = 2.
+
+
+def test_analyze_rejects_no_intersection_and_bad_inputs() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    with pytest.raises(GeometryError, match="does not intersect"):
+        analyze_shock_connection(surface_x, normals, y=y, z=z,
+            mms_position=[0., 0., 10.], bavg=[0., 1., 0.])
+    with pytest.raises(DatasetError):
+        analyze_shock_connection(surface_x, normals, y=y, z=z,
+            mms_position=[0., 0.], bavg=[1., 0., 0.])
+    with pytest.raises(DatasetError):
+        analyze_shock_connection(surface_x, normals, y=y, z=z,
+            mms_position=[0., 0., 0.], bavg=[0., 0., 0.])
