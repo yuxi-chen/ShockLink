@@ -114,5 +114,6 @@ def test_replace_param_values_adds_mms_location_after_starttime() -> None:
         "-5.5                 GSM_Z\n"
     )
     assert location in result
+    assert "0 FracSecond\n\n! MMS Location at 2020-12-09 08:00:08\n" in result
     assert result.index(location) > result.index("#STARTTIME")
     assert result.index(location) < result.index("#SOLARWIND")

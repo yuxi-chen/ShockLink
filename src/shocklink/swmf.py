@@ -122,6 +122,11 @@ def _replace_location(
     newline = "\r\n" if lines[start_index].endswith("\r\n") else "\n"
     replacement = _location_lines(start_time, location, newline)
     location_start = start_index + 1
+    if location_start >= len(lines) or lines[location_start].strip():
+        lines.insert(location_start, newline)
+        location_start += 1
+    else:
+        location_start += 1
     if lines[location_start : location_start + 1] and lines[location_start].startswith(
         "! MMS Location at "
     ):
