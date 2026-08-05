@@ -209,14 +209,25 @@ def test_plot_shock_angle_contour_masks_holes_and_marks_intersection() -> None:
     result = analyze_shock_connection(surface_x, normals, y=y, z=z,
         mms_position=[0., 0., 0.], bavg=[1., 0., 0.])
     fig, ax = plt.subplots()
-    returned = plot_shock_angle_contour(result, ax=ax)
+    figure, returned = plot_shock_angle_contour(result, ax=ax)
+    assert figure is fig
     assert returned is ax
     assert ax.get_aspect() in (1.0, "equal")
-    assert ax.get_xlabel() == "Y [R_E]"
-    assert ax.get_ylabel() == "Z [R_E]"
+    assert ax.get_xlabel() == "Y_GSM [R_E]"
+    assert ax.get_ylabel() == "Z_GSM [R_E]"
     assert any("intersection" in str(coll.get_label()).lower() for coll in ax.collections)
     assert len(ax.texts) >= 1
     plt.close(fig)
+
+
+def test_plot_shock_angle_contour_rejects_levels_outside_fixed_range() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    result = analyze_shock_connection(surface_x, normals, y=y, z=z,
+        mms_position=[0., 0., 0.], bavg=[1., 0., 0.])
+    with pytest.raises(DatasetError, match="between 0 and 90"):
+        plot_shock_angle_contour(result, levels=[-1.0, 45.0, 90.0])
+    with pytest.raises(DatasetError, match="between 0 and 90"):
+        plot_shock_angle_contour(result, levels=[0.0, 45.0, 91.0])
 
 
 def test_plot_shock_connection_3d_adds_named_actors() -> None:

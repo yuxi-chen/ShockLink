@@ -295,6 +295,8 @@ def plot_shock_angle_contour(
         raise DatasetError("Contour levels must contain at least two values")
     if not np.isfinite(contour_levels).all() or np.any(np.diff(contour_levels) <= 0.0):
         raise DatasetError("Contour levels must be finite and strictly increasing")
+    if contour_levels[0] != 0.0 or contour_levels[-1] != 90.0 or np.any((contour_levels < 0.0) | (contour_levels > 90.0)):
+        raise DatasetError("Contour levels must span values between 0 and 90 degrees")
     mesh = ax.contourf(connection.y, connection.z, angles, levels=contour_levels, vmin=0.0, vmax=90.0)
     colorbar = ax.figure.colorbar(mesh, ax=ax)
     colorbar.set_label(ANGLE_NAME)
@@ -306,11 +308,11 @@ def plot_shock_angle_contour(
         f"θBn={hit.theta_bn_deg:.1f}°",
         xy=(hit.point[1], hit.point[2]), xytext=(8, 8), textcoords="offset points",
     )
-    ax.set_xlabel("Y [R_E]")
-    ax.set_ylabel("Z [R_E]")
+    ax.set_xlabel("Y_GSM [R_E]")
+    ax.set_ylabel("Z_GSM [R_E]")
     ax.set_aspect("equal", adjustable="box")
     ax.set_title("Bow-shock magnetic connection angle")
-    return ax
+    return ax.figure, ax
 
 
 def plot_shock_connection_3d(
@@ -325,7 +327,11 @@ def plot_shock_connection_3d(
     hit = connection.selected_intersection
     mms = np.asarray(connection.mms_position, dtype=float)
     hit_point = np.asarray(hit.point, dtype=float)
-    direction_to_hit = np.sign(hit.line_parameter) * np.asarray(connection.field_direction)
+    direction_to_hit = (
+        np.asarray(connection.field_direction)
+        if hit.line_parameter == 0.0
+        else np.sign(hit.line_parameter) * np.asarray(connection.field_direction)
+    )
     extension = max(hit.distance * 0.2, 0.1)
     line_end = hit_point + extension * direction_to_hit
 
