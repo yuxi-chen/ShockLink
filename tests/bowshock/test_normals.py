@@ -215,6 +215,35 @@ def test_calc_bow_shock_normal_angle_preserves_leading_normal_shape() -> None:
     np.testing.assert_array_equal(angles, np.zeros((2, 3)))
 
 
+def test_calc_bow_shock_normal_angle_supports_acute_convention() -> None:
+    normals = np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ]
+    )
+
+    angles = calc_bow_shock_normal_angle(
+        normals,
+        [2.0, 0.0, 0.0],
+        acute=True,
+    )
+
+    np.testing.assert_allclose(angles, [0.0, 0.0, 90.0], atol=1.0e-12)
+    assert np.all((angles >= 0.0) & (angles <= 90.0))
+
+
+@pytest.mark.parametrize("acute", [1, 0, "true", None])
+def test_calc_bow_shock_normal_angle_rejects_non_boolean_acute(acute: object) -> None:
+    with pytest.raises(DatasetError, match="acute must be a boolean"):
+        calc_bow_shock_normal_angle(
+            np.array([1.0, 0.0, 0.0]),
+            [1.0, 0.0, 0.0],
+            acute=acute,
+        )
+
+
 @pytest.mark.parametrize(
     ("normals", "vector", "message"),
     [

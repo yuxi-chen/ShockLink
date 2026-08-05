@@ -971,6 +971,8 @@ def smooth_bow_shock_surface(
 def calc_bow_shock_normal_angle(
     normals: ArrayLike,
     vector: ArrayLike,
+    *,
+    acute: bool = False,
 ) -> NDArray[np.float64]:
     """Return angles between bow-shock normals and a reference vector.
 
@@ -981,20 +983,29 @@ def calc_bow_shock_normal_angle(
         have nonzero magnitude.
     vector : array-like
         Finite real reference vector with shape ``(3,)`` and nonzero magnitude.
+    acute : bool, default False
+        If true, return the unoriented acute angle in the range 0--90 degrees
+        by treating parallel and antiparallel vectors as equivalent.  The
+        default preserves the directed 0--180 degree convention.
 
     Returns
     -------
     numpy.ndarray
-        Angles in degrees with shape ``normals.shape[:-1]``.  An outward normal
-        aligned with ``vector`` has angle 0 degrees; an opposite normal has
-        angle 180 degrees.
+        Angles in degrees with shape ``normals.shape[:-1]``.  With the default
+        directed convention, values span 0--180 degrees: a normal aligned
+        with ``vector`` has angle 0 degrees and an opposite normal has angle
+        180 degrees.  When ``acute=True``, values span 0--90 degrees and an
+        antiparallel normal also has angle 0 degrees.
 
     Raises
     ------
     DatasetError
         If either input has an invalid shape or contains nonnumeric, complex,
-        nonfinite, or zero-length vectors.
+        nonfinite, or zero-length vectors, or if ``acute`` is not boolean.
     """
+
+    if not isinstance(acute, bool):
+        raise DatasetError("acute must be a boolean")
 
     normal_values = _real_numeric_array(
         normals,
@@ -1025,6 +1036,8 @@ def calc_bow_shock_normal_angle(
         positive_message="Bow-shock reference vector magnitude must be positive",
     )
     dot_products = np.sum(normal_unit * vector_unit, axis=-1)
+    if acute:
+        dot_products = np.abs(dot_products)
     return np.degrees(np.arccos(np.clip(dot_products, -1.0, 1.0)))
 
 
