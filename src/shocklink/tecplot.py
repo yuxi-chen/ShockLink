@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +10,7 @@ import pyvista as pv
 from numpy.typing import NDArray
 
 from shocklink.exceptions import DatasetError
+from shocklink.utilities import parse_datetime
 
 DEFAULT_COORDINATE_COMPONENTS = ("X [R]", "Y [R]", "Z [R]")
 DEFAULT_MAGNETIC_COMPONENTS = ("B_x [nT]", "B_y [nT]", "B_z [nT]")
@@ -17,6 +19,44 @@ DEFAULT_VELOCITY_COMPONENTS = (
     "U_y [km_s]",
     "U_z [km_s]",
 )
+TIME_EVENT_KEY = "time_event"
+_TITLE_TIMESTAMP_PATTERN = re.compile(
+    r'^\s*TITLE\s*=.*,(?P<timestamp>\d{4}/\d{2}/\d{2}\s+'
+    r'\d{2}:\d{2}:\d{2}(?:\.\d+)?)"\s*$',
+    re.IGNORECASE,
+)
+
+
+def _read_time_event(source: Path) -> str:
+    """Return the header event time as an ISO-8601 UTC string."""
+
+    try:
+        with source.open(encoding="utf-8") as stream:
+            for line in stream:
+                stripped = line.lstrip()
+                if stripped.upper().startswith("ZONE"):
+                    break
+                if not stripped.upper().startswith("TITLE"):
+                    continue
+
+                match = _TITLE_TIMESTAMP_PATTERN.match(line)
+                if match is None:
+                    break
+
+                raw_time = match.group("timestamp")
+                try:
+                    parsed = parse_datetime(raw_time.replace("/", "-"))
+                except ValueError as error:
+                    raise DatasetError(
+                        f"Invalid BATSRUS event timestamp in {source}: {raw_time}"
+                    ) from error
+                return parsed.isoformat(timespec="milliseconds")
+    except (OSError, UnicodeError) as error:
+        raise DatasetError(f"Could not read Tecplot header {source}: {error}") from error
+
+    raise DatasetError(
+        f"Tecplot header in {source} does not contain a BATSRUS event timestamp"
+    )
 
 
 def _components(
@@ -94,14 +134,16 @@ def read_tecplot(
     pyvista.UnstructuredGrid
         The input zone with points replaced by the finite coordinate array and
         normalized vector point data.  Magnetic and velocity samples are kept as
-        read, so missing values may remain in these vector arrays.
+        read, so missing values may remain in these vector arrays. The UTC event
+        timestamp is stored in ``field_data["time_event"]``.
 
     Raises
     ------
     DatasetError
         If the path is not an existing ``.dat`` file, the reader does not return
         one nonempty unstructured zone, or required coordinate/vector arrays are
-        absent or have incompatible shapes.  Coordinates must be finite.
+        absent or have incompatible shapes. Coordinates must be finite. A
+        missing or invalid BATSRUS event timestamp raises ``DatasetError``.
     """
 
     source = Path(path)
@@ -109,6 +151,7 @@ def read_tecplot(
         raise DatasetError(f"Tecplot file does not exist: {source}")
     if source.suffix.lower() != ".dat":
         raise DatasetError(f"Tecplot input must use the .dat extension: {source}")
+    time_event = _read_time_event(source)
 
     try:
         loaded = pv.read(source)
@@ -144,7 +187,8 @@ def read_tecplot(
     grid.points = coordinates
     grid.point_data[magnetic_name] = magnetic_field
     grid.point_data[velocity_name] = velocity
+    grid.field_data[TIME_EVENT_KEY] = time_event
     return grid
 
 
-__all__ = ["read_tecplot"]
+__all__ = ["TIME_EVENT_KEY", "read_tecplot"]

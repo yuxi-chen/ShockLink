@@ -8,6 +8,11 @@ from shocklink.exceptions import DatasetError
 from shocklink.tecplot import read_tecplot
 
 
+TITLE = 'TITLE="BATSRUS: 3D Data,2023/12/16 11:30:00.000"\n'
+EXPECTED_TIME_EVENT = "2023-12-16T11:30:00.000+00:00"
+TIME_EVENT_KEY = "time_event"
+
+
 EXPECTED_POINTS = np.array(
     [
         [-2.0, -1.0, 0.0],
@@ -46,9 +51,9 @@ def _raw_grid() -> pv.UnstructuredGrid:
     return grid
 
 
-def _sample_path(tmp_path: Path) -> Path:
+def _sample_path(tmp_path: Path, *, header: str = TITLE) -> Path:
     path = tmp_path / "sample.dat"
-    path.touch()
+    path.write_text(header, encoding="utf-8")
     return path
 
 
@@ -64,6 +69,7 @@ def test_read_tecplot_normalizes_geometry_and_vectors(
     np.testing.assert_allclose(grid.points, EXPECTED_POINTS)
     np.testing.assert_allclose(grid["B [nT]"], EXPECTED_B)
     np.testing.assert_allclose(grid["U [km/s]"], EXPECTED_U)
+    assert np.asarray(grid.field_data[TIME_EVENT_KEY]).item() == EXPECTED_TIME_EVENT
     assert "B_x [nT]" in grid.point_data
     assert "U_x [km_s]" in grid.point_data
 
@@ -159,3 +165,28 @@ def test_read_tecplot_rejects_nonfinite_coordinates(
 
     with pytest.raises(DatasetError, match="finite"):
         read_tecplot(_sample_path(tmp_path))
+
+
+@pytest.mark.parametrize(
+    ("header", "message"),
+    [
+        ('TITLE="BATSRUS: 3D Data"\nZONE T="3D"\n', "does not contain"),
+        (
+            'TITLE="BATSRUS: 3D Data,2023/13/16 11:30:00.000"\n',
+            "Invalid BATSRUS event timestamp",
+        ),
+    ],
+)
+def test_read_tecplot_rejects_missing_or_invalid_event_time(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    header: str,
+    message: str,
+) -> None:
+    def unexpected_read(_path: Path) -> pv.MultiBlock:
+        pytest.fail("PyVista must not run for an invalid Tecplot header")
+
+    monkeypatch.setattr(pv, "read", unexpected_read)
+
+    with pytest.raises(DatasetError, match=message):
+        read_tecplot(_sample_path(tmp_path, header=header))
