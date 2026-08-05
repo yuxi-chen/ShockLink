@@ -54,7 +54,14 @@ class ShockConnection:
     intersections: tuple[ShockIntersection, ...]
 
     def __post_init__(self) -> None:
-        for name in ("mms_position", "bavg", "field_direction", "y", "z", "theta_bn_deg"):
+        for name in (
+            "mms_position",
+            "bavg",
+            "field_direction",
+            "y",
+            "z",
+            "theta_bn_deg",
+        ):
             object.__setattr__(self, name, _frozen(getattr(self, name)))
         object.__setattr__(self, "surface_mesh", self.surface_mesh.copy(deep=True))
 
@@ -78,7 +85,9 @@ def _axis(values: ArrayLike, *, label: str) -> NDArray[np.float64]:
     """Validate a finite, strictly increasing coordinate axis."""
     axis = _real_array(values, label=label)
     if axis.ndim != 1 or axis.size < 2:
-        raise DatasetError(f"{label} must be a one-dimensional axis with at least two values")
+        raise DatasetError(
+            f"{label} must be a one-dimensional axis with at least two values"
+        )
     if not np.isfinite(axis).all():
         raise DatasetError(f"{label} must be finite")
     if not np.all(np.diff(axis) > 0.0):
@@ -125,15 +134,12 @@ def _build_surface_mesh(
     if not np.isfinite(normal_values[valid]).all():
         raise DatasetError("Bow-shock normals must be finite where surface is observed")
     if not np.isfinite(angles[valid]).all():
-        raise DatasetError("Shock-normal angle must be finite where surface is observed")
+        raise DatasetError(
+            "Shock-normal angle must be finite where surface is observed"
+        )
 
     yy, zz = np.meshgrid(y_values, z_values, indexing="ij")
-    cell_valid = (
-        valid[:-1, :-1]
-        & valid[1:, :-1]
-        & valid[:-1, 1:]
-        & valid[1:, 1:]
-    )
+    cell_valid = valid[:-1, :-1] & valid[1:, :-1] & valid[:-1, 1:] & valid[1:, 1:]
     if not np.any(cell_valid):
         raise GeometryError("Bow-shock surface contains no complete observed cells")
 
@@ -182,23 +188,31 @@ def _line_triangle_intersections(
     qvec = np.cross(tvec, edge1)
     v = np.einsum("j,ij->i", direction, qvec) * inverse
     s_scaled = np.einsum("ij,ij->i", edge2, qvec) * inverse
-    inside = nonparallel & (u >= -tolerance) & (v >= -tolerance) & (u + v <= 1.0 + tolerance)
+    inside = (
+        nonparallel & (u >= -tolerance) & (v >= -tolerance) & (u + v <= 1.0 + tolerance)
+    )
 
     # A line lying in a triangle's plane has infinitely many intersections.
     for index in np.flatnonzero(~nonparallel):
         normal = np.cross(edge1[index], edge2[index])
         if np.linalg.norm(normal) == 0.0:
             continue
-        if abs(float(np.dot(normal, tvec[index]))) <= tolerance * np.linalg.norm(normal):
+        if abs(float(np.dot(normal, tvec[index]))) <= tolerance * np.linalg.norm(
+            normal
+        ):
             drop = int(np.argmax(np.abs(normal)))
             keep = [axis for axis in range(3) if axis != drop]
             tri2 = triangles[index][:, keep]
             line0 = np.zeros(2)
             line_d = direction[keep]
+
             def cross2(a: np.ndarray, b: np.ndarray) -> float:
                 return float(a[0] * b[1] - a[1] * b[0])
+
             # Point-in-triangle test for the line origin.
-            signs = [cross2(tri2[(k + 1) % 3] - tri2[k], line0 - tri2[k]) for k in range(3)]
+            signs = [
+                cross2(tri2[(k + 1) % 3] - tri2[k], line0 - tri2[k]) for k in range(3)
+            ]
             overlaps = min(signs) >= -tolerance or max(signs) <= tolerance
             for k in range(3):
                 a, b = tri2[k], tri2[(k + 1) % 3]
@@ -212,7 +226,9 @@ def _line_triangle_intersections(
                     # Collinear line/edge: any finite edge segment is overlap.
                     overlaps = True
             if overlaps:
-                raise GeometryError("Field line overlaps the shock surface; intersection is ambiguous")
+                raise GeometryError(
+                    "Field line overlaps the shock surface; intersection is ambiguous"
+                )
 
     normals = np.asarray(mesh.point_data[NORMAL_NAME], dtype=np.float64)
     result: list[ShockIntersection] = []
@@ -223,14 +239,23 @@ def _line_triangle_intersections(
         shock_normal = bary @ normals[faces[index]]
         norm = np.linalg.norm(shock_normal)
         if not np.isfinite(norm) or norm == 0.0:
-            raise GeometryError("Shock normal at intersection must be finite and nonzero")
+            raise GeometryError(
+                "Shock normal at intersection must be finite and nonzero"
+            )
         shock_normal = shock_normal / norm
         theta = float(calc_bow_shock_normal_angle(shock_normal, direction, acute=True))
-        result.append(ShockIntersection(point, parameter, abs(parameter), int(index), bary, shock_normal, theta))
+        result.append(
+            ShockIntersection(
+                point, parameter, abs(parameter), int(index), bary, shock_normal, theta
+            )
+        )
     result.sort(key=lambda hit: hit.distance)
     unique: list[ShockIntersection] = []
     for hit in result:
-        if not unique or np.linalg.norm(hit.point - unique[-1].point) > tolerance * scale:
+        if (
+            not unique
+            or np.linalg.norm(hit.point - unique[-1].point) > tolerance * scale
+        ):
             unique.append(hit)
     return unique
 
@@ -255,7 +280,9 @@ def analyze_shock_connection(
     try:
         relative_tolerance = float(tolerance)
     except (TypeError, ValueError) as error:
-        raise DatasetError("Intersection tolerance must be finite and positive") from error
+        raise DatasetError(
+            "Intersection tolerance must be finite and positive"
+        ) from error
     if not np.isfinite(relative_tolerance) or relative_tolerance <= 0.0:
         raise DatasetError("Intersection tolerance must be finite and positive")
     expected = (len(y_values), len(z_values))
@@ -267,14 +294,22 @@ def analyze_shock_connection(
     angles = np.full(expected, np.nan, dtype=np.float64)
     valid = np.isfinite(surface)
     if np.isfinite(normal_values[valid]).all():
-        angles[valid] = calc_bow_shock_normal_angle(normal_values[valid], field, acute=True)
+        angles[valid] = calc_bow_shock_normal_angle(
+            normal_values[valid], field, acute=True
+        )
     else:
         raise DatasetError("Bow-shock normals must be finite where surface is observed")
     mesh = _build_surface_mesh(surface, normal_values, angles, y=y_values, z=z_values)
-    intersections = _line_triangle_intersections(mesh, origin=mms, direction=direction, tolerance=relative_tolerance)
+    intersections = _line_triangle_intersections(
+        mesh, origin=mms, direction=direction, tolerance=relative_tolerance
+    )
     if not intersections:
-        raise GeometryError("Straight MMS field line does not intersect observed shock coverage")
-    return ShockConnection(mms, field, direction, y_values, z_values, angles, mesh, tuple(intersections))
+        raise GeometryError(
+            "Straight MMS field line does not intersect observed shock coverage"
+        )
+    return ShockConnection(
+        mms, field, direction, y_values, z_values, angles, mesh, tuple(intersections)
+    )
 
 
 def plot_shock_angle_contour(
@@ -296,23 +331,41 @@ def plot_shock_angle_contour(
     if ax is None:
         _, ax = plt.subplots()
     angles = np.ma.masked_invalid(np.asarray(connection.theta_bn_deg, dtype=float).T)
-    contour_levels = np.linspace(0.0, 90.0, 19) if levels is None else np.asarray(levels, dtype=float)
+    contour_levels = (
+        np.linspace(0.0, 90.0, 19)
+        if levels is None
+        else np.asarray(levels, dtype=float)
+    )
     if contour_levels.ndim != 1 or contour_levels.size < 2:
         raise DatasetError("Contour levels must contain at least two values")
     if not np.isfinite(contour_levels).all() or np.any(np.diff(contour_levels) <= 0.0):
         raise DatasetError("Contour levels must be finite and strictly increasing")
-    if contour_levels[0] != 0.0 or contour_levels[-1] != 90.0 or np.any((contour_levels < 0.0) | (contour_levels > 90.0)):
+    if (
+        contour_levels[0] != 0.0
+        or contour_levels[-1] != 90.0
+        or np.any((contour_levels < 0.0) | (contour_levels > 90.0))
+    ):
         raise DatasetError("Contour levels must span values between 0 and 90 degrees")
-    mesh = ax.contourf(connection.y, connection.z, angles, levels=contour_levels, vmin=0.0, vmax=90.0)
+    mesh = ax.contourf(
+        connection.y, connection.z, angles, levels=contour_levels, vmin=0.0, vmax=90.0
+    )
     colorbar = ax.figure.colorbar(mesh, ax=ax)
     colorbar.set_label(ANGLE_NAME)
     hit = connection.selected_intersection
-    ax.scatter([hit.point[1]], [hit.point[2]], color="black", edgecolors="white", zorder=5,
-               label="intersection")
+    ax.scatter(
+        [hit.point[1]],
+        [hit.point[2]],
+        color="black",
+        edgecolors="white",
+        zorder=5,
+        label="intersection",
+    )
     ax.annotate(
         f"intersection\n({hit.point[0]:.2f}, {hit.point[1]:.2f}, {hit.point[2]:.2f}) R_E\n"
         f"θBn={hit.theta_bn_deg:.1f}°",
-        xy=(hit.point[1], hit.point[2]), xytext=(8, 8), textcoords="offset points",
+        xy=(hit.point[1], hit.point[2]),
+        xytext=(8, 8),
+        textcoords="offset points",
     )
     ax.set_xlabel("Y_GSM [R_E]")
     ax.set_ylabel("Z_GSM [R_E]")
@@ -341,26 +394,51 @@ def plot_shock_connection_3d(
     extension = max(hit.distance * 0.2, 0.1)
     line_end = hit_point + extension * direction_to_hit
 
-    plotter.add_mesh(pv.Sphere(radius=1.0), color="cornflowerblue", name="earth", smooth_shading=True)
     plotter.add_mesh(
-        connection.surface_mesh, scalars=ANGLE_NAME, clim=(0.0, 90.0), cmap="viridis",
-        name="bow_shock", show_scalar_bar=True, scalar_bar_args={"title": ANGLE_NAME},
+        pv.Sphere(radius=1.0), color="cornflowerblue", name="earth", smooth_shading=True
+    )
+    plotter.add_mesh(
+        connection.surface_mesh,
+        scalars=ANGLE_NAME,
+        clim=(0.0, 90.0),
+        cmap="viridis",
+        name="bow_shock",
+        show_scalar_bar=True,
+        scalar_bar_args={"title": ANGLE_NAME},
     )
     plotter.add_mesh(pv.Sphere(radius=0.08, center=mms), color="red", name="mms")
-    plotter.add_mesh(pv.Sphere(radius=0.1, center=hit_point), color="yellow", name="intersection")
-    plotter.add_mesh(pv.Line(mms, line_end), color="white", line_width=4, name="field_line")
+    plotter.add_mesh(
+        pv.Sphere(radius=0.1, center=hit_point), color="yellow", name="intersection"
+    )
+    plotter.add_mesh(
+        pv.Line(mms, line_end), color="white", line_width=4, name="field_line"
+    )
     arrow_scale = max(0.5, 0.25 * max(hit.distance, 1.0))
     plotter.add_mesh(
-        pv.Arrow(start=mms, direction=np.asarray(connection.field_direction), scale=arrow_scale),
-        color="orange", name="bavg_arrow",
+        pv.Arrow(
+            start=mms,
+            direction=np.asarray(connection.field_direction),
+            scale=arrow_scale,
+        ),
+        color="orange",
+        name="bavg_arrow",
     )
     try:
         plotter.add_point_labels(
-            np.vstack((mms, hit_point)), ["MMS", "intersection"], name="connection_labels",
-            point_size=0, font_size=14, shape=None, always_visible=True,
+            np.vstack((mms, hit_point)),
+            ["MMS", "intersection"],
+            name="connection_labels",
+            point_size=0,
+            font_size=14,
+            shape=None,
+            always_visible=True,
         )
     except TypeError:  # compatibility with older PyVista point-label signatures
-        plotter.add_point_labels(np.vstack((mms, hit_point)), ["MMS", "intersection"], name="connection_labels")
+        plotter.add_point_labels(
+            np.vstack((mms, hit_point)),
+            ["MMS", "intersection"],
+            name="connection_labels",
+        )
     plotter.add_axes()
     plotter.show_grid()
     if show:
@@ -369,6 +447,9 @@ def plot_shock_connection_3d(
 
 
 __all__ = [
-    "ShockConnection", "ShockIntersection", "analyze_shock_connection",
-    "plot_shock_angle_contour", "plot_shock_connection_3d",
+    "ShockConnection",
+    "ShockIntersection",
+    "analyze_shock_connection",
+    "plot_shock_angle_contour",
+    "plot_shock_connection_3d",
 ]
