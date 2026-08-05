@@ -63,3 +63,26 @@ def test_build_surface_mesh_validates_inputs(kwargs: dict[str, object], message:
     values.update(kwargs)
     with pytest.raises((DatasetError, GeometryError), match=message):
         _build_surface_mesh(**values)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("bad_angle", [np.nan, np.inf, -np.inf])
+def test_build_surface_mesh_rejects_nonfinite_angles_on_observed_points(
+    bad_angle: float,
+) -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    theta = np.full(surface_x.shape, 30.0)
+    theta[1, 1] = bad_angle
+
+    with pytest.raises(DatasetError, match="angle must be finite where surface is observed"):
+        _build_surface_mesh(surface_x, normals, theta, y=y, z=z)
+
+
+def test_build_surface_mesh_allows_angle_nan_at_missing_surface_points() -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    surface_x[0, 0] = np.nan
+    theta = np.full(surface_x.shape, 30.0)
+    theta[0, 0] = np.nan
+
+    mesh = _build_surface_mesh(surface_x, normals, theta, y=y, z=z)
+
+    assert mesh.n_cells == 6
