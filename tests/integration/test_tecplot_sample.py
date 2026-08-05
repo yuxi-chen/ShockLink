@@ -17,7 +17,7 @@ from shocklink.dataset import (
     plot_2d_cut,
 )
 from shocklink.exceptions import DatasetError
-from shocklink.tecplot import read_tecplot
+from shocklink.tecplot import TIME_EVENT_KEY, read_tecplot
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SAMPLE = Path(
@@ -48,6 +48,10 @@ def test_real_batsrus_sample_has_geometry_and_vector_fields() -> None:
     assert grid.bounds == pytest.approx((-220.0, 31.5, -126.0, 126.0, -126.0, 126.0))
     assert grid["B [nT]"].shape == (grid.n_points, 3)
     assert grid["U [km/s]"].shape == (grid.n_points, 3)
+    assert (
+        np.asarray(grid.field_data[TIME_EVENT_KEY]).item()
+        == "2023-12-16T11:30:00.000+00:00"
+    )
     np.testing.assert_allclose(grid["B [nT]"][:10, 0], grid["B_x [nT]"][:10])
     np.testing.assert_allclose(
         grid["U [km/s]"][:10, 2],
