@@ -1,4 +1,6 @@
 import ast
+import subprocess
+import sys
 from pathlib import Path
 
 import shocklink.tecplot as tecplot
@@ -50,3 +52,18 @@ def test_swmf_does_not_import_mms_or_integration_workflow() -> None:
     assert "shocklink.mms_swmf" not in imported_modules
     assert "load_mms_data" not in imported_names
     assert "average_plotted_values" not in imported_names
+
+
+def test_connectivity_import_has_no_mms_plotting_side_effects() -> None:
+    probe = (
+        "import sys; import shocklink.connectivity; "
+        "print(','.join(name for name in ('shocklink.mms','pytplot','pyspedas','matplotlib') "
+        "if name in sys.modules))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout.strip() == ""
