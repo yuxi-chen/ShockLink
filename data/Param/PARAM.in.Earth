@@ -1,5 +1,11 @@
 ! This is the input used for bow shock geometry study.
-! Use the same configuration as test_swpc.
+! Use the same configuration as test_swpc_large_gpu.
+
+! This input can be run on GPUs with: 
+! mpiexec -np 2 ./SWMF.exe|& tee runlog
+
+! For CPU run, I recommend using a few hundred of cores:
+! mpiexec -np 256 ./SWMF.exe|& tee runlog
 
 #COMPONENTMAP		For nightly test
 GM  0 -1 -1 -1		CompMap 0:nProc-1 multithreaded
@@ -19,14 +25,11 @@ T			DoCheckStop
 #CHECKSTOPFILE
 T			DoCheckStopFile
 
-#CPUTIMEMAX
-6000.0			CpuTimeMax
-
 INCLUDE
 RESTART.in		NameRestartFile
 
 #SAVERESTART
-T			DoSaveRestart
+F			DoSaveRestart
 10000			DnSaveRestart
 -1.0			DtSaveRestart
 
@@ -45,9 +48,14 @@ T			DoSaveRestart
 INCLUDE
 GM/restartIN/restart.H
 
-#GRIDBLOCKALL
-12000			MaxBlock (for the whole simulation)
+#UPDATE
+fast			TypeUpdate
 
+#PROLONGATION
+2			nOrderProlong
+
+#GRIDBLOCKALL
+20000			MaxBlock (for the whole simulation)
 
 #GRID
 1			nRootBlock1
@@ -130,11 +138,11 @@ T			UseBody
 #MINIMUMPRESSURE
 1e-5			pMinDim [nPa]
 
-#MINIMUMDENSITY
+MINIMUMDENSITY
 1e-2			RhoMinDim [amu/cc]
 
 #OUTERBOUNDARY
-outflow			TypeBc1
+float			TypeBc1
 vary			TypeBc2
 float			TypeBc3
 float			TypeBc4
@@ -143,6 +151,12 @@ float			TypeBc6
 
 #INNERBOUNDARY
 ionosphere		TypeBcBody
+
+! Set the inner boundary density as Rho0Cpcp + RhoPerCpcp*CPCP[keV]
+#CPCPBOUNDARY
+T			UseCpcpBc  (rest is read if true)
+28.0			Rho0Cpcp   [amu/cc]
+0.1			RhoPerCpcp [amu/cc / keV]
 
 #PLASMA
 1			FluidMass
@@ -161,70 +175,11 @@ ionosphere		TypeBcBody
 
 #SCHEME
 1			nOrder
-Rusanov			TypeFlux
+Linde			TypeFlux
 
 #TIMESTEPPING
 1			nStage
 0.60			CflExpl
-
-#BORIS
-F			UseBorisCorrection
-
-#TEST
-krylov			StringTest
-
---------------Hall begin---------------
-#HALLRESISTIVITY
-F			UseHallResist (rest of parameters read only if true)
-16.0			HallFactorMax
-1.0			HallCmaxFactor  1.0 !!!
-
-
-
-#REGION
-box1			NameRegion
-box tapered		StringShape
--60			xMinBox
--30			yMinBox
--20			zMinBox
-20			xMaxBox
-30			yMaxBox
-20			zMaxBox
-1			Taper
-
-#REGION
-sphere1			NameRegion
-sphere0 tapered		StringShape
-3			Radius
-0.5			Taper
-
-REGION
-polars			NameRegion
-doubleconez0 tapered		StringShape
-12			Height
-2.0			Radius
-0.2			Taper
-
-#HALLREGION
-+box1 -sphere1		StringHallRegion
-
-
-#SEMIIMPLICIT
-F			UseSemiImplicit
-
-#SEMIKRYLOV
-GMRES			TypeKrylov  (GMRES, BICGSTAB, CG)
-0.001			ErrorMaxKrylov
-100			MaxMatvecKrylov
-
-#SEMIPRECONDITIONER
-T			DoPrecond (rest of parameters are read if true)
-MBILU			TypePrecond (MBILU, BILU, DILU, GS, BLOCKJACOBI, JACOBI, HYPRE)
-0.5			PrecondParam (0 to 1, read for MBILU preconditioner only)
-
-
---------------Hall end---------------
-
 
 #SAVEPLOT
 3			nPlotFile
@@ -269,11 +224,6 @@ RAW			StringLog
 
 #RUN ##########################################################################
 
-#STOP
-10000			MaxIter
--1.			TimeMax
-
-
 #BEGIN_COMP GM ---------------------------------------------------------------
 
 #AMR
@@ -299,7 +249,7 @@ box			StringShape
 
 ! Bowshock
 #GRIDRESOLUTION
-1/8			Resolution
+1/4			Resolution
 box			StringShape
 6			xMinBox
 -12.0			yMinBox
@@ -310,26 +260,24 @@ box			StringShape
 
 #END_COMP GM -----------------------------------------------------------------
 
-#RUN ##########################################################################
+#STOP
+6000			MaxIter
+-1.			TimeMax
+
+#RUN
 
 #BEGIN_COMP GM ---------------------------------------------------------------
 
-#SCHEME
-2			nOrder
-Rusanov			TypeFlux
-mc3			TypeLimiter
-1.5			LimiterBeta
-
-#TIMESTEPPING
-2			nStage
-0.6			CflExpl
-
+#AMR
+-1			DnRefine
+F			DoAutoRefine
 
 #END_COMP GM -----------------------------------------------------------------
 
 #STOP
-13000			MaxIter
+10000			MaxIter
 -1.			TimeMax
+
 
 #RUN ##########################################################################
 
@@ -348,6 +296,41 @@ mc3			TypeLimiter
 
 #END_COMP GM -----------------------------------------------------------------
 
+#STOP
+14000			MaxIter
+-1.			TimeMax
+
+#RUN
+
+#BEGIN_COMP GM ---------------------------------------------------------------
+
+#AMR
+100			DnRefine
+F			DoAutoRefine
+
+! Bowshock
+#GRIDRESOLUTION
+1/4			Resolution
+box			StringShape
+-5			xMinBox
+-20.0			yMinBox
+-20.0			zMinBox
+20			xMaxBox
+ 20.0			yMaxBox
+ 20.0			zMaxBox
+
+#GRIDRESOLUTION
+1/2			Resolution
+box			StringShape
+-20			xMinBox
+-35.0			yMinBox
+-35.0			zMinBox
+20			xMaxBox
+ 35.0			yMaxBox
+ 35.0			zMaxBox
+
+
+#END_COMP GM -----------------------------------------------------------------
 
 #STOP
 15000			MaxIter
