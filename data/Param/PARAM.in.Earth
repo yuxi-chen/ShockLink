@@ -55,7 +55,7 @@ fast			TypeUpdate
 2			nOrderProlong
 
 #GRIDBLOCKALL
-20000			MaxBlock (for the whole simulation)
+12000			MaxBlock (for the whole simulation)
 
 #GRID
 1			nRootBlock1
