@@ -233,6 +233,7 @@ def test_root_readme_documents_swmf_input_tool() -> None:
     assert "#STARTTIME" in text
     assert "#SOLARWIND" in text
     assert "PARAM_YYYYMMDD_HHMMSS.in" in text
+    assert "create_swmf_input(" in text
     assert "examples/create_swmf_input.py" not in text
 
 

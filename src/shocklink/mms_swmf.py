@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Mapping
+from datetime import UTC, datetime
 import math
 from pathlib import Path
 import sys
+from typing import Literal
 
 from shocklink.constants import CARTESIAN_COMPONENTS, EV_TO_K
 from shocklink.mms import average_plotted_values, load_mms_data
@@ -61,6 +63,84 @@ def mms_location_from_averages(averages: Mapping[str, float]) -> MMSLocation:
     return MMSLocation(x, y, z)
 
 
+def create_swmf_input(
+    mms_start: str,
+    mms_end: str,
+    *,
+    output: str | Path | None = None,
+    input: str | Path = _DEFAULT_TEMPLATE,
+    start_time: str | datetime | None = None,
+    probe: int = 1,
+    mode: Literal["auto", "brst", "fast"] = "auto",
+) -> Path:
+    """Create an SWMF input file from interval-averaged MMS observations.
+
+    Parameters
+    ----------
+    mms_start, mms_end
+        MMS observation interval bounds.
+    output
+        Destination path. If omitted, use the UTC effective start time to name
+        the file ``PARAM_YYYYMMDD_HHMMSS.in``.
+    input
+        SWMF template path.
+    start_time
+        Optional UTC start time override as an ISO string or datetime.
+    probe
+        MMS spacecraft number from 1 through 4.
+    mode
+        MMS data mode: ``auto``, ``brst``, or ``fast``.
+
+    Returns
+    -------
+    pathlib.Path
+        The generated output path.
+
+    Raises
+    ------
+    ValueError
+        If ``probe`` or ``mode`` is invalid, or MMS values/timestamps are
+        invalid.
+    """
+    if probe not in range(1, 5):
+        raise ValueError("probe must be between 1 and 4")
+    if mode not in {"auto", "brst", "fast"}:
+        raise ValueError("mode must be one of: auto, brst, fast")
+
+    data = load_mms_data(
+        mms_start,
+        mms_end,
+        probe=probe,
+        mode=mode,
+        coordinates="gsm",
+    )
+    if not data.series:
+        raise RuntimeError("No MMS data were available for this interval")
+    averages = average_plotted_values(data)
+    solar_wind = solar_wind_from_averages(averages)
+    location = mms_location_from_averages(averages)
+    bounds = TimeBounds.from_strings(mms_start, mms_end)
+    if start_time is None:
+        effective_start_time = midpoint_datetime(bounds.start, bounds.end)
+    elif isinstance(start_time, datetime):
+        if start_time.tzinfo is None:
+            effective_start_time = start_time.replace(tzinfo=UTC)
+        else:
+            effective_start_time = start_time.astimezone(UTC)
+    else:
+        effective_start_time = parse_datetime(start_time)
+
+    output_path = (
+        Path(f"PARAM_{effective_start_time:%Y%m%d_%H%M%S}.in")
+        if output is None
+        else Path(output)
+    )
+    generate_param_file(
+        input, output_path, effective_start_time, solar_wind, location
+    )
+    return output_path
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -108,27 +188,14 @@ epilog='''examples:
 def main(argv: list[str] | None = None) -> int:
     arguments = parse_args(argv)
     try:
-        data = load_mms_data(
+        output = create_swmf_input(
             arguments.mms_start,
             arguments.mms_end,
+            output=arguments.output,
+            input=arguments.input,
+            start_time=arguments.start_time,
             probe=arguments.probe,
             mode=arguments.mode,
-            coordinates="gsm",
-        )
-        if not data.series:
-            raise RuntimeError("No MMS data were available for this interval")
-        averages = average_plotted_values(data)
-        solar_wind = solar_wind_from_averages(averages)
-        location = mms_location_from_averages(averages)
-        bounds = TimeBounds.from_strings(arguments.mms_start, arguments.mms_end)
-        start_time = (
-            parse_datetime(arguments.start_time)
-            if arguments.start_time
-            else midpoint_datetime(bounds.start, bounds.end)
-        )
-        output = arguments.output or f"PARAM_{start_time:%Y%m%d_%H%M%S}.in"
-        generate_param_file(
-            arguments.input, output, start_time, solar_wind, location
         )
     except Exception as error:
         print(f"Could not create SWMF input: {error}", file=sys.stderr)

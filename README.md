@@ -84,6 +84,24 @@ Show all template, time, probe, and data-mode options with:
 ./tools/create_swmf_input.py -h
 ```
 
+The same workflow is available to Python scripts and notebooks. The function
+accepts the same options as the CLI and returns the generated `Path`:
+
+```python
+from shocklink.mms_swmf import create_swmf_input
+
+output = create_swmf_input(
+    mms_start="2018-12-19 19:40:00",
+    mms_end="2018-12-19 19:52:00",
+    output=None,
+    input="data/Param/PARAM.in.Earth",
+    start_time=None,
+    probe=1,
+    mode="auto",
+)
+print(output)
+```
+
 ## Tecplot to VTK conversion
 
 Convert every zone in an ASCII Tecplot `.dat` file to a VTK multiblock `.vtm`
