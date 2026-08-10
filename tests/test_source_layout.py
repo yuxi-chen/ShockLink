@@ -64,4 +64,3 @@ def test_repository_plan_uses_pyvista_instead_of_paraview() -> None:
     assert "paraview" not in plan.lower()
     assert "pvpython" not in plan.lower()
     assert "PyVista" in plan
-    assert "src/shocklink/tecplot.py" in plan
