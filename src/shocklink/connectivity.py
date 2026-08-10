@@ -440,7 +440,7 @@ def plot_shock_angle_contour(
     mms = ", ".join(f"{value:.1f}" for value in connection.mms_position)
     field = ", ".join(f"{value:.1f}" for value in connection.bavg)
     point = ", ".join(f"{value:.1f}" for value in hit.point)
-    ax.text(-0.1, -0.2, f"MMS (GSM): ({mms}) [R$_E$]", transform=ax.transAxes, fontsize=12)
+    ax.text(-0.15, -0.2, f"MMS (GSM): ({mms}) [R$_E$]", transform=ax.transAxes, fontsize=12)
     ax.text(0.35, -0.2, f"IMF = ({field}) [nT]", transform=ax.transAxes, fontsize=12)
     ax.text(0.7, -0.2, f"Intersection = ({point}) [R$_E$]", transform=ax.transAxes, fontsize=12)
 
