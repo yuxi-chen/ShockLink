@@ -265,6 +265,12 @@ def test_plot_shock_angle_contour_masks_holes_and_marks_intersection() -> None:
     assert ax.get_aspect() in (1.0, "equal")
     assert ax.get_xlabel() == "Y_GSM [R_E]"
     assert ax.get_ylabel() == "Z_GSM [R_E]"
+    assert ax.xaxis.label.get_size() == 26
+    assert ax.yaxis.label.get_size() == 26
+    assert ax.title.get_size() == 24
+    assert ax.xaxis.get_ticklabels()[0].get_size() == 22
+    assert ax.xaxis.majorTicks[0].tick1line.get_markersize() == 9
+    assert ax.xaxis.majorTicks[0].tick1line.get_markeredgewidth() == 2.5
     assert any(
         "intersection" in str(coll.get_label()).lower() for coll in ax.collections
     )
@@ -324,6 +330,8 @@ def test_plot_shock_angle_contour_matches_reference_style() -> None:
     assert any(text.get_color() == "red" for text in ax.texts)
     assert figure.axes[-1].get_yticks().tolist() == list(range(10, 91, 10))
     assert figure.axes[-1].get_ylabel() == r"$\theta_{BN}$"
+    assert figure.axes[-1].yaxis.label.get_size() == 26
+    assert figure.axes[-1].yaxis.get_ticklabels()[0].get_size() == 22
     plt.close(figure)
 
 

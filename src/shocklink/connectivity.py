@@ -367,7 +367,7 @@ def plot_shock_angle_contour(
     )
     colorbar = ax.figure.colorbar(mesh, ax=ax)
     colorbar.set_ticks(np.arange(10.0, 91.0, 10.0))
-    colorbar.set_label(r"$\theta_{BN}$")
+    colorbar.set_label(r"$\theta_{BN}$", fontsize=26)
     colorbar.ax.tick_params(labelsize=22)
     hit = connection.selected_intersection
     ax.scatter(
@@ -446,7 +446,7 @@ def plot_shock_angle_contour(
     ax.set_xlim(y_limits)
     ax.set_ylim(z_limits)
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title("Bow-shock magnetic connection angle")
+    ax.set_title("Bow-shock magnetic connection angle", fontsize=24)
     if created_figure:
         ax.figure.subplots_adjust(bottom=0.22)
     return ax.figure, ax
