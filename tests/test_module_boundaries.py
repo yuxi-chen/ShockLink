@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import shocklink.tecplot as tecplot
+import shocklink.io as simulation_io
 
 
 def test_generic_dataset_operations_are_separate_from_tecplot() -> None:
@@ -12,6 +13,8 @@ def test_generic_dataset_operations_are_separate_from_tecplot() -> None:
     assert callable(dataset.get_2d_cut)
     assert callable(dataset.plot_2d_cut)
     assert tecplot.__all__ == ["TIME_EVENT_KEY", "read_tecplot"]
+    assert simulation_io.__all__ == ["TIME_EVENT_KEY", "load_simulation"]
+    assert callable(simulation_io.load_simulation)
     assert not hasattr(tecplot, "get_2d_cut")
     assert not hasattr(tecplot, "plot_2d_cut")
 

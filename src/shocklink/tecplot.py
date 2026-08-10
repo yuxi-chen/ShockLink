@@ -1,194 +1,41 @@
-"""Read and normalize BATSRUS Tecplot data with PyVista."""
+"""Backward-compatible facade for the generic simulation loader."""
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
-import numpy as np
 import pyvista as pv
-from numpy.typing import NDArray
 
-from shocklink.exceptions import DatasetError
-from shocklink.utilities import parse_datetime
+from shocklink.io import TIME_EVENT_KEY, load_simulation
 
 DEFAULT_COORDINATE_COMPONENTS = ("X [R]", "Y [R]", "Z [R]")
 DEFAULT_MAGNETIC_COMPONENTS = ("B_x [nT]", "B_y [nT]", "B_z [nT]")
-DEFAULT_VELOCITY_COMPONENTS = (
-    "U_x [km_s]",
-    "U_y [km_s]",
-    "U_z [km_s]",
-)
-TIME_EVENT_KEY = "time_event"
-_TITLE_TIMESTAMP_PATTERN = re.compile(
-    r'^\s*TITLE\s*=.*,(?P<timestamp>\d{4}/\d{2}/\d{2}\s+'
-    r'\d{2}:\d{2}:\d{2}(?:\.\d+)?)"\s*$',
-    re.IGNORECASE,
-)
-
-
-def _read_time_event(source: Path) -> str:
-    """Return the header event time as an ISO-8601 UTC string."""
-
-    try:
-        with source.open(encoding="utf-8") as stream:
-            for line in stream:
-                stripped = line.lstrip()
-                if stripped.upper().startswith("ZONE"):
-                    break
-                if not stripped.upper().startswith("TITLE"):
-                    continue
-
-                match = _TITLE_TIMESTAMP_PATTERN.match(line)
-                if match is None:
-                    break
-
-                raw_time = match.group("timestamp")
-                try:
-                    parsed = parse_datetime(raw_time.replace("/", "-"))
-                except ValueError as error:
-                    raise DatasetError(
-                        f"Invalid BATSRUS event timestamp in {source}: {raw_time}"
-                    ) from error
-                return parsed.isoformat(timespec="milliseconds")
-    except (OSError, UnicodeError) as error:
-        raise DatasetError(f"Could not read Tecplot header {source}: {error}") from error
-
-    raise DatasetError(
-        f"Tecplot header in {source} does not contain a BATSRUS event timestamp"
-    )
-
-
-def _components(
-    grid: pv.UnstructuredGrid,
-    names: tuple[str, str, str],
-    *,
-    label: str,
-) -> NDArray[np.number]:
-    """Return three scalar point arrays as one vector matrix."""
-
-    missing = [name for name in names if name not in grid.point_data]
-    if missing:
-        raise DatasetError(f"Missing {label} component array(s): {', '.join(missing)}")
-
-    arrays = [np.asarray(grid.point_data[name]) for name in names]
-    invalid = [
-        name
-        for name, values in zip(names, arrays, strict=True)
-        if values.ndim != 1 or len(values) != grid.n_points
-    ]
-    if invalid:
-        raise DatasetError(
-            f"Invalid {label} component length or shape: {', '.join(invalid)}"
-        )
-    return np.column_stack(arrays)
-
-
-def _single_zone(data: pv.MultiBlock, *, source: Path) -> pv.UnstructuredGrid:
-    """Extract the sole nonempty unstructured zone."""
-
-    zones = [
-        block
-        for block in data
-        if block is not None and (block.n_points > 0 or block.n_cells > 0)
-    ]
-    if len(zones) != 1:
-        raise DatasetError(
-            f"Expected exactly one nonempty zone in {source}; found {len(zones)}"
-        )
-
-    zone = zones[0]
-    if not isinstance(zone, pv.UnstructuredGrid):
-        raise DatasetError(
-            f"Tecplot zone in {source} must be an UnstructuredGrid; "
-            f"received {type(zone).__name__}"
-        )
-    return zone
+DEFAULT_VELOCITY_COMPONENTS = ("U_x [km_s]", "U_y [km_s]", "U_z [km_s]")
 
 
 def read_tecplot(
     path: str | Path,
     *,
-    coordinate_components: tuple[str, str, str] = DEFAULT_COORDINATE_COMPONENTS,
-    magnetic_components: tuple[str, str, str] = DEFAULT_MAGNETIC_COMPONENTS,
-    velocity_components: tuple[str, str, str] = DEFAULT_VELOCITY_COMPONENTS,
+    coordinate_components: tuple[str, str, str] | None = None,
+    magnetic_components: tuple[str, str, str] | None = None,
+    velocity_components: tuple[str, str, str] | None = None,
     magnetic_name: str = "B [nT]",
     velocity_name: str = "U [km/s]",
-) -> pv.UnstructuredGrid:
-    """Read one Tecplot zone and normalize its geometry and vector fields.
+) -> pv.DataSet | pv.MultiBlock:
+    """Load a DAT or VTM file through :func:`shocklink.io.load_simulation`.
 
-    Parameters
-    ----------
-    path : str or pathlib.Path
-        Existing ``.dat`` Tecplot file containing exactly one nonempty zone.
-    coordinate_components, magnetic_components, velocity_components : tuple of str
-        Names of the three scalar point arrays holding the X/Y/Z coordinates,
-        magnetic field, and velocity components, respectively.  Each component
-        must be a one-dimensional array with one value per grid point.
-    magnetic_name, velocity_name : str
-        Names assigned to the normalized ``(n_points, 3)`` magnetic and velocity
-        point-data arrays.
-
-    Returns
-    -------
-    pyvista.UnstructuredGrid
-        The input zone with points replaced by the finite coordinate array and
-        normalized vector point data.  Magnetic and velocity samples are kept as
-        read, so missing values may remain in these vector arrays. The UTC event
-        timestamp is stored in ``field_data["time_event"]``.
-
-    Raises
-    ------
-    DatasetError
-        If the path is not an existing ``.dat`` file, the reader does not return
-        one nonempty unstructured zone, or required coordinate/vector arrays are
-        absent or have incompatible shapes. Coordinates must be finite. A
-        missing or invalid BATSRUS event timestamp raises ``DatasetError``.
+    New code should import ``load_simulation`` from ``shocklink.io`` directly.
+    This wrapper remains for callers using the original function name.
     """
 
-    source = Path(path)
-    if not source.is_file():
-        raise DatasetError(f"Tecplot file does not exist: {source}")
-    if source.suffix.lower() != ".dat":
-        raise DatasetError(f"Tecplot input must use the .dat extension: {source}")
-    time_event = _read_time_event(source)
-
-    try:
-        loaded = pv.read(source)
-    except Exception as error:
-        raise DatasetError(f"Could not read Tecplot file {source}: {error}") from error
-
-    if not isinstance(loaded, pv.MultiBlock):
-        raise DatasetError(
-            f"Tecplot reader returned {type(loaded).__name__} for {source}; "
-            "expected MultiBlock"
-        )
-
-    grid = _single_zone(loaded, source=source)
-    coordinates = _components(
-        grid,
-        coordinate_components,
-        label="coordinate",
+    return load_simulation(
+        path,
+        coordinate_components=coordinate_components,
+        magnetic_components=magnetic_components,
+        velocity_components=velocity_components,
+        magnetic_name=magnetic_name,
+        velocity_name=velocity_name,
     )
-    if not np.isfinite(coordinates).all():
-        raise DatasetError(f"Coordinate arrays in {source} must contain finite values")
-
-    magnetic_field = _components(
-        grid,
-        magnetic_components,
-        label="magnetic-field",
-    )
-    velocity = _components(
-        grid,
-        velocity_components,
-        label="velocity",
-    )
-
-    grid.points = coordinates
-    grid.point_data[magnetic_name] = magnetic_field
-    grid.point_data[velocity_name] = velocity
-    grid.field_data[TIME_EVENT_KEY] = time_event
-    return grid
 
 
 __all__ = ["TIME_EVENT_KEY", "read_tecplot"]
