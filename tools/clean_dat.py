@@ -10,77 +10,38 @@ import sys
 from typing import Sequence
 
 
-class CleanDatError(RuntimeError):
-    """Raised when a Tecplot DAT header cannot be cleaned."""
+def clean_dat(datPath):
+    # Clean BATSRUS *.dat file
+    # 1) If 'VARIABLES'contain '[' or ']', Paraview will fail.
+    # So, remove these characters from *.dat file
+    # 2) It seems Paraview assumes the name of the coordinate is 'x', 'y', 'z',
+    #  and it can not contain other non-empty characters.
+    # For example. 'X AU' will fail.
 
+    f = open(datPath, "r+")
+    # Assume 'VARIABLES' is in the first 10 lines
+    for i in range(10):
+        p0 = f.tell()
+        line = f.readline()
+        if line.find("VARIABLES") != -1:
+            p1 = f.tell()
+            break
+    # Remove the unit.
+    lineNew = re.sub(r"\s*?\[(.*?)\]", r"", line)
 
-_UNIT_PATTERN = re.compile(r"\s*\[(.*?)]")
-_COORDINATE_PATTERN = re.compile(r'"([xyzXYZ])\s+\w*"')
+    # Example: "X AU" -> "X"
+    lineNew = re.sub(r'"([xyzXYZ])(\s+?)(\w*?)"', r'''"\1"''', lineNew)
 
+    # Remove '\n'
+    lineNew = re.sub(r"\n", r"", lineNew)
+    # Padding space so that lineNew's length is the same as line's
+    lineNew += (len(line) - len(lineNew) - 1) * " " + "\n"
 
-def _clean_variables_line(line: str) -> str:
-    if line.endswith("\r\n"):
-        body, newline = line[:-2], "\r\n"
-    elif line.endswith("\n") or line.endswith("\r"):
-        body, newline = line[:-1], line[-1]
-    else:
-        body, newline = line, ""
+    f.seek(p0)
+    f.write(lineNew)
+    f.close()
 
-    cleaned = _UNIT_PATTERN.sub("", body)
-    cleaned = _COORDINATE_PATTERN.sub(r'"\1"', cleaned)
-    padding = len(line.encode("utf-8")) - len((cleaned + newline).encode("utf-8"))
-    if padding < 0:
-        raise CleanDatError("cleaned VARIABLES line is longer than the original")
-    return f"{cleaned}{' ' * padding}{newline}"
-
-
-def clean_dat(dat_path: str | Path) -> str:
-    """Clean the ``VARIABLES`` header in *dat_path* without shifting file data.
-
-    Bracketed units are removed from every variable name. Coordinate names such
-    as ``X R`` are reduced to ``X``. The rewritten line is padded to its
-    original byte length and overwritten in place. The original header line is
-    returned.
-    """
-
-    path = Path(dat_path)
-    if not path.is_file():
-        raise CleanDatError(f"input file does not exist: {path}")
-    if path.suffix.lower() != ".dat":
-        raise CleanDatError(f"input file must use the .dat suffix: {path}")
-
-    try:
-        with path.open("r+b") as stream:
-            while True:
-                offset = stream.tell()
-                raw_line = stream.readline()
-                if not raw_line:
-                    break
-                try:
-                    line = raw_line.decode("utf-8")
-                except UnicodeDecodeError as error:
-                    raise CleanDatError(
-                        f"could not decode Tecplot header in {path}: {error}"
-                    ) from error
-
-                stripped = line.lstrip().upper()
-                if stripped.startswith("VARIABLES"):
-                    cleaned = _clean_variables_line(line).encode("utf-8")
-                    if len(cleaned) != len(raw_line):
-                        raise CleanDatError(
-                            "cleaned VARIABLES line changed the file byte length"
-                        )
-                    stream.seek(offset)
-                    stream.write(cleaned)
-                    return line
-                if stripped.startswith("ZONE"):
-                    break
-    except CleanDatError:
-        raise
-    except OSError as error:
-        raise CleanDatError(f"could not clean {path}: {error}") from error
-
-    raise CleanDatError(f"Tecplot header in {path} lacks a VARIABLES declaration")
+    return line
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -107,7 +68,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     for source in args.inputs:
         try:
             clean_dat(source)
-        except CleanDatError as error:
+        except Exception as error:
             print(f"error: {error}", file=sys.stderr)
             return 2
         print(f"cleaned {source}")

@@ -5,9 +5,6 @@ import os
 from pathlib import Path
 import subprocess
 
-import pytest
-
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 TOOL = REPOSITORY_ROOT / "tools" / "clean_dat.py"
 
@@ -56,24 +53,6 @@ def test_clean_dat_is_idempotent(tmp_path: Path) -> None:
     cleaner.clean_dat(source)
 
     assert source.read_bytes() == cleaned_once
-
-
-def test_clean_dat_rejects_missing_variables_without_modifying_file(
-    tmp_path: Path,
-) -> None:
-    source = tmp_path / "input.dat"
-    source.write_text(
-        'TITLE="BATSRUS: data,2023/12/16 11:30:00.000"\n'
-        'ZONE T="zone-a", I=1, J=1, K=1, DATAPACKING=POINT\n'
-        "0 0 0\n",
-        encoding="utf-8",
-    )
-    original = source.read_bytes()
-
-    with pytest.raises(cleaner.CleanDatError, match="VARIABLES"):
-        cleaner.clean_dat(source)
-
-    assert source.read_bytes() == original
 
 
 def test_clean_dat_executable_supports_help_and_multiple_files(

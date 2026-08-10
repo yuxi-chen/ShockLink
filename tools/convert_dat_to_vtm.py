@@ -16,7 +16,7 @@ _TOOLS_DIRECTORY = str(Path(__file__).resolve().parent)
 if _TOOLS_DIRECTORY not in sys.path:
     sys.path.insert(0, _TOOLS_DIRECTORY)
 
-from clean_dat import CleanDatError, clean_dat
+from clean_dat import clean_dat
 
 
 class ConversionError(RuntimeError):
@@ -118,7 +118,7 @@ def convert(
     time_event = _read_time_event(source)
     try:
         clean_dat(source)
-    except CleanDatError as error:
+    except Exception as error:
         raise ConversionError(f"could not clean {source}: {error}") from error
     try:
         dataset = pv.read(source)
