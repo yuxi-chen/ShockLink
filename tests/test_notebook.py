@@ -207,9 +207,26 @@ def test_connection_notebook_is_valid_clean_and_uses_public_workflow() -> None:
 def test_connection_notebook_documents_launch_and_portable_parameters() -> None:
     notebook = _connection_notebook()
     source = "\n".join(cell.source for cell in notebook.cells)
+    code = "\n".join(cell.source for cell in notebook.cells if cell.cell_type == "code")
+    tree = ast.parse(code)
+    surface_call = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "get_bow_shock_surface"
+    )
 
     assert 'DATA_PATH = Path("../data/3d.dat")' in source
     assert "MMS_WINDOW_SECONDS = 300.0" in source
+    assert "SURFACE_AXIS = np.linspace(-30.0, 30.0, 241)" in source
+    assert "TRANSVERSE_LIMIT" not in source
+    assert "SURFACE_RESOLUTION" not in source
+    assert "SURFACE_Y" not in source
+    assert "SURFACE_Z" not in source
+    assert {keyword.arg for keyword in surface_call.keywords}.isdisjoint({"y", "z"})
+    assert code.count("y=SURFACE_AXIS") == 2
+    assert code.count("z=SURFACE_AXIS") == 2
     assert "parse_datetime" in source
     assert "event_time" in source
     assert "mms_start =" in source
