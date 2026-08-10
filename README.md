@@ -61,11 +61,19 @@ file without normalizing or combining the zones:
 ./tools/convert_dat_to_vtm.py path/to/input.dat
 ```
 
-The output defaults to `path/to/input.vtm`. Provide a second positional argument
-to choose another output path:
+The output defaults to one container directory beside the input:
+
+```text
+path/to/input_vtk/
+├── input.vtm
+└── input/
+    └── generated VTK sidecar files
+```
+
+Provide a second positional argument to choose another container directory:
 
 ```bash
-./tools/convert_dat_to_vtm.py input.dat output.vtm
+./tools/convert_dat_to_vtm.py input.dat custom_vtk
 ```
 
 To remove the source file only after a successful conversion, add
@@ -81,9 +89,9 @@ Show the complete usage and examples with:
 ./tools/convert_dat_to_vtm.py -h
 ```
 
-The `.vtm` file may reference generated `.vts`, `.vti`, or `.vtu` sidecar files;
-keep those files and directories together with the `.vtm` file when moving or
-reopening the converted dataset.
+The container keeps the `.vtm` metadata and its generated `.vts`, `.vti`, or
+`.vtu` sidecar files together. Move or copy the complete container directory
+when relocating the converted dataset.
 
 ## Status
 

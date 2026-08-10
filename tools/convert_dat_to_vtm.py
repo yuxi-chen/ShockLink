@@ -15,9 +15,22 @@ class ConversionError(RuntimeError):
     """Raised when a DAT-to-VTM conversion cannot be completed."""
 
 
+def _destination(
+    input_path: str | Path,
+    output_directory: str | Path | None,
+) -> Path:
+    source = Path(input_path)
+    container = (
+        Path(output_directory)
+        if output_directory is not None
+        else source.with_name(f"{source.stem}_vtk")
+    )
+    return container / source.with_suffix(".vtm").name
+
+
 def _paths(
     input_path: str | Path,
-    output_path: str | Path | None,
+    output_directory: str | Path | None,
 ) -> tuple[Path, Path]:
     source = Path(input_path)
     if not source.is_file():
@@ -25,21 +38,16 @@ def _paths(
     if source.suffix.lower() != ".dat":
         raise ConversionError(f"input file must use the .dat suffix: {source}")
 
-    destination = (
-        Path(output_path)
-        if output_path is not None
-        else source.with_suffix(".vtm")
-    )
-    if destination.suffix.lower() != ".vtm":
-        raise ConversionError(f"output file must use the .vtm suffix: {destination}")
-    if source.resolve() == destination.resolve():
-        raise ConversionError("input and output paths must be different")
+    destination = _destination(source, output_directory)
+    container = destination.parent
+    if container.exists() and not container.is_dir():
+        raise ConversionError(f"output path must be a directory: {container}")
     return source, destination
 
 
 def convert(
     input_path: str | Path,
-    output_path: str | Path | None = None,
+    output_directory: str | Path | None = None,
     *,
     delete_input: bool = False,
 ) -> pv.MultiBlock:
@@ -49,7 +57,7 @@ def convert(
     coordinates, arrays, or metadata are normalized or otherwise modified.
     """
 
-    source, destination = _paths(input_path, output_path)
+    source, destination = _paths(input_path, output_directory)
     try:
         dataset = pv.read(source)
     except Exception as error:
@@ -84,15 +92,15 @@ def _parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""examples:
   convert_dat_to_vtm.py input.dat
-  convert_dat_to_vtm.py input.dat output.vtm
+  convert_dat_to_vtm.py input.dat custom_vtk
   convert_dat_to_vtm.py input.dat --delete-input""",
     )
     parser.add_argument("input", type=Path, help="Tecplot ASCII .dat file")
     parser.add_argument(
-        "output",
+        "output_directory",
         type=Path,
         nargs="?",
-        help="VTM output path (default: input path with a .vtm suffix)",
+        help="output directory (default: input stem with a _vtk suffix)",
     )
     parser.add_argument(
         "--delete-input",
@@ -106,13 +114,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the command-line converter and return its process status."""
 
     args = _parser().parse_args(argv)
+    output = _destination(args.input, args.output_directory)
     try:
-        dataset = convert(args.input, args.output, delete_input=args.delete_input)
+        dataset = convert(
+            args.input,
+            args.output_directory,
+            delete_input=args.delete_input,
+        )
     except ConversionError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
 
-    output = args.output or args.input.with_suffix(".vtm")
     print(f"wrote {output} ({dataset.n_blocks} blocks)")
     if args.delete_input:
         print(f"deleted {args.input}")

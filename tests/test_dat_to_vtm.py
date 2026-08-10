@@ -66,9 +66,10 @@ def test_converter_is_executable_and_help_shows_examples() -> None:
 
     assert "usage:" in result.stdout
     assert "--delete-input" in result.stdout
+    assert "output directory" in result.stdout
     assert "examples:" in result.stdout
     assert "convert_dat_to_vtm.py input.dat\n" in result.stdout
-    assert "convert_dat_to_vtm.py input.dat output.vtm" in result.stdout
+    assert "convert_dat_to_vtm.py input.dat custom_vtk" in result.stdout
     assert "convert_dat_to_vtm.py input.dat --delete-input" in result.stdout
 
 
@@ -79,8 +80,11 @@ def test_converter_preserves_all_zones_and_uses_default_output(
 
     result = _run_converter(str(source))
 
-    output = source.with_suffix(".vtm")
+    container = tmp_path / "sample_vtk"
+    output = container / "sample.vtm"
     assert output.is_file()
+    assert (container / "sample").is_dir()
+    assert {path.name for path in container.iterdir()} == {"sample.vtm", "sample"}
     assert "2 blocks" in result.stdout
     reloaded = pv.read(output)
     assert isinstance(reloaded, pv.MultiBlock)
@@ -97,13 +101,13 @@ def test_converter_preserves_all_zones_and_uses_default_output(
     assert source.is_file()
 
 
-def test_converter_accepts_explicit_output_path(tmp_path: Path) -> None:
+def test_converter_accepts_explicit_output_directory(tmp_path: Path) -> None:
     source = _write_two_zone_dat(tmp_path / "input.dat")
-    output = tmp_path / "nested" / "converted.vtm"
-    output.parent.mkdir()
+    container = tmp_path / "custom_vtk"
 
-    _run_converter(str(source), str(output))
+    _run_converter(str(source), str(container))
 
+    output = container / "input.vtm"
     assert output.is_file()
     assert isinstance(pv.read(output), pv.MultiBlock)
 
@@ -113,7 +117,7 @@ def test_converter_deletes_input_only_when_requested(tmp_path: Path) -> None:
 
     _run_converter(str(source), "--delete-input")
 
-    assert source.with_suffix(".vtm").is_file()
+    assert (tmp_path / "input_vtk" / "input.vtm").is_file()
     assert not source.exists()
 
 
@@ -126,8 +130,10 @@ def test_converter_rejects_invalid_paths_without_deleting_input(
 
     with pytest.raises(converter.ConversionError, match=r"\.dat"):
         converter.convert(wrong_input, delete_input=True)
-    with pytest.raises(converter.ConversionError, match=r"\.vtm"):
-        converter.convert(source, tmp_path / "output.vtu", delete_input=True)
+    output_file = tmp_path / "not-a-directory"
+    output_file.write_text("occupied", encoding="utf-8")
+    with pytest.raises(converter.ConversionError, match="directory"):
+        converter._paths(source, output_file)
 
     assert source.exists()
 
@@ -147,7 +153,7 @@ def test_converter_retains_input_when_read_fails(
         converter.convert(source, delete_input=True)
 
     assert source.exists()
-    assert not source.with_suffix(".vtm").exists()
+    assert not (tmp_path / "input_vtk").exists()
 
 
 def test_converter_retains_input_when_write_fails(
