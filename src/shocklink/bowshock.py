@@ -881,7 +881,7 @@ def calc_bow_shock_normals(
 def smooth_bow_shock_surface(
     surface_x: ArrayLike,
     *,
-    sigma: float | tuple[float, float] = 1.0,
+    sigma: float | tuple[float, float] = 5.0,
     preserve_nan: bool = True,
 ) -> NDArray[np.float64]:
     """Smooth a regular bow-shock X surface with a NaN-aware Gaussian filter.
@@ -891,7 +891,7 @@ def smooth_bow_shock_surface(
     surface_x : array-like
         Real two-dimensional X-coordinate surface. Finite entries are smoothed;
         NaN entries represent unavailable surface columns.
-    sigma : float or tuple of float, default 1.0
+    sigma : float or tuple of float, default 5.0
         Positive Gaussian standard deviation in Y-Z grid cells. A scalar uses
         the same width on both axes; a two-value tuple sets Y and Z widths.
     preserve_nan : bool, default True
