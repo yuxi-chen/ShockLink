@@ -27,7 +27,7 @@ def _write_two_zone_dat(
 ) -> Path:
     path.write_text(
         f'''{title}
-VARIABLES = "X" "Y" "Z" "rho"
+VARIABLES = "X [R]" "Y [R]" "Z [R]" "rho [amu/cm^3]"
 ZONE T="zone-a", I=2, J=2, K=2, DATAPACKING=POINT
 0 0 0 1
 1 0 0 2
@@ -71,6 +71,7 @@ def test_converter_is_executable_and_help_shows_examples() -> None:
     assert "usage:" in result.stdout
     assert "--delete-input" in result.stdout
     assert "output directory" in result.stdout
+    assert "cleaned in place" in result.stdout
     assert "examples:" in result.stdout
     assert "convert_dat_to_vtm.py input.dat\n" in result.stdout
     assert "convert_dat_to_vtm.py input.dat custom_vtk" in result.stdout
@@ -81,6 +82,7 @@ def test_converter_preserves_all_zones_and_uses_default_output(
     tmp_path: Path,
 ) -> None:
     source = _write_two_zone_dat(tmp_path / "sample.dat")
+    original_lines = source.read_text(encoding="utf-8").splitlines(keepends=True)
 
     result = _run_converter(str(source))
 
@@ -106,6 +108,10 @@ def test_converter_preserves_all_zones_and_uses_default_output(
     np.testing.assert_allclose(second.points[:, 0], [2, 3, 2, 3, 2, 3, 2, 3])
     np.testing.assert_allclose(second["rho"], [11, 12, 13, 14, 15, 16, 17, 18])
     assert source.is_file()
+    cleaned_lines = source.read_text(encoding="utf-8").splitlines(keepends=True)
+    assert cleaned_lines[0] == original_lines[0]
+    assert cleaned_lines[2:] == original_lines[2:]
+    assert cleaned_lines[1].rstrip() == 'VARIABLES = "X" "Y" "Z" "rho"'
 
 
 def test_converter_accepts_explicit_output_directory(tmp_path: Path) -> None:
@@ -160,6 +166,9 @@ def test_converter_retains_input_when_read_fails(
         converter.convert(source, delete_input=True)
 
     assert source.exists()
+    assert source.read_text(encoding="utf-8").splitlines()[1].rstrip() == (
+        'VARIABLES = "X" "Y" "Z" "rho"'
+    )
     assert not (tmp_path / "input_vtk").exists()
 
 

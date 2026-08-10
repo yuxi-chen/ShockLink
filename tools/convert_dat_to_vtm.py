@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Convert a Tecplot ASCII DAT file to a VTK multiblock VTM file."""
+"""Convert Tecplot ASCII DAT to VTM after its header is cleaned in place."""
 
 from __future__ import annotations
 
@@ -11,6 +11,12 @@ from pathlib import Path
 from typing import Sequence
 
 import pyvista as pv
+
+_TOOLS_DIRECTORY = str(Path(__file__).resolve().parent)
+if _TOOLS_DIRECTORY not in sys.path:
+    sys.path.insert(0, _TOOLS_DIRECTORY)
+
+from clean_dat import CleanDatError, clean_dat
 
 
 class ConversionError(RuntimeError):
@@ -103,12 +109,17 @@ def convert(
 ) -> pv.MultiBlock:
     """Convert all Tecplot zones in *input_path* to a VTM multiblock file.
 
-    The dataset returned by PyVista is passed directly to ``save``. No zones,
-    coordinates, arrays, or metadata are normalized or otherwise modified.
+    The source VARIABLES header is cleaned in place before it is read. The
+    dataset returned by PyVista is then passed directly to ``save``; no zones,
+    coordinates, or data arrays are otherwise modified.
     """
 
     source, destination = _paths(input_path, output_directory)
     time_event = _read_time_event(source)
+    try:
+        clean_dat(source)
+    except CleanDatError as error:
+        raise ConversionError(f"could not clean {source}: {error}") from error
     try:
         dataset = pv.read(source)
     except Exception as error:
