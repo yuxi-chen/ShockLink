@@ -65,10 +65,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''examples:
-  create_swmf_input.py --mms-start "2018-12-19 19:40:00" --mms-end "2018-12-19 19:52:00" --output generated.in
+epilog='''examples:
+  create_swmf_input.py --mms-start "2018-12-19 19:40:00" --mms-end "2018-12-19 19:52:00"
   create_swmf_input.py --mms-start "2017-01-01 00:00:00" --mms-end "2017-01-01 00:05:00" --output generated.in --probe 2 --mode brst
-  create_swmf_input.py --mms-start "2018-12-19 19:40:00" --mms-end "2018-12-19 19:52:00" --output generated.in --input custom/PARAM.in --start-time "2018-12-19 19:45:00"''',
+  create_swmf_input.py --mms-start "2018-12-19 19:40:00" --mms-end "2018-12-19 19:52:00" --input custom/PARAM.in --start-time "2018-12-19 19:45:00"''',
     )
     parser.add_argument(
         "--mms-start", required=True, help="MMS observation interval start time"
@@ -77,7 +77,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--mms-end", required=True, help="MMS observation interval end time"
     )
     parser.add_argument(
-        "--output", required=True, help="output SWMF parameter file to create"
+        "--output",
+        help="output SWMF parameter file (default: PARAM_YYYYMMDD_HHMMSS.in)",
     )
     parser.add_argument(
         "--input",
@@ -125,11 +126,12 @@ def main(argv: list[str] | None = None) -> int:
             if arguments.start_time
             else midpoint_datetime(bounds.start, bounds.end)
         )
+        output = arguments.output or f"PARAM_{start_time:%Y%m%d_%H%M%S}.in"
         generate_param_file(
-            arguments.input, arguments.output, start_time, solar_wind, location
+            arguments.input, output, start_time, solar_wind, location
         )
     except Exception as error:
         print(f"Could not create SWMF input: {error}", file=sys.stderr)
         return 1
-    print(f"Wrote SWMF input to {arguments.output}")
+    print(f"Wrote SWMF input to {output}")
     return 0

@@ -37,6 +37,7 @@ def test_swmf_tool_help_explains_options_and_shows_examples() -> None:
     )
 
     assert "usage:" in result.stdout
+    assert "[--output OUTPUT]" in result.stdout
     for option in (
         "--mms-start",
         "--mms-end",
@@ -50,6 +51,7 @@ def test_swmf_tool_help_explains_options_and_shows_examples() -> None:
     assert "default: data/Param/PARAM.in.Earth" in result.stdout
     assert "default: 1" in result.stdout
     assert "default: auto" in result.stdout
+    assert "PARAM_YYYYMMDD_HHMMSS.in" in result.stdout
     assert "examples:" in result.stdout
     assert "create_swmf_input.py --mms-start" in result.stdout
     assert "--probe 2 --mode brst" in result.stdout

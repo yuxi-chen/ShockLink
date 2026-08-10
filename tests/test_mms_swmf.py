@@ -170,6 +170,19 @@ def test_parse_args_accepts_workflow_options() -> None:
     assert arguments.mode == "fast"
 
 
+def test_parse_args_allows_omitted_output() -> None:
+    arguments = mms_swmf.parse_args(
+        [
+            "--mms-start",
+            "2018-12-19 19:40:00",
+            "--mms-end",
+            "2018-12-19 19:52:00",
+        ]
+    )
+
+    assert arguments.output is None
+
+
 def test_parse_args_finds_default_template_outside_repository(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -218,7 +231,7 @@ def test_parse_args_preserves_explicit_relative_template(
 
 
 def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
-    tmp_path: Path, monkeypatch, capsys
+    monkeypatch, capsys
 ) -> None:
     calls: dict[str, object] = {}
 
@@ -235,15 +248,12 @@ def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
 
     monkeypatch.setattr(mms_swmf, "generate_param_file", write_output)
 
-    output = tmp_path / "generated.in"
     result = mms_swmf.main(
         [
             "--mms-start",
             "2018-12-19 19:40:00",
             "--mms-end",
             "2018-12-19 19:52:00",
-            "--output",
-            str(output),
         ]
     )
 
@@ -259,11 +269,11 @@ def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
         / "Param"
         / "PARAM.in.Earth"
     )
-    assert path == str(output)
+    assert path == "PARAM_20181219_194600.in"
     assert start_time == datetime(2018, 12, 19, 19, 46, tzinfo=UTC)
     assert solar_wind == solar_wind_from_averages(_averages())
     assert location == mms_swmf.mms_location_from_averages(_averages())
-    assert f"Wrote SWMF input to {output}" in capsys.readouterr().out
+    assert "Wrote SWMF input to PARAM_20181219_194600.in" in capsys.readouterr().out
 
 
 def test_main_honors_explicit_start_time(monkeypatch) -> None:
@@ -273,11 +283,13 @@ def test_main_honors_explicit_start_time(monkeypatch) -> None:
         lambda *_args, **_kwargs: SimpleNamespace(series={"magnetic_field": "b"}),
     )
     monkeypatch.setattr(mms_swmf, "average_plotted_values", lambda _data: _averages())
-    captured: list[datetime] = []
+    captured: list[tuple[datetime, str]] = []
     monkeypatch.setattr(
         mms_swmf,
         "generate_param_file",
-        lambda _template, _output, start_time, _solar_wind, _location: captured.append(start_time),
+        lambda _template, output, start_time, _solar_wind, _location: captured.append(
+            (start_time, output)
+        ),
     )
 
     result = mms_swmf.main(
@@ -288,13 +300,13 @@ def test_main_honors_explicit_start_time(monkeypatch) -> None:
             "2018-12-19 19:52:00",
             "--start-time",
             "2018-12-19T14:52:00-05:00",
-            "--output",
-            "generated.in",
         ]
     )
 
     assert result == 0
-    assert captured == [datetime(2018, 12, 19, 19, 52, tzinfo=UTC)]
+    assert captured == [
+        (datetime(2018, 12, 19, 19, 52, tzinfo=UTC), "PARAM_20181219_195200.in")
+    ]
 
 
 def test_main_reports_mms_failure(monkeypatch, capsys) -> None:
