@@ -320,6 +320,7 @@ def plot_shock_angle_contour(
     cmap: str = "viridis",
     yrange: ArrayLike | None = None,
     zrange: ArrayLike | None = None,
+    simulation_time: str | None = None,
 ) -> tuple[Figure, Axes]:
     """Plot the acute shock-normal angle on the extracted Y-Z shock map.
 
@@ -328,6 +329,8 @@ def plot_shock_angle_contour(
     ``(figure, axes)`` (a Matplotlib ``Figure`` and ``Axes`` pair).  ``cmap``
     selects the filled-contour colormap, while ``yrange`` and ``zrange`` can
     override the symmetric reference-style default plot limits.
+    ``simulation_time`` adds the simulation timestamp to the metadata below
+    the plot when supplied.
     """
     try:
         import matplotlib.pyplot as plt
@@ -445,6 +448,14 @@ def plot_shock_angle_contour(
     ax.text(-0.15, -0.2, f"MMS (GSM): ({mms}) [R$_E$]", transform=ax.transAxes, fontsize=12)
     ax.text(0.35, -0.2, f"IMF = ({field}) [nT]", transform=ax.transAxes, fontsize=12)
     ax.text(0.7, -0.2, f"Intersection = ({point}) [R$_E$]", transform=ax.transAxes, fontsize=12)
+    if simulation_time is not None:
+        ax.text(
+            -0.15,
+            -0.3,
+            f"Simulation time: {simulation_time}",
+            transform=ax.transAxes,
+            fontsize=12,
+        )
 
     ax.set_xlabel(r"Y [R$_E$]", fontsize=26)
     ax.set_ylabel(r"Z [R$_E$]", fontsize=26)

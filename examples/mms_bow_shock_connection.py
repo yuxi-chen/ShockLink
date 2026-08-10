@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Line parameter: {hit.line_parameter:.6g}; distance: {hit.distance:.6g} R_E")
     print(f"theta_Bn: {hit.theta_bn_deg:.3f} deg")
     try:
-        figure, _ = plot_shock_angle_contour(connection)
+        figure, _ = plot_shock_angle_contour(connection, simulation_time=event)
         figure.show()
         plot_shock_connection_3d(connection)
     except Exception as error:

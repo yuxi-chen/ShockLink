@@ -317,7 +317,11 @@ def test_plot_shock_angle_contour_matches_reference_style(monkeypatch) -> None:
     )
 
     figure, ax = plot_shock_angle_contour(
-        result, cmap="plasma", yrange=[-5.0, 15.0], zrange=[-10.0, 10.0]
+        result,
+        cmap="plasma",
+        yrange=[-5.0, 15.0],
+        zrange=[-10.0, 10.0],
+        simulation_time="2023-12-16T11:30:00.000+00:00",
     )
 
     assert figure.get_size_inches().tolist() == [10.0, 8.0]
@@ -328,6 +332,10 @@ def test_plot_shock_angle_contour_matches_reference_style(monkeypatch) -> None:
     assert any("MMS (GSM)" in text.get_text() for text in ax.texts)
     assert any("IMF =" in text.get_text() for text in ax.texts)
     assert any("Intersection =" in text.get_text() for text in ax.texts)
+    assert any(
+        "Simulation time: 2023-12-16T11:30:00.000+00:00" in text.get_text()
+        for text in ax.texts
+    )
     assert any("45°" in text.get_text() for text in ax.texts)
     assert any("50°" in text.get_text() for text in ax.texts)
     assert any(text.get_color() == "red" for text in ax.texts)
