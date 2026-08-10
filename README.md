@@ -93,6 +93,10 @@ The container keeps the `.vtm` metadata and its generated `.vts`, `.vti`, or
 `.vtu` sidecar files together. Move or copy the complete container directory
 when relocating the converted dataset.
 
+When the Tecplot `TITLE` contains a BATSRUS simulation timestamp, the converted
+VTM root exposes it as `field_data["time_event"]`, normalized to an ISO-8601 UTC
+string such as `2023-12-16T11:30:00.000+00:00`.
+
 ## Status
 
 ShockLink is pre-alpha research software. Validate the detection and resolution

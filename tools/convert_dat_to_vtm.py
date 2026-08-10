@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
+import re
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -13,6 +15,54 @@ import pyvista as pv
 
 class ConversionError(RuntimeError):
     """Raised when a DAT-to-VTM conversion cannot be completed."""
+
+
+_TITLE_TIMESTAMP_PATTERN = re.compile(
+    r'^\s*TITLE\s*=.*,(?P<timestamp>\d{4}/\d{2}/\d{2}\s+'
+    r'\d{2}:\d{2}:\d{2}(?:\.\d+)?)"\s*$',
+    re.IGNORECASE,
+)
+
+
+def _read_time_event(source: Path) -> str:
+    """Read and normalize the BATSRUS simulation time from a Tecplot header."""
+
+    try:
+        with source.open(encoding="utf-8") as stream:
+            for line in stream:
+                stripped = line.lstrip()
+                if stripped.upper().startswith("ZONE"):
+                    break
+                if not stripped.upper().startswith("TITLE"):
+                    continue
+
+                match = _TITLE_TIMESTAMP_PATTERN.match(line)
+                if match is None:
+                    raise ConversionError(
+                        f"Tecplot header in {source} lacks a simulation timestamp"
+                    )
+
+                raw_time = match.group("timestamp")
+                format_string = (
+                    "%Y/%m/%d %H:%M:%S.%f"
+                    if "." in raw_time
+                    else "%Y/%m/%d %H:%M:%S"
+                )
+                try:
+                    parsed = datetime.strptime(raw_time, format_string)
+                except ValueError as error:
+                    raise ConversionError(
+                        f"invalid simulation timestamp in {source}: {raw_time}"
+                    ) from error
+                return parsed.replace(tzinfo=timezone.utc).isoformat(
+                    timespec="milliseconds"
+                )
+    except ConversionError:
+        raise
+    except (OSError, UnicodeError) as error:
+        raise ConversionError(f"could not read Tecplot header {source}: {error}") from error
+
+    raise ConversionError(f"Tecplot header in {source} lacks a simulation timestamp")
 
 
 def _destination(
@@ -58,6 +108,7 @@ def convert(
     """
 
     source, destination = _paths(input_path, output_directory)
+    time_event = _read_time_event(source)
     try:
         dataset = pv.read(source)
     except Exception as error:
@@ -68,6 +119,8 @@ def convert(
             "Tecplot reader returned "
             f"{type(dataset).__name__}; expected MultiBlock"
         )
+
+    dataset.field_data["time_event"] = time_event
 
     try:
         destination.parent.mkdir(parents=True, exist_ok=True)

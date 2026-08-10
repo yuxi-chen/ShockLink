@@ -20,9 +20,13 @@ converter = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(converter)
 
 
-def _write_two_zone_dat(path: Path) -> Path:
+def _write_two_zone_dat(
+    path: Path,
+    *,
+    title: str = 'TITLE = "BATSRUS: two zones,2023/12/16 11:30:00.000"',
+) -> Path:
     path.write_text(
-        '''TITLE = "two zones"
+        f'''{title}
 VARIABLES = "X" "Y" "Z" "rho"
 ZONE T="zone-a", I=2, J=2, K=2, DATAPACKING=POINT
 0 0 0 1
@@ -89,6 +93,9 @@ def test_converter_preserves_all_zones_and_uses_default_output(
     reloaded = pv.read(output)
     assert isinstance(reloaded, pv.MultiBlock)
     assert reloaded.n_blocks == 2
+    assert reloaded.field_data["time_event"].item() == (
+        "2023-12-16T11:30:00.000+00:00"
+    )
     assert reloaded.get_block_name(0) == "zone-a"
     assert reloaded.get_block_name(1) == "zone-b"
     first, second = reloaded
@@ -184,3 +191,26 @@ def test_converter_requires_multiblock_reader_result(
 
     with pytest.raises(converter.ConversionError, match="expected MultiBlock"):
         converter.convert(source)
+
+
+@pytest.mark.parametrize(
+    ("title", "message"),
+    [
+        ('TITLE = "BATSRUS: two zones"', "timestamp"),
+        (
+            'TITLE = "BATSRUS: two zones,2023/13/16 11:30:00.000"',
+            "timestamp",
+        ),
+    ],
+)
+def test_converter_requires_valid_simulation_time(
+    tmp_path: Path,
+    title: str,
+    message: str,
+) -> None:
+    source = _write_two_zone_dat(tmp_path / "input.dat", title=title)
+
+    with pytest.raises(converter.ConversionError, match=message):
+        converter.convert(source)
+
+    assert not (tmp_path / "input_vtk").exists()
