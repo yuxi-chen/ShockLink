@@ -4,7 +4,7 @@
 
 ## Design
 
-Add `#!/usr/bin/env python3` as the first line of `tools/convert_dat_to_vtm.py` and store the file with executable permissions. Keep the existing Python entry point and conversion behavior unchanged.
+Add `#!/usr/bin/env python` as the first line of `tools/convert_dat_to_vtm.py` and store the file with executable permissions. This selects the active project or virtual-environment interpreter, which supplies PyVista. Keep the existing Python entry point and conversion behavior unchanged.
 
 Configure `argparse.ArgumentParser` with `RawDescriptionHelpFormatter` and an epilog containing examples for default output naming, an explicit output path, and `--delete-input`. Both `-h` and `--help` remain provided by argparse and exit successfully without attempting a conversion.
 

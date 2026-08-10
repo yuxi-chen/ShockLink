@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Convert a Tecplot ASCII DAT file to a VTK multiblock VTM file."""
 
 from __future__ import annotations
@@ -78,7 +79,14 @@ def convert(
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""examples:
+  convert_dat_to_vtm.py input.dat
+  convert_dat_to_vtm.py input.dat output.vtm
+  convert_dat_to_vtm.py input.dat --delete-input""",
+    )
     parser.add_argument("input", type=Path, help="Tecplot ASCII .dat file")
     parser.add_argument(
         "output",

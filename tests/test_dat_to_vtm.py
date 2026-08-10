@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 import importlib.util
+import os
 from pathlib import Path
 
 import numpy as np
@@ -50,12 +50,26 @@ ZONE T="zone-b", I=2, J=2, K=2, DATAPACKING=POINT
 
 def _run_converter(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, str(TOOL), *args],
+        [str(TOOL), *args],
         cwd=REPOSITORY_ROOT,
         check=True,
         capture_output=True,
         text=True,
     )
+
+
+def test_converter_is_executable_and_help_shows_examples() -> None:
+    assert os.access(TOOL, os.X_OK)
+    assert TOOL.read_bytes().splitlines()[0] == b"#!/usr/bin/env python"
+
+    result = _run_converter("-h")
+
+    assert "usage:" in result.stdout
+    assert "--delete-input" in result.stdout
+    assert "examples:" in result.stdout
+    assert "convert_dat_to_vtm.py input.dat\n" in result.stdout
+    assert "convert_dat_to_vtm.py input.dat output.vtm" in result.stdout
+    assert "convert_dat_to_vtm.py input.dat --delete-input" in result.stdout
 
 
 def test_converter_preserves_all_zones_and_uses_default_output(

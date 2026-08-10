@@ -34,7 +34,7 @@ Expected: FAIL because the tool lacks executable mode and its help lacks example
 
 **Step 1: Implement minimal behavior**
 
-Add `#!/usr/bin/env python3` as the first line. Configure the argument parser with `formatter_class=argparse.RawDescriptionHelpFormatter` and an epilog containing:
+Add `#!/usr/bin/env python` as the first line so the executable uses the active project or virtual-environment interpreter. Configure the argument parser with `formatter_class=argparse.RawDescriptionHelpFormatter` and an epilog containing:
 
 ```text
 examples:
