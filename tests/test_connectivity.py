@@ -331,6 +331,10 @@ def test_plot_shock_angle_contour_matches_reference_style(monkeypatch) -> None:
     assert any("45°" in text.get_text() for text in ax.texts)
     assert any("50°" in text.get_text() for text in ax.texts)
     assert any(text.get_color() == "red" for text in ax.texts)
+    white_lines = [line for line in ax.lines if line.get_color() == "white"]
+    assert len(white_lines) == 2
+    assert any(np.all(np.asarray(line.get_xdata()) == 0.0) for line in white_lines)
+    assert any(np.all(np.asarray(line.get_ydata()) == 0.0) for line in white_lines)
     annotation = next(text for text in ax.texts if text.get_text() == "(0.00°)")
     assert annotation.get_position() == (3.0, 0.0)
     assert annotation.get_transform() == ax.transData

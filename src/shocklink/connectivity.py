@@ -369,6 +369,8 @@ def plot_shock_angle_contour(
     colorbar.set_ticks(np.arange(10.0, 91.0, 10.0))
     colorbar.set_label(r"$\theta_{BN}$", fontsize=26)
     colorbar.ax.tick_params(labelsize=22)
+    ax.axvline(0.0, color="white", linewidth=1.5, zorder=4)
+    ax.axhline(0.0, color="white", linewidth=1.5, zorder=4)
     hit = connection.selected_intersection
     ax.scatter(
         [hit.point[1]],
