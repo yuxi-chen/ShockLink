@@ -223,6 +223,18 @@ def test_connection_readmes_link_guide_and_example() -> None:
     assert "mms_bow_shock_connection.py" in examples
 
 
+def test_root_readme_documents_swmf_input_tool() -> None:
+    text = README.read_text()
+
+    assert 'pip install -e ".[mms]"' in text
+    assert "./tools/create_swmf_input.py --mms-start" in text
+    assert "./tools/create_swmf_input.py -h" in text
+    assert "data/Param/PARAM.in.Earth" in text
+    assert "#STARTTIME" in text
+    assert "#SOLARWIND" in text
+    assert "examples/create_swmf_input.py" not in text
+
+
 def test_workflow_example_reports_surface_and_normal_quality() -> None:
     assert WORKFLOW_EXAMPLE.is_file()
     source = WORKFLOW_EXAMPLE.read_text()

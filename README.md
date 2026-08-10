@@ -52,6 +52,36 @@ In a source checkout,
 [examples/README.md](https://github.com/yuxi-chen/ShockLink/blob/main/examples/README.md)
 lists the notebook and command-line examples.
 
+## SWMF input generation
+
+Install ShockLink with the optional MMS dependencies from a development
+checkout:
+
+```bash
+pip install -e ".[mms]"
+```
+
+Generate an SWMF parameter file from interval-averaged MMS observations in GSM
+coordinates:
+
+```bash
+./tools/create_swmf_input.py --mms-start "2018-12-19 19:40:00" \
+  --mms-end "2018-12-19 19:52:00" \
+  --output generated.in
+```
+
+The command uses `data/Param/PARAM.in.Earth` as its default template. It updates
+the template's `#STARTTIME` and `#SOLARWIND` values and records the averaged MMS
+location. By default, the start time is the midpoint of the MMS interval; use
+`--start-time` to override it. Probe 1 and automatic burst/fast data selection
+are the defaults, with `--probe` and `--mode` available for explicit selection.
+
+Show all template, time, probe, and data-mode options with:
+
+```bash
+./tools/create_swmf_input.py -h
+```
+
 ## Tecplot to VTK conversion
 
 Convert every zone in an ASCII Tecplot `.dat` file to a VTK multiblock `.vtm`
