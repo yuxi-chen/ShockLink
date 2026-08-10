@@ -263,8 +263,8 @@ def test_plot_shock_angle_contour_masks_holes_and_marks_intersection() -> None:
     assert figure is fig
     assert returned is ax
     assert ax.get_aspect() in (1.0, "equal")
-    assert ax.get_xlabel() == "Y_GSM [R_E]"
-    assert ax.get_ylabel() == "Z_GSM [R_E]"
+    assert ax.get_xlabel() == r"Y [R$_E$]"
+    assert ax.get_ylabel() == r"Z [R$_E$]"
     assert ax.xaxis.label.get_size() == 26
     assert ax.yaxis.label.get_size() == 26
     assert ax.title.get_size() == 24
@@ -320,8 +320,8 @@ def test_plot_shock_angle_contour_matches_reference_style() -> None:
     assert figure.get_size_inches().tolist() == [10.0, 8.0]
     assert ax.get_xlim() == (-12.0, 12.0)
     assert ax.get_ylim() == (-10.0, 10.0)
-    assert ax.get_xlabel() == "Y_GSM [R_E]"
-    assert ax.get_ylabel() == "Z_GSM [R_E]"
+    assert ax.get_xlabel() == r"Y [R$_E$]"
+    assert ax.get_ylabel() == r"Z [R$_E$]"
     assert any("MMS (GSM)" in text.get_text() for text in ax.texts)
     assert any("IMF =" in text.get_text() for text in ax.texts)
     assert any("Intersection =" in text.get_text() for text in ax.texts)

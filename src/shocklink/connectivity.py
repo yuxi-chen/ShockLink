@@ -440,8 +440,8 @@ def plot_shock_angle_contour(
     ax.text(0.35, -0.2, f"IMF = ({field}) [nT]", transform=ax.transAxes, fontsize=12)
     ax.text(0.7, -0.2, f"Intersection = ({point}) [R$_E$]", transform=ax.transAxes, fontsize=12)
 
-    ax.set_xlabel("Y_GSM [R_E]", fontsize=26)
-    ax.set_ylabel("Z_GSM [R_E]", fontsize=26)
+    ax.set_xlabel(r"Y [R$_E$]", fontsize=26)
+    ax.set_ylabel(r"Z [R$_E$]", fontsize=26)
     ax.tick_params(axis="both", labelsize=22, width=2.5, length=9)
     ax.set_xlim(y_limits)
     ax.set_ylim(z_limits)
