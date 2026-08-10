@@ -317,22 +317,28 @@ def plot_shock_angle_contour(
     *,
     ax: object | None = None,
     levels: ArrayLike | None = None,
+    cmap: str = "viridis",
+    yrange: ArrayLike | None = None,
+    zrange: ArrayLike | None = None,
 ) -> tuple[Figure, Axes]:
     """Plot the acute shock-normal angle on the extracted Y-Z shock map.
 
     Matplotlib is imported only when this function is called.  The supplied
     axes is reused and returned; otherwise a new axes is created.  Returns
-    ``(figure, axes)`` (a Matplotlib ``Figure`` and ``Axes`` pair).
+    ``(figure, axes)`` (a Matplotlib ``Figure`` and ``Axes`` pair).  ``cmap``
+    selects the filled-contour colormap, while ``yrange`` and ``zrange`` can
+    override the symmetric reference-style default plot limits.
     """
     try:
         import matplotlib.pyplot as plt
     except ImportError as error:  # pragma: no cover - depends on optional extra
         raise ImportError("plot_shock_angle_contour requires matplotlib") from error
+    created_figure = ax is None
     if ax is None:
-        _, ax = plt.subplots()
+        _, ax = plt.subplots(figsize=(10.0, 8.0))
     angles = np.ma.masked_invalid(np.asarray(connection.theta_bn_deg, dtype=float).T)
     if levels is None:
-        contour_levels = np.linspace(0.0, 90.0, 19)
+        contour_levels = np.linspace(0.0, 90.0, 201)
     else:
         try:
             contour_levels = np.asarray(levels, dtype=float)
@@ -351,30 +357,98 @@ def plot_shock_angle_contour(
     ):
         raise DatasetError("Contour levels must span values between 0 and 90 degrees")
     mesh = ax.contourf(
-        connection.y, connection.z, angles, levels=contour_levels, vmin=0.0, vmax=90.0
+        connection.y,
+        connection.z,
+        angles,
+        levels=contour_levels,
+        vmin=0.0,
+        vmax=90.0,
+        cmap=cmap,
     )
     colorbar = ax.figure.colorbar(mesh, ax=ax)
-    colorbar.set_label(ANGLE_NAME)
+    colorbar.set_ticks(np.arange(10.0, 91.0, 10.0))
+    colorbar.set_label(r"$\theta_{BN}$")
+    colorbar.ax.tick_params(labelsize=22)
     hit = connection.selected_intersection
     ax.scatter(
         [hit.point[1]],
         [hit.point[2]],
-        color="black",
+        color="red",
+        s=100,
         edgecolors="white",
         zorder=5,
         label="intersection",
     )
     ax.annotate(
-        f"intersection\n({hit.point[0]:.2f}, {hit.point[1]:.2f}, {hit.point[2]:.2f}) R_E\n"
-        f"θBn={hit.theta_bn_deg:.1f}°",
+        f"({hit.theta_bn_deg:.2f}°)",
         xy=(hit.point[1], hit.point[2]),
-        xytext=(8, 8),
+        xytext=(-3, -2.5),
         textcoords="offset points",
+        color="red",
+        fontsize=24,
     )
-    ax.set_xlabel("Y_GSM [R_E]")
-    ax.set_ylabel("Z_GSM [R_E]")
+
+    finite_angles = angles.compressed()
+    for threshold, color in ((45.0, "black"), (50.0, "blue")):
+        if finite_angles.size and finite_angles.min() <= threshold <= finite_angles.max():
+            contour = ax.contour(
+                connection.y,
+                connection.z,
+                angles,
+                colors=color,
+                linestyles="--",
+                linewidths=3.5,
+                levels=[threshold],
+            )
+            ax.clabel(contour, fmt="%1.0f°", fontsize=16, colors=color)
+
+    if (yrange is None) != (zrange is None):
+        raise DatasetError("yrange and zrange must be supplied together")
+
+    def _plot_range(values: ArrayLike, *, label: str) -> tuple[float, float]:
+        try:
+            bounds = np.asarray(values, dtype=float)
+        except (TypeError, ValueError) as error:
+            raise DatasetError(f"{label} must contain two finite increasing values") from error
+        if (
+            bounds.shape != (2,)
+            or not np.isfinite(bounds).all()
+            or bounds[0] >= bounds[1]
+        ):
+            raise DatasetError(f"{label} must contain two finite increasing values")
+        return float(bounds[0]), float(bounds[1])
+
+    if yrange is None:
+        maximum = max(abs(float(hit.point[1])), abs(float(hit.point[2])))
+        if maximum < 13.0:
+            limit = 15.0
+        elif maximum < 18.0:
+            limit = 20.0
+        elif maximum < 23.0:
+            limit = 25.0
+        else:
+            limit = 28.0
+        y_limits = z_limits = (-limit, limit)
+    else:
+        y_limits = _plot_range(yrange, label="yrange")
+        z_limits = _plot_range(zrange, label="zrange")
+
+    mms = ", ".join(f"{value:.1f}" for value in connection.mms_position)
+    field = ", ".join(f"{value:.1f}" for value in connection.bavg)
+    point = ", ".join(f"{value:.1f}" for value in hit.point)
+    ax.text(-0.1, -0.2, f"MMS (GSM): ({mms}) [R$_E$]", transform=ax.transAxes, fontsize=12)
+    ax.text(0.35, -0.2, f"IMF = ({field}) [nT]", transform=ax.transAxes, fontsize=12)
+    ax.text(0.7, -0.2, f"Intersection = ({point}) [R$_E$]", transform=ax.transAxes, fontsize=12)
+
+    ax.set_xlabel("Y_GSM [R_E]", fontsize=26)
+    ax.set_ylabel("Z_GSM [R_E]", fontsize=26)
+    ax.tick_params(axis="both", labelsize=22, width=2.5, length=9)
+    ax.set_xlim(y_limits)
+    ax.set_ylim(z_limits)
     ax.set_aspect("equal", adjustable="box")
     ax.set_title("Bow-shock magnetic connection angle")
+    if created_figure:
+        ax.figure.subplots_adjust(bottom=0.22)
     return ax.figure, ax
 
 

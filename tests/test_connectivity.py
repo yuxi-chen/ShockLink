@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 import pyvista as pv
@@ -281,6 +283,48 @@ def test_plot_shock_angle_contour_rejects_levels_outside_fixed_range() -> None:
         plot_shock_angle_contour(result, levels=[0.0, 45.0, 91.0])
     with pytest.raises(DatasetError, match="finite and strictly increasing"):
         plot_shock_angle_contour(result, levels=[0.0, "bad", 90.0])
+
+
+def test_plot_shock_angle_contour_matches_reference_style() -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    y, z, surface_x, normals = _plane_inputs()
+    result = analyze_shock_connection(
+        surface_x,
+        normals,
+        y=y,
+        z=z,
+        mms_position=[0.0, 0.0, 0.0],
+        bavg=[1.0, 0.0, 0.0],
+    )
+    result = replace(
+        result,
+        theta_bn_deg=np.array(
+            [[30.0, 45.0, 60.0], [40.0, 50.0, 70.0], [20.0, 55.0, 80.0]]
+        ),
+    )
+
+    figure, ax = plot_shock_angle_contour(
+        result, cmap="plasma", yrange=[-12.0, 12.0], zrange=[-10.0, 10.0]
+    )
+
+    assert figure.get_size_inches().tolist() == [10.0, 8.0]
+    assert ax.get_xlim() == (-12.0, 12.0)
+    assert ax.get_ylim() == (-10.0, 10.0)
+    assert ax.get_xlabel() == "Y_GSM [R_E]"
+    assert ax.get_ylabel() == "Z_GSM [R_E]"
+    assert any("MMS (GSM)" in text.get_text() for text in ax.texts)
+    assert any("IMF =" in text.get_text() for text in ax.texts)
+    assert any("Intersection =" in text.get_text() for text in ax.texts)
+    assert any("45°" in text.get_text() for text in ax.texts)
+    assert any("50°" in text.get_text() for text in ax.texts)
+    assert any(text.get_color() == "red" for text in ax.texts)
+    assert figure.axes[-1].get_yticks().tolist() == list(range(10, 91, 10))
+    assert figure.axes[-1].get_ylabel() == r"$\theta_{BN}$"
+    plt.close(figure)
 
 
 def test_plot_shock_connection_3d_adds_named_actors() -> None:
