@@ -39,14 +39,10 @@ def _raw_grid(*, cleaned: bool = False) -> pv.UnstructuredGrid:
     grid.points = np.zeros_like(EXPECTED_POINTS)
     coordinate_names = ("X", "Y", "Z") if cleaned else ("X [R]", "Y [R]", "Z [R]")
     magnetic_names = (
-        ("B_x", "B_y", "B_z")
-        if cleaned
-        else ("B_x [nT]", "B_y [nT]", "B_z [nT]")
+        ("B_x", "B_y", "B_z") if cleaned else ("B_x [nT]", "B_y [nT]", "B_z [nT]")
     )
     velocity_names = (
-        ("U_x", "U_y", "U_z")
-        if cleaned
-        else ("U_x [km_s]", "U_y [km_s]", "U_z [km_s]")
+        ("U_x", "U_y", "U_z") if cleaned else ("U_x [km_s]", "U_y [km_s]", "U_z [km_s]")
     )
     for name, values in zip(coordinate_names, EXPECTED_POINTS.T, strict=True):
         grid.point_data[name] = values
@@ -227,7 +223,9 @@ def test_load_simulation_returns_multiblock_for_multiple_dat_zones(
     assert result.get_block_name(1) == "zone-b"
     for block in result:
         np.testing.assert_allclose(block["B [nT]"], EXPECTED_B)
-        assert np.asarray(block.field_data[TIME_EVENT_KEY]).item() == EXPECTED_TIME_EVENT
+        assert (
+            np.asarray(block.field_data[TIME_EVENT_KEY]).item() == EXPECTED_TIME_EVENT
+        )
 
 
 def _multizone_vtm_root() -> pv.MultiBlock:
