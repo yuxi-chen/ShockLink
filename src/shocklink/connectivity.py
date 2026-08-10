@@ -449,6 +449,7 @@ def plot_shock_angle_contour(
     ax.set_title("Bow-shock magnetic connection angle", fontsize=24)
     if created_figure:
         ax.figure.subplots_adjust(bottom=0.22)
+    plt.tight_layout()
     return ax.figure, ax
 
 

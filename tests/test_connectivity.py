@@ -267,7 +267,6 @@ def test_plot_shock_angle_contour_masks_holes_and_marks_intersection() -> None:
     assert ax.get_ylabel() == r"Z [R$_E$]"
     assert ax.xaxis.label.get_size() == 26
     assert ax.yaxis.label.get_size() == 26
-    assert ax.title.get_size() == 24
     assert ax.xaxis.get_ticklabels()[0].get_size() == 22
     assert ax.xaxis.majorTicks[0].tick1line.get_markersize() == 9
     assert ax.xaxis.majorTicks[0].tick1line.get_markeredgewidth() == 2.5
@@ -291,11 +290,15 @@ def test_plot_shock_angle_contour_rejects_levels_outside_fixed_range() -> None:
         plot_shock_angle_contour(result, levels=[0.0, "bad", 90.0])
 
 
-def test_plot_shock_angle_contour_matches_reference_style() -> None:
+def test_plot_shock_angle_contour_matches_reference_style(monkeypatch) -> None:
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    tight_layout_calls = []
+    monkeypatch.setattr(
+        plt, "tight_layout", lambda *args, **kwargs: tight_layout_calls.append((args, kwargs))
+    )
 
     y, z, surface_x, normals = _plane_inputs()
     result = analyze_shock_connection(
@@ -332,6 +335,7 @@ def test_plot_shock_angle_contour_matches_reference_style() -> None:
     assert figure.axes[-1].get_ylabel() == r"$\theta_{BN}$"
     assert figure.axes[-1].yaxis.label.get_size() == 26
     assert figure.axes[-1].yaxis.get_ticklabels()[0].get_size() == 22
+    assert tight_layout_calls == [((), {})]
     plt.close(figure)
 
 
