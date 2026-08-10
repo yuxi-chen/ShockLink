@@ -699,10 +699,10 @@ def get_bow_shock_surface(
         Positive number of Y-Z columns sampled in each batch.  A larger chunk size
         reduces batch overhead but increases memory because each batch holds
         ``chunk_size * x_resolution`` probe points.
-    refine_minimum : bool, default False
+    refine_minimum : bool, default True
         If true, replace eligible interior discrete minima with bounded vertices
-        of local three-point parabolas.  The default returns the existing
-        discrete sampled minima.
+        of local three-point parabolas.  Set false to retain the discrete sampled
+        minima.
 
     Returns
     -------

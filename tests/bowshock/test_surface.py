@@ -211,7 +211,11 @@ def test_get_bow_shock_surface_refines_quadratic_minimum_between_samples(
         "x_resolution": 7,
     }
 
-    discrete = get_bow_shock_surface(_compression_grid(), **arguments)
+    discrete = get_bow_shock_surface(
+        _compression_grid(),
+        refine_minimum=False,
+        **arguments,
+    )
     refined = get_bow_shock_surface(
         _compression_grid(),
         refine_minimum=True,
