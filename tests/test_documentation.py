@@ -225,6 +225,7 @@ def test_connection_readmes_link_guide_and_example() -> None:
 
 def test_root_readme_documents_swmf_input_tool() -> None:
     text = README.read_text()
+    normalized = " ".join(text.split())
 
     assert 'pip install -e ".[mms]"' in text
     assert "./tools/create_swmf_input.py --mms-start" in text
@@ -234,6 +235,9 @@ def test_root_readme_documents_swmf_input_tool() -> None:
     assert "#SOLARWIND" in text
     assert "PARAM_YYYYMMDD_HHMMSS.in" in text
     assert "create_swmf_input(" in text
+    assert "plasma and field inputs remain interval averages" in normalized
+    assert "linearly interpolated" in normalized
+    assert "effective UTC start time" in normalized
     assert "examples/create_swmf_input.py" not in text
 
 

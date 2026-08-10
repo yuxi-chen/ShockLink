@@ -70,10 +70,13 @@ coordinates:
 ```
 
 The command uses `data/Param/PARAM.in.Earth` as its default template. It updates
-the template's `#STARTTIME` and `#SOLARWIND` values and records the averaged MMS
-location. By default, the start time is the midpoint of the MMS interval; use
-`--start-time` to override it. Probe 1 and automatic burst/fast data selection
-are the defaults, with `--probe` and `--mode` available for explicit selection.
+the template's `#STARTTIME` and `#SOLARWIND` values. The plasma and field inputs
+remain interval averages, while the MMS GSM position is linearly interpolated
+at the effective UTC start time. By default, that time is the midpoint of the
+MMS interval; use `--start-time` to override it. The effective time synchronizes
+both `#STARTTIME` and the location timestamp. Probe 1 and automatic burst/fast
+data selection are the defaults, with `--probe` and `--mode` available for
+explicit selection.
 When `--output` is omitted, the file is named
 `PARAM_YYYYMMDD_HHMMSS.in` using the effective UTC start time. Supply
 `--output` to choose a different filename.

@@ -238,6 +238,12 @@ def _stub_mms_generation(monkeypatch, calls: dict[str, object]) -> None:
         or SimpleNamespace(series={"magnetic_field": "b"}),
     )
     monkeypatch.setattr(mms_swmf, "average_plotted_values", lambda _data: _averages())
+    monkeypatch.setattr(
+        mms_swmf,
+        "position_at_time_earth_radii",
+        lambda _data, time: calls.update(position_time=time)
+        or (10.8, 9.9, -5.5),
+    )
 
     def write_output(template, output, start_time, solar_wind, location) -> None:
         calls["write"] = (template, output, start_time, solar_wind, location)
@@ -272,6 +278,7 @@ def test_create_swmf_input_exposes_all_workflow_options(
     assert template == "template.in"
     assert path == output
     assert effective_time == start_time
+    assert calls["position_time"] == start_time
 
 
 def test_create_swmf_input_defaults_output_from_interval_midpoint(
@@ -287,6 +294,7 @@ def test_create_swmf_input_defaults_output_from_interval_midpoint(
 
     assert result == Path("PARAM_20181219_194600.in")
     assert calls["write"][1] == result
+    assert calls["position_time"] == datetime(2018, 12, 19, 19, 46, tzinfo=UTC)
 
 
 @pytest.mark.parametrize(
@@ -315,6 +323,12 @@ def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
         or SimpleNamespace(series={"magnetic_field": "b"}),
     )
     monkeypatch.setattr(mms_swmf, "average_plotted_values", lambda _data: _averages())
+    monkeypatch.setattr(
+        mms_swmf,
+        "position_at_time_earth_radii",
+        lambda _data, time: calls.update(position_time=time)
+        or (1.1, 2.2, 3.3),
+    )
 
     def write_output(template, output, start_time, solar_wind, location) -> None:
         calls["write"] = (template, output, start_time, solar_wind, location)
@@ -345,17 +359,25 @@ def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
     assert path == Path("PARAM_20181219_194600.in")
     assert start_time == datetime(2018, 12, 19, 19, 46, tzinfo=UTC)
     assert solar_wind == solar_wind_from_averages(_averages())
-    assert location == mms_swmf.mms_location_from_averages(_averages())
+    assert location == MMSLocation(1.1, 2.2, 3.3)
+    assert calls["position_time"] == datetime(2018, 12, 19, 19, 46, tzinfo=UTC)
     assert "Wrote SWMF input to PARAM_20181219_194600.in" in capsys.readouterr().out
 
 
 def test_main_honors_explicit_start_time(monkeypatch) -> None:
+    position_times: list[datetime] = []
     monkeypatch.setattr(
         mms_swmf,
         "load_mms_data",
         lambda *_args, **_kwargs: SimpleNamespace(series={"magnetic_field": "b"}),
     )
     monkeypatch.setattr(mms_swmf, "average_plotted_values", lambda _data: _averages())
+    monkeypatch.setattr(
+        mms_swmf,
+        "position_at_time_earth_radii",
+        lambda _data, time: position_times.append(time)
+        or (1.1, 2.2, 3.3),
+    )
     captured: list[tuple[datetime, Path]] = []
     monkeypatch.setattr(
         mms_swmf,
@@ -383,6 +405,7 @@ def test_main_honors_explicit_start_time(monkeypatch) -> None:
             Path("PARAM_20181219_195200.in"),
         )
     ]
+    assert position_times == [datetime(2018, 12, 19, 19, 52, tzinfo=UTC)]
 
 
 def test_main_reports_mms_failure(monkeypatch, capsys) -> None:

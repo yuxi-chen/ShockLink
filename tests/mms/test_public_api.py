@@ -7,6 +7,7 @@ import sys
 EXPECTED_PUBLIC_NAMES = {
     "MMSData",
     "average_plotted_values",
+    "position_at_time_earth_radii",
     "load_mms_data",
     "main",
     "parse_args",

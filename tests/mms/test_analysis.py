@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
-from shocklink.mms import MMSData, average_plotted_values, summarize_data
+from shocklink.mms import (
+    MMSData,
+    average_plotted_values,
+    position_at_time_earth_radii,
+    summarize_data,
+)
 
 
 def test_summarize_data_reports_scalar_and_vector_statistics(mms_data) -> None:
@@ -62,3 +68,70 @@ def test_average_plotted_values_returns_only_displayed_means(mms_data) -> None:
     assert averages["electron_temperature"] == 80.0
     assert "electron_density" not in averages
     assert "electron_velocity_x" not in averages
+
+
+def test_position_at_time_interpolates_between_mec_samples(monkeypatch) -> None:
+    import sys
+    from types import SimpleNamespace
+
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(
+            get_data=lambda *_args, **_kwargs: SimpleNamespace(
+                times=np.array([0.0, 1.0, 2.0]),
+                y=np.array([[6371.2, 0.0, 0.0], [12742.4, 6371.2, 0.0], [19071.6, 12742.4, 637.12]]),
+            )
+        ),
+    )
+    data = MMSData(cadence="fast", series={"satellite_location": "location"})
+
+    result = position_at_time_earth_radii(data, "1970-01-01T00:00:00.500000Z")
+
+    assert result == pytest.approx((1.5, 0.5, 0.0))
+
+
+def test_position_at_time_filters_nonfinite_rows_and_rejects_out_of_range(monkeypatch) -> None:
+    import sys
+    from types import SimpleNamespace
+
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(
+            get_data=lambda *_args, **_kwargs: SimpleNamespace(
+                times=np.array([0.0, 1.0, 2.0]),
+                y=np.array([[6371.2, 0.0, 0.0], [np.nan, 1.0, 0.0], [19071.6, 2.0, 0.0]]),
+            )
+        ),
+    )
+    data = MMSData(cadence="fast", series={"satellite_location": "location"})
+
+    assert position_at_time_earth_radii(
+        data, "1970-01-01T00:00:01Z"
+    ) == pytest.approx(((1.0 + 19071.6 / 6371.2) / 2, 1.0 / 6371.2, 0.0))
+    with pytest.raises(ValueError, match="outside available"):
+        position_at_time_earth_radii(data, "1969-12-31T23:59:59Z")
+
+
+def test_position_at_time_rejects_missing_or_malformed_position(monkeypatch) -> None:
+    import sys
+    from types import SimpleNamespace
+
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(
+            get_data=lambda *_args, **_kwargs: SimpleNamespace(
+                times=np.array([0.0]), y=np.array([[1.0, 2.0]])
+            )
+        ),
+    )
+    data = MMSData(cadence="fast", series={"satellite_location": "location"})
+
+    with pytest.raises(ValueError, match="at least three"):
+        position_at_time_earth_radii(data, "1970-01-01T00:00:00Z")
+
+    missing = MMSData(cadence="fast", series={})
+    with pytest.raises(ValueError, match="satellite_location"):
+        position_at_time_earth_radii(missing, "1970-01-01T00:00:00Z")

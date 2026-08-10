@@ -11,7 +11,11 @@ import sys
 from typing import Literal
 
 from shocklink.constants import CARTESIAN_COMPONENTS, EV_TO_K
-from shocklink.mms import average_plotted_values, load_mms_data
+from shocklink.mms import (
+    average_plotted_values,
+    load_mms_data,
+    position_at_time_earth_radii,
+)
 from shocklink.swmf import MMSLocation, SolarWindValues, generate_param_file
 from shocklink.utilities import TimeBounds, midpoint_datetime, parse_datetime
 
@@ -107,6 +111,17 @@ def create_swmf_input(
     if mode not in {"auto", "brst", "fast"}:
         raise ValueError("mode must be one of: auto, brst, fast")
 
+    bounds = TimeBounds.from_strings(mms_start, mms_end)
+    if start_time is None:
+        effective_start_time = midpoint_datetime(bounds.start, bounds.end)
+    elif isinstance(start_time, datetime):
+        if start_time.tzinfo is None:
+            effective_start_time = start_time.replace(tzinfo=UTC)
+        else:
+            effective_start_time = start_time.astimezone(UTC)
+    else:
+        effective_start_time = parse_datetime(start_time)
+
     data = load_mms_data(
         mms_start,
         mms_end,
@@ -118,17 +133,9 @@ def create_swmf_input(
         raise RuntimeError("No MMS data were available for this interval")
     averages = average_plotted_values(data)
     solar_wind = solar_wind_from_averages(averages)
-    location = mms_location_from_averages(averages)
-    bounds = TimeBounds.from_strings(mms_start, mms_end)
-    if start_time is None:
-        effective_start_time = midpoint_datetime(bounds.start, bounds.end)
-    elif isinstance(start_time, datetime):
-        if start_time.tzinfo is None:
-            effective_start_time = start_time.replace(tzinfo=UTC)
-        else:
-            effective_start_time = start_time.astimezone(UTC)
-    else:
-        effective_start_time = parse_datetime(start_time)
+    location = MMSLocation(
+        *position_at_time_earth_radii(data, effective_start_time)
+    )
 
     output_path = (
         Path(f"PARAM_{effective_start_time:%Y%m%d_%H%M%S}.in")
