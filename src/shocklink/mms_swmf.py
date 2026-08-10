@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Mapping
 import math
+from pathlib import Path
 import sys
 
 from shocklink.constants import CARTESIAN_COMPONENTS, EV_TO_K
@@ -12,6 +13,10 @@ from shocklink.mms import average_plotted_values, load_mms_data
 from shocklink.swmf import MMSLocation, SolarWindValues, generate_param_file
 from shocklink.utilities import TimeBounds, midpoint_datetime, parse_datetime
 
+
+_DEFAULT_TEMPLATE = (
+    Path(__file__).resolve().parents[2] / "data" / "Param" / "PARAM.in.Earth"
+)
 
 
 
@@ -76,7 +81,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--input",
-        default="data/Param/PARAM.in.Earth",
+        default=_DEFAULT_TEMPLATE,
         help="template (default: data/Param/PARAM.in.Earth)",
     )
     parser.add_argument(

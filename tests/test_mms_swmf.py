@@ -170,6 +170,53 @@ def test_parse_args_accepts_workflow_options() -> None:
     assert arguments.mode == "fast"
 
 
+def test_parse_args_finds_default_template_outside_repository(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    arguments = mms_swmf.parse_args(
+        [
+            "--mms-start",
+            "2018-12-19 19:40:00",
+            "--mms-end",
+            "2018-12-19 19:52:00",
+            "--output",
+            "generated.in",
+        ]
+    )
+
+    expected = (
+        Path(mms_swmf.__file__).resolve().parents[2]
+        / "data"
+        / "Param"
+        / "PARAM.in.Earth"
+    )
+    assert Path(arguments.input) == expected
+    assert Path(arguments.input).is_file()
+
+
+def test_parse_args_preserves_explicit_relative_template(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    arguments = mms_swmf.parse_args(
+        [
+            "--mms-start",
+            "2018-12-19 19:40:00",
+            "--mms-end",
+            "2018-12-19 19:52:00",
+            "--output",
+            "generated.in",
+            "--input",
+            "custom/PARAM.in",
+        ]
+    )
+
+    assert arguments.input == "custom/PARAM.in"
+
+
 def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
@@ -206,7 +253,12 @@ def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
         {"probe": 1, "mode": "auto", "coordinates": "gsm"},
     )
     template, path, start_time, solar_wind, location = calls["write"]
-    assert template == "data/Param/PARAM.in.Earth"
+    assert template == (
+        Path(mms_swmf.__file__).resolve().parents[2]
+        / "data"
+        / "Param"
+        / "PARAM.in.Earth"
+    )
     assert path == str(output)
     assert start_time == datetime(2018, 12, 19, 19, 46, tzinfo=UTC)
     assert solar_wind == solar_wind_from_averages(_averages())
