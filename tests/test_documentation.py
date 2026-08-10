@@ -13,7 +13,7 @@ from shocklink.bowshock import (
     get_bow_shock_surface,
 )
 from shocklink.dataset import calc_velocity_divergence
-from shocklink.tecplot import read_tecplot
+from shocklink.io import load_simulation
 
 ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
@@ -23,7 +23,7 @@ CONNECTION_GUIDE = ROOT / "docs/mms-bow-shock-connection.md"
 CONNECTION_EXAMPLE = ROOT / "examples/mms_bow_shock_connection.py"
 
 PUBLIC_WORKFLOW_FUNCTIONS = (
-    "read_tecplot",
+    "load_simulation",
     "calc_velocity_divergence",
     "fit_bow_shock",
     "extract_shockfit_range",
@@ -32,7 +32,7 @@ PUBLIC_WORKFLOW_FUNCTIONS = (
 )
 
 PUBLIC_WORKFLOW_API = (
-    read_tecplot,
+    load_simulation,
     calc_velocity_divergence,
     fit_bow_shock,
     extract_shockfit_range,
@@ -128,6 +128,7 @@ def test_workflow_guide_documents_public_pipeline_and_array_conventions() -> Non
     assert "nearest" in text
     assert "data/3d.dat" in text
     assert "PYTHONPATH=src python examples/bow_shock_workflow.py data/3d.dat" in text
+    assert "shocklink.io" in text
 
 
 def test_workflow_guide_contains_compilable_complete_python_example() -> None:

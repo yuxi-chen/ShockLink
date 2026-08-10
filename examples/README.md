@@ -106,7 +106,7 @@ summary, and plotting functions as the script.
 Read and summarize the sample:
 
 ```bash
-PYTHONPATH=src python examples/read_tecplot.py data/3d.dat
+PYTHONPATH=src python examples/load_simulation.py data/3d.dat
 ```
 
 Open an interactive pressure cut:

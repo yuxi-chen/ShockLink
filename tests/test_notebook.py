@@ -32,7 +32,7 @@ def test_notebook_covers_the_compact_shock_extraction_pipeline() -> None:
     code = "\n".join(cell.source for cell in notebook.cells if cell.cell_type == "code")
 
     required_fragments = [
-        "read_tecplot",
+        "load_simulation",
         "calc_velocity_divergence",
         "fit_bow_shock",
         "extract_shockfit_range",
@@ -167,7 +167,7 @@ def test_connection_notebook_is_valid_clean_and_uses_public_workflow() -> None:
     ast.parse(code)
 
     for fragment in [
-        "read_tecplot",
+        "load_simulation",
         "calc_velocity_divergence",
         "fit_bow_shock",
         "extract_shockfit_range",

@@ -29,7 +29,7 @@ VELOCITY_COMPONENT_CANDIDATES = (
 )
 
 _TITLE_TIMESTAMP_PATTERN = re.compile(
-    r'^\s*TITLE\s*=.*,(?P<timestamp>\d{4}/\d{2}/\d{2}\s+'
+    r"^\s*TITLE\s*=.*,(?P<timestamp>\d{4}/\d{2}/\d{2}\s+"
     r'\d{2}:\d{2}:\d{2}(?:\.\d+)?)"\s*$',
     re.IGNORECASE,
 )
@@ -70,7 +70,9 @@ def _read_vtm_time(data: pv.MultiBlock, *, source: Path) -> str:
     """Return and normalize the VTM root event time."""
 
     if TIME_EVENT_KEY not in data.field_data:
-        raise DatasetError(f"VTM file {source} lacks root field_data[{TIME_EVENT_KEY!r}]")
+        raise DatasetError(
+            f"VTM file {source} lacks root field_data[{TIME_EVENT_KEY!r}]"
+        )
     values = np.asarray(data.field_data[TIME_EVENT_KEY]).reshape(-1)
     if values.size != 1:
         raise DatasetError(
@@ -126,7 +128,9 @@ def _resolve_components(
             return _components(grid, names, label=label)
 
     expected = "; ".join(", ".join(names) for names in candidates)
-    raise DatasetError(f"Missing {label} component array(s); expected one of: {expected}")
+    raise DatasetError(
+        f"Missing {label} component array(s); expected one of: {expected}"
+    )
 
 
 def _normalize_dataset(
@@ -151,7 +155,9 @@ def _normalize_dataset(
             label="coordinate",
         )
         if not np.isfinite(coordinates).all():
-            raise DatasetError(f"Coordinate arrays in {source} must contain finite values")
+            raise DatasetError(
+                f"Coordinate arrays in {source} must contain finite values"
+            )
         grid.points = coordinates
     elif not np.isfinite(np.asarray(grid.points)).all():
         raise DatasetError(f"Coordinates in {source} must contain finite values")
@@ -218,20 +224,47 @@ def load_simulation(
     magnetic_name: str = "B [nT]",
     velocity_name: str = "U [km/s]",
 ) -> pv.DataSet | pv.MultiBlock:
-    """Load and normalize a DAT or VTM simulation dataset."""
+    """Load and normalize a DAT or VTM simulation dataset.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        Existing `.dat` or `.vtm` simulation file.
+    coordinate_components, magnetic_components, velocity_components : tuple of str, optional
+        Explicit scalar component names. When omitted, both unit-bearing and
+        converter-cleaned names are detected automatically.
+    magnetic_name, velocity_name : str
+        Names assigned to the normalized vector point-data arrays.
+
+    Returns
+    -------
+    pyvista.DataSet or pyvista.MultiBlock
+        One normalized dataset for a single nonempty zone, or the original
+        multiblock hierarchy when multiple zones are present.
+
+    Raises
+    ------
+    DatasetError
+        If the input, metadata, topology, coordinates, or required vector
+        components are invalid.
+    """
 
     source = Path(path)
     if not source.is_file():
         raise DatasetError(f"Simulation file does not exist: {source}")
     suffix = source.suffix.lower()
     if suffix not in {".dat", ".vtm"}:
-        raise DatasetError(f"Simulation input must use the .dat or .vtm extension: {source}")
+        raise DatasetError(
+            f"Simulation input must use the .dat or .vtm extension: {source}"
+        )
     time_event = _read_dat_time(source) if suffix == ".dat" else None
 
     try:
         loaded = pv.read(source)
     except Exception as error:
-        raise DatasetError(f"Could not read simulation file {source}: {error}") from error
+        raise DatasetError(
+            f"Could not read simulation file {source}: {error}"
+        ) from error
     if not isinstance(loaded, pv.MultiBlock):
         raise DatasetError(
             f"Simulation reader returned {type(loaded).__name__} for {source}; "

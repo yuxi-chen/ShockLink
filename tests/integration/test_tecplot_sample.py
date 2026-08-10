@@ -18,7 +18,7 @@ from shocklink.dataset import (
     plot_2d_cut,
 )
 from shocklink.exceptions import DatasetError
-from shocklink.tecplot import TIME_EVENT_KEY, read_tecplot
+from shocklink.io import TIME_EVENT_KEY, load_simulation
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SAMPLE = Path(
@@ -42,7 +42,7 @@ pytestmark = [
 
 
 def test_real_batsrus_sample_has_geometry_and_vector_fields() -> None:
-    grid = read_tecplot(SAMPLE)
+    grid = load_simulation(SAMPLE)
 
     assert grid.n_points == 5_695_488
     assert grid.n_cells == 5_809_895
@@ -61,7 +61,7 @@ def test_real_batsrus_sample_has_geometry_and_vector_fields() -> None:
 
 
 def test_real_batsrus_sample_supports_equatorial_pressure_plot() -> None:
-    grid = read_tecplot(SAMPLE)
+    grid = load_simulation(SAMPLE)
 
     with pytest.raises(DatasetError, match="PolyData"):
         plot_2d_cut(grid, show=False)  # type: ignore[arg-type]
@@ -81,7 +81,7 @@ def test_real_batsrus_sample_supports_equatorial_pressure_plot() -> None:
 
 
 def test_real_batsrus_sample_extracts_bow_shock_surface_array() -> None:
-    grid = read_tecplot(SAMPLE)
+    grid = load_simulation(SAMPLE)
     calc_velocity_divergence(grid)
     fit = fit_bow_shock(grid)
     region = extract_shockfit_range(

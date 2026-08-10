@@ -14,7 +14,7 @@ from shocklink.bowshock import (
     get_bow_shock_surface,
 )
 from shocklink.dataset import calc_velocity_divergence
-from shocklink.tecplot import read_tecplot
+from shocklink.io import load_simulation
 
 
 def main() -> None:
@@ -60,7 +60,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    grid = read_tecplot(args.path)
+    grid = load_simulation(args.path)
     calc_velocity_divergence(grid)
     fit = fit_bow_shock(grid)
     shock_region = extract_shockfit_range(

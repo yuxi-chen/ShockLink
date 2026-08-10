@@ -73,9 +73,9 @@ from shocklink.bowshock import (
     get_bow_shock_surface,
 )
 from shocklink.dataset import calc_velocity_divergence
-from shocklink.tecplot import read_tecplot
+from shocklink.io import load_simulation
 
-grid = read_tecplot("data/3d.dat")
+grid = load_simulation("data/3d.dat")
 calc_velocity_divergence(grid)
 fit = fit_bow_shock(grid)
 shock_region = extract_shockfit_range(
@@ -108,9 +108,10 @@ subsequent calls use the `shockfit` array stored on `grid`.
 
 ## Step 1: Read and normalize Tecplot data
 
-`read_tecplot("data/3d.dat")` reads exactly one nonempty Tecplot zone as a
-PyVista `UnstructuredGrid`. It assigns the coordinate component arrays to the
-grid geometry and builds the vector point arrays `B [nT]` and `U [km/s]`.
+`load_simulation("data/3d.dat")` reads a DAT or converted VTM file. A single
+nonempty zone is returned as its native PyVista dataset; multiple zones remain
+in a `MultiBlock`. It assigns coordinate component arrays to the grid geometry
+when needed and builds the vector point arrays `B [nT]` and `U [km/s]`.
 The returned grid therefore has physical point coordinates rather than
 reader-generated point positions.
 

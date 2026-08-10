@@ -22,7 +22,7 @@ from shocklink.connectivity import (
 )
 from shocklink.dataset import calc_velocity_divergence
 from shocklink.mms import average_plotted_values, load_mms_data
-from shocklink.tecplot import TIME_EVENT_KEY, read_tecplot
+from shocklink.io import TIME_EVENT_KEY, load_simulation
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -50,7 +50,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        grid = read_tecplot(args.path)
+        grid = load_simulation(args.path)
         calc_velocity_divergence(grid)
         fit_bow_shock(grid)
         region = extract_shockfit_range(

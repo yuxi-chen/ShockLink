@@ -8,7 +8,7 @@ from pathlib import Path
 import pyvista as pv
 
 from shocklink.dataset import get_2d_cut, plot_2d_cut
-from shocklink.tecplot import read_tecplot
+from shocklink.io import load_simulation
 
 
 def main() -> None:
@@ -60,7 +60,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    grid = read_tecplot(args.path)
+    grid = load_simulation(args.path)
     cut = get_2d_cut(grid, normal=args.normal, origin=args.origin)
 
     if args.screenshot is None:
