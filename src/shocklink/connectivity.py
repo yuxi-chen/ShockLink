@@ -379,14 +379,6 @@ def plot_shock_angle_contour(
         zorder=5,
         label="intersection",
     )
-    ax.text(
-        hit.point[1] - 3.0,
-        hit.point[2] - 2.5,
-        f"({hit.theta_bn_deg:.2f}°)",
-        color="red",
-        fontsize=24,
-    )
-
     finite_angles = angles.compressed()
     for threshold, color in ((45.0, "black"), (50.0, "blue")):
         if finite_angles.size and finite_angles.min() <= threshold <= finite_angles.max():
@@ -431,6 +423,19 @@ def plot_shock_angle_contour(
     else:
         y_limits = _plot_range(yrange, label="yrange")
         z_limits = _plot_range(zrange, label="zrange")
+
+    def _toward_center(value: float, bounds: tuple[float, float], step: float) -> float:
+        center = 0.5 * (bounds[0] + bounds[1])
+        distance = center - value
+        return value + np.sign(distance) * min(abs(distance), step)
+
+    ax.text(
+        _toward_center(float(hit.point[1]), y_limits, 3.0),
+        _toward_center(float(hit.point[2]), z_limits, 2.5),
+        f"({hit.theta_bn_deg:.2f}°)",
+        color="red",
+        fontsize=24,
+    )
 
     mms = ", ".join(f"{value:.1f}" for value in connection.mms_position)
     field = ", ".join(f"{value:.1f}" for value in connection.bavg)
