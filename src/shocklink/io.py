@@ -229,7 +229,9 @@ def load_simulation(
     Parameters
     ----------
     path : str or pathlib.Path
-        Existing `.dat` or `.vtm` simulation file.
+        Existing `.dat` or `.vtm` simulation file, or a directory containing
+        a `.vtm` file. When a directory contains multiple `.vtm` files, the
+        lexicographically first filename is selected.
     coordinate_components, magnetic_components, velocity_components : tuple of str, optional
         Explicit scalar component names. When omitted, both unit-bearing and
         converter-cleaned names are detected automatically.
@@ -250,6 +252,18 @@ def load_simulation(
     """
 
     source = Path(path)
+    if source.is_dir():
+        candidates = sorted(
+            (
+                candidate
+                for candidate in source.iterdir()
+                if candidate.is_file() and candidate.suffix.lower() == ".vtm"
+            ),
+            key=lambda candidate: candidate.name.lower(),
+        )
+        if not candidates:
+            raise DatasetError(f"Simulation directory contains no .vtm file: {source}")
+        source = candidates[0]
     if not source.is_file():
         raise DatasetError(f"Simulation file does not exist: {source}")
     suffix = source.suffix.lower()

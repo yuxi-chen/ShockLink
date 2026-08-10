@@ -147,6 +147,18 @@ def test_load_simulation_rejects_missing_input(tmp_path: Path) -> None:
         load_simulation(tmp_path / "missing.dat")
 
 
+def test_load_simulation_resolves_vtm_from_directory(tmp_path: Path) -> None:
+    directory = tmp_path / "simulation"
+    directory.mkdir()
+    source = _write_single_vtm(directory)
+
+    grid = load_simulation(directory)
+
+    assert isinstance(grid, pv.StructuredGrid)
+    assert np.asarray(grid.field_data[TIME_EVENT_KEY]).item() == EXPECTED_TIME_EVENT
+    assert source.is_file()
+
+
 def test_load_simulation_rejects_unsupported_suffix(tmp_path: Path) -> None:
     path = tmp_path / "sample.vtu"
     path.touch()
