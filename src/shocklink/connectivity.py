@@ -489,7 +489,7 @@ def plot_shock_connection_3d(
         cmap="viridis",
         name="bow_shock",
         show_scalar_bar=True,
-        scalar_bar_args={"title": ANGLE_NAME},
+        scalar_bar_args={"title": r"$\theta_{BN}$"},
     )
     plotter.add_mesh(pv.Sphere(radius=0.08, center=mms), color="red", name="mms")
     plotter.add_mesh(
@@ -524,7 +524,11 @@ def plot_shock_connection_3d(
             ["MMS", "intersection"],
             name="connection_labels",
         )
-    plotter.add_axes()
+    plotter.add_axes(
+        xlabel=r"X [R$_E$]",
+        ylabel=r"Y [R$_E$]",
+        zlabel=r"Z [R$_E$]",
+    )
     plotter.show_grid()
     if show:
         plotter.show()

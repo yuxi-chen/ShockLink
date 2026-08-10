@@ -346,6 +346,37 @@ def test_plot_shock_angle_contour_matches_reference_style(monkeypatch) -> None:
     plt.close(figure)
 
 
+def test_plot_shock_connection_3d_uses_reference_axis_and_colorbar_labels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    y, z, surface_x, normals = _plane_inputs()
+    result = analyze_shock_connection(
+        surface_x, normals, y=y, z=z, mms_position=[0.0, 0.0, 0.0], bavg=[1.0, 0.0, 0.0]
+    )
+    plotter = pv.Plotter(off_screen=True)
+    axes_kwargs: dict[str, str] = {}
+    scalar_bar_args: dict[str, str] = {}
+    original_add_mesh = plotter.add_mesh
+
+    monkeypatch.setattr(plotter, "add_axes", lambda **kwargs: axes_kwargs.update(kwargs))
+
+    def record_mesh(*args, **kwargs):
+        if kwargs.get("name") == "bow_shock":
+            scalar_bar_args.update(kwargs["scalar_bar_args"])
+        return original_add_mesh(*args, **kwargs)
+
+    monkeypatch.setattr(plotter, "add_mesh", record_mesh)
+    plot_shock_connection_3d(result, plotter=plotter, show=False)
+
+    assert axes_kwargs == {
+        "xlabel": r"X [R$_E$]",
+        "ylabel": r"Y [R$_E$]",
+        "zlabel": r"Z [R$_E$]",
+    }
+    assert scalar_bar_args["title"] == r"$\theta_{BN}$"
+    plotter.close()
+
+
 def test_plot_shock_connection_3d_adds_named_actors() -> None:
     y, z, surface_x, normals = _plane_inputs()
     result = analyze_shock_connection(
