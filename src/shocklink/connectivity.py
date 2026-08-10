@@ -379,11 +379,10 @@ def plot_shock_angle_contour(
         zorder=5,
         label="intersection",
     )
-    ax.annotate(
+    ax.text(
+        hit.point[1] - 3.0,
+        hit.point[2] - 2.5,
         f"({hit.theta_bn_deg:.2f}°)",
-        xy=(hit.point[1], hit.point[2]),
-        xytext=(-3, -2.5),
-        textcoords="offset points",
         color="red",
         fontsize=24,
     )

@@ -331,6 +331,9 @@ def test_plot_shock_angle_contour_matches_reference_style(monkeypatch) -> None:
     assert any("45°" in text.get_text() for text in ax.texts)
     assert any("50°" in text.get_text() for text in ax.texts)
     assert any(text.get_color() == "red" for text in ax.texts)
+    annotation = next(text for text in ax.texts if text.get_text() == "(0.00°)")
+    assert annotation.get_position() == (-3.0, -2.5)
+    assert annotation.get_transform() == ax.transData
     assert figure.axes[-1].get_yticks().tolist() == list(range(10, 91, 10))
     assert figure.axes[-1].get_ylabel() == r"$\theta_{BN}$"
     assert figure.axes[-1].yaxis.label.get_size() == 26
