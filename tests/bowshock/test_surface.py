@@ -1,3 +1,5 @@
+from inspect import signature
+
 import numpy as np
 import pytest
 import pyvista as pv
@@ -23,6 +25,18 @@ def _compression_grid(*, name: str = "div(U)") -> pv.ImageData:
 def _expected_surface(y: np.ndarray, z: np.ndarray) -> np.ndarray:
     yy, zz = np.meshgrid(y, z, indexing="ij")
     return 6.0 - 0.25 * yy**2 - 0.5 * zz**2
+
+
+def test_get_bow_shock_surface_uses_default_transverse_axes() -> None:
+    parameters = signature(get_bow_shock_surface).parameters
+    expected = np.linspace(-30.0, 30.0, 241)
+
+    np.testing.assert_array_equal(parameters["y"].default, expected)
+    np.testing.assert_array_equal(parameters["z"].default, expected)
+
+    surface = get_bow_shock_surface(_compression_grid(), x_resolution=2)
+
+    assert surface.shape == (241, 241)
 
 
 def test_get_bow_shock_surface_recovers_minimum_divergence_layer() -> None:
