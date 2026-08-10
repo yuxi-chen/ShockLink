@@ -17,6 +17,12 @@ from shocklink.dataset import (
 from shocklink.exceptions import DatasetError, GeometryError
 
 
+_DEFAULT_SURFACE_Y = np.linspace(-30.0, 30.0, 241)
+_DEFAULT_SURFACE_Y.setflags(write=False)
+_DEFAULT_SURFACE_Z = np.linspace(-30.0, 30.0, 241)
+_DEFAULT_SURFACE_Z.setflags(write=False)
+
+
 @dataclass(frozen=True, slots=True)
 class BowShockParaboloid:
     """Axisymmetric bow-shock fit directed along the X axis."""
@@ -663,8 +669,8 @@ def _refine_surface_minima(
 def get_bow_shock_surface(
     dataset: pv.DataSet,
     *,
-    y: ArrayLike,
-    z: ArrayLike,
+    y: ArrayLike = _DEFAULT_SURFACE_Y,
+    z: ArrayLike = _DEFAULT_SURFACE_Z,
     divergence_name: str = "div(U)",
     x_resolution: int = 512,
     x_range: tuple[float, float] | None = None,
@@ -677,7 +683,7 @@ def get_bow_shock_surface(
     ----------
     dataset : pyvista.DataSet
         Dataset with a finite scalar divergence point-data array.
-    y, z : array-like
+    y, z : array-like, default numpy.linspace(-30, 30, 241)
         Strictly increasing one-dimensional transverse coordinates.  Their sizes
         define the first and second dimensions of the returned surface.
     divergence_name : str, default "div(U)"
