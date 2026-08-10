@@ -489,7 +489,7 @@ def plot_shock_connection_3d(
         cmap="viridis",
         name="bow_shock",
         show_scalar_bar=True,
-        scalar_bar_args={"title": r"$\theta_{BN}$"},
+        scalar_bar_args={"title": r"$\theta_{BN}$", "vertical": True},
     )
     plotter.add_mesh(pv.Sphere(radius=0.08, center=mms), color="red", name="mms")
     plotter.add_mesh(

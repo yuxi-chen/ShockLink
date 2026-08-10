@@ -374,6 +374,7 @@ def test_plot_shock_connection_3d_uses_reference_axis_and_colorbar_labels(
         "zlabel": r"Z [R$_E$]",
     }
     assert scalar_bar_args["title"] == r"$\theta_{BN}$"
+    assert scalar_bar_args["vertical"] is True
     plotter.close()
 
 
