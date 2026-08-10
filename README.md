@@ -52,6 +52,33 @@ In a source checkout,
 [examples/README.md](https://github.com/yuxi-chen/ShockLink/blob/main/examples/README.md)
 lists the notebook and command-line examples.
 
+## Tecplot to VTK conversion
+
+Convert every zone in an ASCII Tecplot `.dat` file to a VTK multiblock `.vtm`
+file without normalizing or combining the zones:
+
+```bash
+python tools/convert_dat_to_vtm.py path/to/input.dat
+```
+
+The output defaults to `path/to/input.vtm`. Provide a second positional argument
+to choose another output path:
+
+```bash
+python tools/convert_dat_to_vtm.py input.dat output.vtm
+```
+
+To remove the source file only after a successful conversion, add
+`--delete-input`:
+
+```bash
+python tools/convert_dat_to_vtm.py input.dat --delete-input
+```
+
+The `.vtm` file may reference generated `.vts`, `.vti`, or `.vtu` sidecar files;
+keep those files and directories together with the `.vtm` file when moving or
+reopening the converted dataset.
+
 ## Status
 
 ShockLink is pre-alpha research software. Validate the detection and resolution
