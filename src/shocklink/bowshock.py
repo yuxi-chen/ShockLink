@@ -166,8 +166,8 @@ def _strongest_compression(
 def extract_shockfit_range(
     dataset: pv.DataSet,
     *,
-    lower: float,
-    upper: float,
+    lower: float = -5.0,
+    upper: float = 5.0,
     shockfit_name: str = "shockfit",
     adjacent_cells: bool = True,
 ) -> pv.UnstructuredGrid:
@@ -669,7 +669,7 @@ def get_bow_shock_surface(
     x_resolution: int = 512,
     x_range: tuple[float, float] | None = None,
     chunk_size: int = 1024,
-    refine_minimum: bool = False,
+    refine_minimum: bool = True,
 ) -> NDArray[np.float64]:
     """Sample strongest-compression X locations on a regular Y-Z grid.
 
