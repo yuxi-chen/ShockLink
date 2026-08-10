@@ -57,16 +57,45 @@ def mms_location_from_averages(averages: Mapping[str, float]) -> MMSLocation:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mms-start", required=True, help="MMS interval start time")
-    parser.add_argument("--mms-end", required=True, help="MMS interval end time")
-    parser.add_argument("--output", required=True, help="Output SWMF parameter file")
-    parser.add_argument(
-        "--input", default="data/Param/PARAM.in.Earth", help="SWMF template path"
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''examples:
+  create_swmf_input.py --mms-start "2018-12-19 19:40:00" --mms-end "2018-12-19 19:52:00" --output generated.in
+  create_swmf_input.py --mms-start "2017-01-01 00:00:00" --mms-end "2017-01-01 00:05:00" --output generated.in --probe 2 --mode brst
+  create_swmf_input.py --mms-start "2018-12-19 19:40:00" --mms-end "2018-12-19 19:52:00" --output generated.in --input custom/PARAM.in --start-time "2018-12-19 19:45:00"''',
     )
-    parser.add_argument("--start-time", help="Override the MMS midpoint for #STARTTIME")
-    parser.add_argument("--probe", type=int, choices=range(1, 5), default=1)
-    parser.add_argument("--mode", choices=("auto", "brst", "fast"), default="auto")
+    parser.add_argument(
+        "--mms-start", required=True, help="MMS observation interval start time"
+    )
+    parser.add_argument(
+        "--mms-end", required=True, help="MMS observation interval end time"
+    )
+    parser.add_argument(
+        "--output", required=True, help="output SWMF parameter file to create"
+    )
+    parser.add_argument(
+        "--input",
+        default="data/Param/PARAM.in.Earth",
+        help="template (default: data/Param/PARAM.in.Earth)",
+    )
+    parser.add_argument(
+        "--start-time",
+        help="override the MMS interval midpoint used for #STARTTIME",
+    )
+    parser.add_argument(
+        "--probe",
+        type=int,
+        choices=range(1, 5),
+        default=1,
+        help="MMS spacecraft number (default: 1)",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=("auto", "brst", "fast"),
+        default="auto",
+        help="data rate (default: auto; auto prefers burst, then fast)",
+    )
     return parser.parse_args(argv)
 
 
