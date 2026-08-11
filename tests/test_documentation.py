@@ -20,7 +20,7 @@ README = ROOT / "README.md"
 WORKFLOW_GUIDE = ROOT / "docs/bow-shock-workflow.md"
 WORKFLOW_EXAMPLE = ROOT / "examples/bow_shock_workflow.py"
 CONNECTION_GUIDE = ROOT / "docs/mms-bow-shock-connection.md"
-CONNECTION_EXAMPLE = ROOT / "examples/mms_bow_shock_connection.py"
+CONNECTION_TOOL = ROOT / "tools/mms_bow_shock_connection.py"
 
 PUBLIC_WORKFLOW_FUNCTIONS = (
     "load_simulation",
@@ -190,27 +190,30 @@ def test_connection_guide_documents_scientific_conventions() -> None:
         assert required in text
 
 
-def test_connection_example_compiles_and_uses_public_api() -> None:
-    source = CONNECTION_EXAMPLE.read_text()
-    compile(source, str(CONNECTION_EXAMPLE), "exec")
+def test_connection_tool_compiles_and_uses_source_api() -> None:
+    source = CONNECTION_TOOL.read_text()
+    compile(source, str(CONNECTION_TOOL), "exec")
     tree = ast.parse(source)
     imports = {
         alias.name
         for node in ast.walk(tree)
         if isinstance(node, ast.ImportFrom)
         and node.module is not None
-        and node.module.startswith("shocklink.")
+        and node.module == "shocklink.mms_connection"
         for alias in node.names
     }
     assert {
-        "analyze_shock_connection",
-        "plot_shock_angle_contour",
-        "plot_shock_connection_3d",
-        "load_mms_data",
-        "average_plotted_values",
+        "build_mms_bow_shock_connection",
+        "save_mms_bow_shock_connection_plots",
     } <= imports
-    assert all(not name.startswith("_") for name in imports)
-    for flag in ("--mms-start", "--mms-end", "--probe", "--mode"):
+    for flag in (
+        "--mms-start",
+        "--mms-end",
+        "--probe",
+        "--mode",
+        "--output-directory",
+        "--three-d-output",
+    ):
         assert flag in source
 
 
@@ -218,9 +221,9 @@ def test_connection_readmes_link_guide_and_example() -> None:
     readme = README.read_text()
     examples = (ROOT / "examples/README.md").read_text()
     assert "docs/mms-bow-shock-connection.md" in readme
-    assert "examples/mms_bow_shock_connection.py" in readme
+    assert "tools/mms_bow_shock_connection.py" in readme
     assert "../docs/mms-bow-shock-connection.md" in examples
-    assert "mms_bow_shock_connection.py" in examples
+    assert "tools/mms_bow_shock_connection.py" in examples
 
 
 def test_root_readme_documents_swmf_input_tool() -> None:

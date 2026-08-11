@@ -45,7 +45,7 @@ X component.
 ## Examples
 
 The [MMS–bow-shock connection guide](https://github.com/yuxi-chen/ShockLink/blob/main/docs/mms-bow-shock-connection.md)
-and runnable [connection example](https://github.com/yuxi-chen/ShockLink/blob/main/examples/mms_bow_shock_connection.py)
+and runnable [connection tool](https://github.com/yuxi-chen/ShockLink/blob/main/tools/mms_bow_shock_connection.py)
 show the acute 0–90° angle and closest straight-line intersection workflow.
 
 In a source checkout,

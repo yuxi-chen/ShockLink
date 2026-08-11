@@ -37,13 +37,31 @@ plot_shock_angle_contour(connection)
 plot_shock_connection_3d(connection)
 ```
 
-Run the end-to-end script with an explicit MMS interval:
+Run the end-to-end tool. It derives a symmetric five-minute MMS interval from
+the simulation event and saves a 2D PNG plus a static 3D PNG by default:
 
 ```bash
 pip install -e ".[mms]"
-PYTHONPATH=src python examples/mms_bow_shock_connection.py data/3d.dat \
-  --mms-start "2023-12-16 11:29:30" --mms-end "2023-12-16 11:30:30" \
-  --probe 1 --mode auto
+PYTHONPATH=src python tools/mms_bow_shock_connection.py data/3d.dat \
+  --output-directory results --probe 1 --mode auto
+```
+
+Select 3D output with `--three-d-output png`, `html`, or `both`. HTML export
+requires `pip install "pyvista[jupyter]"`. Use `--mms-start` and `--mms-end`
+together to override the event-derived interval.
+
+Python callers can use the reusable source interface directly:
+
+```python
+from shocklink.mms_connection import (
+    build_mms_bow_shock_connection,
+    save_mms_bow_shock_connection_plots,
+)
+
+result = build_mms_bow_shock_connection("data/3d.dat")
+paths = save_mms_bow_shock_connection_plots(
+    result, "results", three_d_output="both"
+)
 ```
 
 The straight Bavg line is an approximation: it does not integrate a spatially

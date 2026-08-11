@@ -54,10 +54,14 @@ pip install -e ".[mms]"
 ```
 
 ```bash
-PYTHONPATH=src python examples/mms_bow_shock_connection.py data/3d.dat \
-  --mms-start "2023-12-16 11:29:30" \
-  --mms-end "2023-12-16 11:30:30" --probe 1 --mode auto
+PYTHONPATH=src python tools/mms_bow_shock_connection.py data/3d.dat \
+  --output-directory results --three-d-output both --probe 1 --mode auto
 ```
+
+The tool derives a symmetric five-minute MMS interval from the simulation event.
+Use `--mms-start` and `--mms-end` together to override it. The 2D angle map is
+saved as PNG; the 3D view can be saved as PNG, interactive HTML, or both with
+`--three-d-output`. HTML export requires `pip install "pyvista[jupyter]"`.
 
 ## MMS satellite-data analysis
 
