@@ -98,7 +98,7 @@ def create_swmf_input(
     start_time: str | datetime | None = None,
     probe: int = 1,
     mode: Literal["auto", "brst", "fast"] = "auto",
-    plot: bool = False,
+    plot: bool = True,
 ) -> Path:
     """Create an SWMF input file from interval-averaged MMS observations.
 
