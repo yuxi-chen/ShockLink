@@ -63,6 +63,16 @@ interactive HTML, or both with
 
 ## MMS satellite-data analysis
 
+For batch creation of SWMF inputs, edit the ``EVENTS`` list in
+[`create_swmf_inputs.py`](create_swmf_inputs.py), then run:
+
+```bash
+PYTHONPATH=src python examples/create_swmf_inputs.py
+```
+
+The script creates one `PARAM_*.in` file per `(start, end)` interval and saves
+the MMS quick-look plot beside each file by default.
+
 Install the optional MMS tools, then launch the notebook for a short MMS
 interval. Automatic mode prefers burst data and uses fast survey data when
 burst is not available:
