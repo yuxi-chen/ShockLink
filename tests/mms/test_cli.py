@@ -1,12 +1,6 @@
 from __future__ import annotations
 
-import ast
-from pathlib import Path
-
 from shocklink.mms import main, parse_args
-
-
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_cli_parse_args_accepts_interval_probe_cadence_and_coordinates() -> None:
@@ -93,13 +87,3 @@ def test_main_runs_summary_average_and_plot_workflow(monkeypatch, capsys) -> Non
     assert result == 0
     assert calls == ["summary", "average", "plot", "show"]
     assert "Loaded MMS1 fast data" in capsys.readouterr().out
-
-
-def test_example_is_a_thin_mms_entry_point() -> None:
-    source = (ROOT / "examples/mms_data_analysis.py").read_text()
-    tree = ast.parse(source)
-    functions = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
-
-    assert functions == []
-    assert "from shocklink.mms import main" in source
-    assert "raise SystemExit(main())" in source

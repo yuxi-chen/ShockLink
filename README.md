@@ -29,9 +29,9 @@ Tecplot -> div(U) -> paraboloid fit -> near-shock region -> regular Y-Z surface 
 
 Source checkouts include the
 [algorithm guide](https://github.com/yuxi-chen/ShockLink/blob/main/docs/algorithms.md),
-which explains the scientific conventions and numerical methods. They also
-include the same pipeline as the runnable script
-[examples/bow_shock_workflow.py](https://github.com/yuxi-chen/ShockLink/blob/main/examples/bow_shock_workflow.py).
+which explains the scientific conventions and numerical methods. Runnable
+notebooks and command-line tools are documented in
+[examples/README.md](https://github.com/yuxi-chen/ShockLink/blob/main/examples/README.md).
 
 The final call:
 

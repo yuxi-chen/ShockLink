@@ -21,7 +21,6 @@ from shocklink.io import load_simulation
 
 ROOT = Path(__file__).resolve().parents[1]
 ALGORITHMS = ROOT / "docs/algorithms.md"
-WORKFLOW_EXAMPLE = ROOT / "examples/bow_shock_workflow.py"
 
 PUBLIC_WORKFLOW_API = (
     load_simulation,
@@ -67,26 +66,10 @@ def test_readmes_link_the_consolidated_guide_and_examples() -> None:
     examples = (ROOT / "examples/README.md").read_text()
     assert "docs/algorithms.md" in readme
     assert "../docs/algorithms.md" in examples
-    assert "examples/bow_shock_workflow.py" in readme
+    assert "examples/README.md" in readme
     assert "tools/mms_bow_shock_connection.py" in readme
     assert "tools/create_swmf_input.py" in readme
     assert ALGORITHMS.is_file()
-
-
-def test_workflow_example_compiles_and_uses_public_api() -> None:
-    source = WORKFLOW_EXAMPLE.read_text()
-    compile(source, str(WORKFLOW_EXAMPLE), "exec")
-    tree = ast.parse(source)
-    imports = {
-        alias.name
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom)
-        and node.module is not None
-        and node.module.startswith("shocklink.")
-        for alias in node.names
-    }
-    assert set(name.__name__ for name in PUBLIC_WORKFLOW_API) <= imports
-    assert "finite_surface_values:" in source
 
 
 def _assert_clean_notebook(path: Path) -> str:

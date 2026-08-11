@@ -1,15 +1,9 @@
 # ShockLink Examples
 
-## Complete bow-shock workflow
+## Bow-shock workflow
 
 The [algorithm guide](../docs/algorithms.md) explains the full
 Tecplot-to-normal pipeline and its array/sign conventions.
-
-Run the non-graphical example:
-
-```bash
-PYTHONPATH=src python examples/bow_shock_workflow.py data/3d.dat
-```
 
 ## Extract bow-shock notebook
 
@@ -43,8 +37,6 @@ The sample is about 1.3 GB. Reading and normalizing it uses roughly 1 GB before
 the cut and rendering allocations. The data file, notebook outputs, and
 checkpoints are not committed.
 
-## Python scripts
-
 ### MMS–bow-shock connection
 
 Install the optional MMS dependencies and read [the algorithm guide](../docs/algorithms.md), then run:
@@ -68,36 +60,29 @@ saved as PNG; the 3D view can be saved as PNG, interactive HTML, or both with
 
 ## MMS satellite-data analysis
 
-Install the optional MMS tools, then download and plot a short MMS interval.
-Automatic mode prefers burst data and uses fast survey data when burst is not
-available:
+Install the optional MMS tools, then launch the notebook for a short MMS
+interval. Automatic mode prefers burst data and uses fast survey data when
+burst is not available:
 
 ```bash
 pip install -e ".[mms]"
-python examples/mms_data_analysis.py \
-  --start "2015-10-16 13:06:00" --end "2015-10-16 13:07:00" --probe 1 --mode auto
+jupyter lab examples/mms_example.ipynb
 ```
 
 The reusable implementation is provided by `shocklink.mms`; the example
-script is only a thin executable entry point. Python callers can use the same
-workflow directly:
+notebook uses the same public workflow directly:
 
 ```python
 from shocklink.mms import load_mms_data, plot_mms_data
 ```
 
-Vectors use GSE coordinates by default. When `--coordinates gsm` is selected,
+Vectors use GSE coordinates by default. When `COORDINATES = "gsm"` is selected,
 pySPEDAS transforms the magnetic-field and bulk-velocity vectors to
 time-dependent GSM coordinates; scalar density and temperature products remain
 unchanged:
 
-```bash
-python examples/mms_data_analysis.py \
-  --start "2018-12-19 19:40:00" \
-  --end "2018-12-19 19:52:00" \
-  --probe 1 --mode auto \
-  --coordinates gsm
-```
+Set `START`, `END`, `PROBE`, `MODE`, and `COORDINATES = "gsm"` in the notebook
+to select this interval and coordinate system.
 
 The figure subtitle reports the interval-averaged MMS position in GSM and
 Earth radii (`$R_E$`) when MEC ephemeris data are available. The command also prints means for the
@@ -108,32 +93,8 @@ the same temperature lines.
 For interactive exploration, launch `jupyter lab examples/mms_example.ipynb`.
 The notebook exposes the time range, probe, `auto`/`brst`/`fast` mode, and GSE
 or GSM coordinate selection near the top, then uses the same public loading,
-summary, and plotting functions as the script.
+summary, and plotting functions.
 
-Read and summarize the sample:
-
-```bash
-PYTHONPATH=src python examples/load_simulation.py data/3d.dat
-```
-
-Open an interactive pressure cut:
-
-```bash
-PYTHONPATH=src python examples/plot_2d_cut.py data/3d.dat
-```
-
-Save a pressure-cut screenshot:
-
-```bash
-PYTHONPATH=src python examples/plot_2d_cut.py data/3d.dat \
-  --screenshot pressure-cut.png
-```
-
-Limit the displayed world-coordinate range without cropping the cut:
-
-```bash
-PYTHONPATH=src python examples/plot_2d_cut.py data/3d.dat \
-  --xrange -40 30 --yrange -60 60
-```
-
-The same limits can be combined with `--screenshot`.
+The reusable loading, cut, plotting, and MMS functions are available from
+`shocklink.io`, `shocklink.dataset`, and `shocklink.mms`; use those APIs from
+Python when a notebook is not appropriate.
