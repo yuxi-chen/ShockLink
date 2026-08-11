@@ -37,13 +37,39 @@ class ResolvedSeries:
     units: str | None = None
 
 
+def _get_tplot_data(variable: str, *, metadata: bool = False) -> object:
+    """Read a variable from bundled or legacy pytplot storage."""
+
+    bundled_available = False
+    try:
+        from pyspedas import get_data as get_bundled_data
+    except ImportError:  # pragma: no cover - compatibility with pySPEDAS 1.x
+        pass
+    else:
+        bundled_available = True
+        product = (
+            get_bundled_data(variable, metadata=True)
+            if metadata
+            else get_bundled_data(variable)
+        )
+        if product is not None:
+            return product
+
+    try:
+        from pytplot import get_data as get_legacy_data
+    except ImportError as error:  # pragma: no cover - optional dependency
+        if bundled_available:
+            return None
+        raise ImportError(
+            "MMS analysis requires the installed pySPEDAS package."
+        ) from error
+    if metadata:
+        return get_legacy_data(variable, metadata=True)
+    return get_legacy_data(variable)
+
+
 def _resolve_series(data: MMSData) -> dict[str, ResolvedSeries]:
     """Resolve pytplot names while retaining timestamps and units."""
-    try:
-        from pytplot import get_data
-    except ImportError as error:  # pragma: no cover - optional dependency
-        raise ImportError("MMS analysis requires the installed pySPEDAS package.") from error
-
     bounds = (
         TimeBounds.from_strings(data.start, data.end)
         if data.start is not None and data.end is not None
@@ -51,7 +77,7 @@ def _resolve_series(data: MMSData) -> dict[str, ResolvedSeries]:
     )
     resolved: dict[str, ResolvedSeries] = {}
     for name, variable in data.series.items():
-        product = get_data(variable)
+        product = _get_tplot_data(variable)
         if product is None:
             continue
         try:
@@ -70,7 +96,7 @@ def _resolve_series(data: MMSData) -> dict[str, ResolvedSeries]:
             if not len(times_array):
                 continue
         try:
-            metadata = get_data(variable, metadata=True) or {}
+            metadata = _get_tplot_data(variable, metadata=True) or {}
         except TypeError:
             metadata = {}
         resolved[name] = ResolvedSeries(

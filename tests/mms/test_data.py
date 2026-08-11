@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import sys
+from types import ModuleType, SimpleNamespace
+
 import numpy as np
 
 from shocklink.constants import EV_TO_K
@@ -18,9 +21,6 @@ def test_temperature_unit_conversion_is_reversible() -> None:
 
 
 def test_resolve_series_clips_to_requested_interval(monkeypatch) -> None:
-    import sys
-    from types import SimpleNamespace
-
     product = SimpleNamespace(
         times=np.array([0.0, 10.0, 20.0]),
         y=np.array([1.0, 2.0, 3.0]),
@@ -48,6 +48,25 @@ def test_resolve_series_clips_to_requested_interval(monkeypatch) -> None:
         ),
     )
     np.testing.assert_array_equal(resolved["ion_density"].values, [2.0, 3.0])
+
+
+def test_resolve_series_uses_bundled_pyspedas_registry(monkeypatch) -> None:
+    pyspedas = ModuleType("pyspedas")
+    pyspedas.get_data = lambda *_args, **_kwargs: SimpleNamespace(  # type: ignore[attr-defined]
+        times=np.array([0.0]), y=np.array([2.0])
+    )
+    monkeypatch.setitem(sys.modules, "pyspedas", pyspedas)
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(get_data=lambda *_args, **_kwargs: None),
+    )
+
+    resolved = _resolve_series(
+        MMSData(cadence="fast", series={"ion_density": "density"})
+    )
+
+    np.testing.assert_array_equal(resolved["ion_density"].values, [2.0])
 
 
 def test_total_temperature_uses_one_parallel_and_two_perpendicular_directions(

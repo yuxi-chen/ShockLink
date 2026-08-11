@@ -9,6 +9,7 @@ import pytest
 from shocklink.mms.loading import (
     _converted_variable_name,
     _convert_vector_coordinates,
+    _has_samples_in_interval,
     _load_pyspedas_products,
 )
 from shocklink.mms import load_mms_data
@@ -130,6 +131,23 @@ def test_default_loader_requests_optional_mec_position(
 
     assert requests["mec"]["data_rate"] == "srvy"
     assert series["satellite_location"] == "mms1_mec_r_gsm"
+
+
+def test_sample_check_uses_bundled_pyspedas_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pyspedas = ModuleType("pyspedas")
+    pyspedas.get_data = lambda _: SimpleNamespace(  # type: ignore[attr-defined]
+        times=np.array([1_702_717_200.0])
+    )
+    monkeypatch.setitem(sys.modules, "pyspedas", pyspedas)
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(get_data=lambda _: None),
+    )
+
+    assert _has_samples_in_interval("mms1_mec_r_gsm", 1_702_713_600.0, 1_702_722_600.0)
 
 
 def test_load_mms_data_propagates_coordinate_selection() -> None:

@@ -8,7 +8,7 @@ import numpy as np
 
 from shocklink.utilities import TimeBounds
 
-from .data import CoordinateSystem, MMSData
+from .data import CoordinateSystem, MMSData, _get_tplot_data
 
 
 MMSLoader = Callable[..., Mapping[str, str]]
@@ -137,9 +137,7 @@ def _load_pyspedas_products(
 
 def _has_samples_in_interval(variable: str, start: float, end: float) -> bool:
     """Return whether a pytplot variable has data inside the interval."""
-    from pytplot import get_data
-
-    product = get_data(variable)
+    product = _get_tplot_data(variable)
     if product is None:
         return False
     try:
