@@ -10,7 +10,7 @@ from shocklink.mms_swmf import create_swmf_input
 
 # Each event is an MMS observation interval: (UTC start, UTC end).
 EVENTS = [
-    ("2023-12-16 16:24:00", "2023-12-16 16:46:00"),
+    ("2023-12-16 06:24:00", "2023-12-16 06:46:00"),
     ("2023-12-16 08:30:00", "2023-12-16 11:00:00"),
     ("2017-12-07 07:54:00", "2017-12-07 08:06:00")
 ]
