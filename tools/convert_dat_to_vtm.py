@@ -12,13 +12,6 @@ from typing import Sequence
 
 import pyvista as pv
 
-_TOOLS_DIRECTORY = str(Path(__file__).resolve().parent)
-if _TOOLS_DIRECTORY not in sys.path:
-    sys.path.insert(0, _TOOLS_DIRECTORY)
-
-from clean_dat import clean_dat
-
-
 class ConversionError(RuntimeError):
     """Raised when a DAT-to-VTM conversion cannot be completed."""
 
@@ -28,6 +21,48 @@ _TITLE_TIMESTAMP_PATTERN = re.compile(
     r'\d{2}:\d{2}:\d{2}(?:\.\d+)?)"\s*$',
     re.IGNORECASE,
 )
+
+
+def _clean_variables_header(source: Path) -> None:
+    """Normalize Tecplot variable names in place for the VTK reader.
+
+    BATSRUS headers commonly annotate names with units, such as ``"X [R]"``.
+    The Tecplot reader requires bare coordinate names, so this routine removes
+    bracketed units and trailing coordinate labels while preserving the header
+    line's byte length. Keeping the length fixed avoids rewriting the data
+    payload of large ASCII files.
+
+    Parameters
+    ----------
+    source
+        Existing Tecplot ASCII DAT file to update.
+
+    Raises
+    ------
+    ConversionError
+        If the VARIABLES header cannot be found or updated.
+    """
+
+    try:
+        with source.open("r+", encoding="utf-8") as stream:
+            for _ in range(10):
+                line_start = stream.tell()
+                line = stream.readline()
+                if "VARIABLES" in line:
+                    break
+            else:
+                raise ConversionError(f"Tecplot header in {source} lacks VARIABLES")
+
+            cleaned = re.sub(r"\s*?\[(.*?)\]", "", line)
+            cleaned = re.sub(r'"([xyzXYZ])\s+?\w*?"', r'"\1"', cleaned)
+            cleaned = cleaned.rstrip("\n")
+            cleaned += " " * (len(line) - len(cleaned) - 1) + "\n"
+            stream.seek(line_start)
+            stream.write(cleaned)
+    except ConversionError:
+        raise
+    except (OSError, UnicodeError) as error:
+        raise ConversionError(f"could not clean {source}: {error}") from error
 
 
 def _read_time_event(source: Path) -> str:
@@ -116,10 +151,7 @@ def convert(
 
     source, destination = _paths(input_path, output_directory)
     time_event = _read_time_event(source)
-    try:
-        clean_dat(source)
-    except Exception as error:
-        raise ConversionError(f"could not clean {source}: {error}") from error
+    _clean_variables_header(source)
     try:
         dataset = pv.read(source)
     except Exception as error:
