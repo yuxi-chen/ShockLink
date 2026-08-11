@@ -141,7 +141,7 @@ def test_swmf_tool_is_thin_and_helpful() -> None:
         "--start-time",
         "--probe",
         "--mode",
-        "--plot-output",
+        "--plot",
     ):
         assert option in result.stdout
     assert "PARAM_YYYYMMDD_HHMMSS.in" in result.stdout

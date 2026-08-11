@@ -68,6 +68,16 @@ def mms_location_from_averages(averages: Mapping[str, float]) -> MMSLocation:
     return MMSLocation(x, y, z)
 
 
+def _mms_plot_path(bounds: TimeBounds, output_path: Path) -> Path:
+    """Return the interval-based MMS plot path beside the SWMF output."""
+
+    filename = (
+        f"mms_{bounds.start:%Y%m%d_%H%M%S}_"
+        f"{bounds.end:%Y%m%d_%H%M%S}.png"
+    )
+    return output_path.with_name(filename)
+
+
 def create_swmf_input(
     mms_start: str,
     mms_end: str,
@@ -77,7 +87,7 @@ def create_swmf_input(
     start_time: str | datetime | None = None,
     probe: int = 1,
     mode: Literal["auto", "brst", "fast"] = "auto",
-    plot_output: str | Path | None = None,
+    plot: bool = False,
 ) -> Path:
     """Create an SWMF input file from interval-averaged MMS observations.
 
@@ -96,10 +106,9 @@ def create_swmf_input(
         MMS spacecraft number from 1 through 4.
     mode
         MMS data mode: ``auto``, ``brst``, or ``fast``.
-    plot_output
-        Optional path for saving the multi-panel MMS quick-look plot. When
-        provided, the plot is generated from the loaded data used for the
-        SWMF averages.
+    plot
+        If true, save the multi-panel MMS quick-look plot beside the generated
+        SWMF input. The filename is based on the MMS start and end times.
 
     Returns
     -------
@@ -116,6 +125,8 @@ def create_swmf_input(
         raise ValueError("probe must be between 1 and 4")
     if mode not in {"auto", "brst", "fast"}:
         raise ValueError("mode must be one of: auto, brst, fast")
+    if not isinstance(plot, bool):
+        raise TypeError("plot must be a bool")
 
     bounds = TimeBounds.from_strings(mms_start, mms_end)
     if start_time is None:
@@ -143,17 +154,18 @@ def create_swmf_input(
         *position_at_time_earth_radii(data, effective_start_time)
     )
 
-    if plot_output is not None:
-        plot_path = Path(plot_output)
-        plot_path.parent.mkdir(parents=True, exist_ok=True)
-        figure = plot_mms_data(data)
-        figure.savefig(plot_path, bbox_inches="tight")
-
     output_path = (
         Path(f"PARAM_{effective_start_time:%Y%m%d_%H%M%S}.in")
         if output is None
         else Path(output)
     )
+
+    if plot:
+        plot_path = _mms_plot_path(bounds, output_path)
+        plot_path.parent.mkdir(parents=True, exist_ok=True)
+        figure = plot_mms_data(data)
+        figure.savefig(plot_path, bbox_inches="tight")
+
     generate_param_file(
         input, output_path, effective_start_time, solar_wind, location
     )
@@ -202,9 +214,9 @@ epilog='''examples:
         help="data rate (default: auto; auto prefers burst, then fast)",
     )
     parser.add_argument(
-        "--plot-output",
-        type=Path,
-        help="save the MMS quick-look plot to this path",
+        "--plot",
+        action="store_true",
+        help="save the MMS quick-look plot beside the SWMF input",
     )
     return parser.parse_args(argv)
 
@@ -220,12 +232,13 @@ def main(argv: list[str] | None = None) -> int:
             start_time=arguments.start_time,
             probe=arguments.probe,
             mode=arguments.mode,
-            plot_output=arguments.plot_output,
+            plot=arguments.plot,
         )
     except Exception as error:
         print(f"Could not create SWMF input: {error}", file=sys.stderr)
         return 1
     print(f"Wrote SWMF input to {output}")
-    if arguments.plot_output is not None:
-        print(f"Wrote MMS plot to {arguments.plot_output}")
+    if arguments.plot:
+        bounds = TimeBounds.from_strings(arguments.mms_start, arguments.mms_end)
+        print(f"Wrote MMS plot to {_mms_plot_path(bounds, output)}")
     return 0

@@ -125,8 +125,10 @@ SWMF input generation maps the interval averages into the template's
 `#STARTTIME` and `#SOLARWIND` records. Temperature products are converted from
 eV to K only when writing the template's temperature fields; magnetic fields,
 density, velocity, and position retain their documented units.
-The optional `plot_output` API argument and CLI `--plot-output` flag save the
-multi-panel MMS quick-look figure generated from the same loaded interval.
+The optional `plot=True` API argument and CLI `--plot` flag save the multi-panel
+MMS quick-look figure generated from the same loaded interval. The filename is
+`mms_YYYYMMDD_HHMMSS_YYYYMMDD_HHMMSS.png`, based on the requested interval,
+and is placed beside the generated SWMF input.
 
 See [`mms.py`](../src/shocklink/mms.py) and
 [`mms_swmf.py`](../src/shocklink/mms_swmf.py).
