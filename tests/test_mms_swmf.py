@@ -149,6 +149,7 @@ def test_parse_args_accepts_workflow_options() -> None:
             "--mms-end",
             "2018-12-19 19:52:00",
             "--plot",
+            "false",
             "--input",
             "template.in",
             "--output",
@@ -169,7 +170,7 @@ def test_parse_args_accepts_workflow_options() -> None:
     assert arguments.start_time == "2018-12-19 19:52:00"
     assert arguments.probe == 3
     assert arguments.mode == "fast"
-    assert arguments.plot is True
+    assert arguments.plot is False
 
 
 def test_parse_args_allows_omitted_output() -> None:
@@ -183,6 +184,7 @@ def test_parse_args_allows_omitted_output() -> None:
     )
 
     assert arguments.output is None
+    assert arguments.plot is True
 
 
 def test_parse_args_finds_default_template_outside_repository(
@@ -317,6 +319,7 @@ def test_parse_args_accepts_mms_plot_flag() -> None:
             "--mms-end",
             "2018-12-19 19:52:00",
             "--plot",
+            "true",
         ]
     )
 
@@ -383,6 +386,8 @@ def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
             "2018-12-19 19:40:00",
             "--mms-end",
             "2018-12-19 19:52:00",
+            "--plot",
+            "false",
         ]
     )
 
@@ -437,6 +442,8 @@ def test_main_honors_explicit_start_time(monkeypatch) -> None:
             "2018-12-19 19:52:00",
             "--start-time",
             "2018-12-19T14:52:00-05:00",
+            "--plot",
+            "false",
         ]
     )
 
@@ -488,6 +495,7 @@ def test_main_delegates_to_create_swmf_input(monkeypatch, capsys) -> None:
             "--mms-end",
             "2018-12-19 19:52:00",
             "--plot",
+            "true",
         ]
     )
 

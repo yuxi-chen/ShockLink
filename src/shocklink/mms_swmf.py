@@ -26,6 +26,17 @@ _DEFAULT_TEMPLATE = (
 )
 
 
+def _parse_bool(value: str) -> bool:
+    """Parse a case-insensitive command-line true/false value."""
+
+    normalized = value.strip().lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+    raise argparse.ArgumentTypeError("expected true or false")
+
+
 
 def _required_average(averages: Mapping[str, float], name: str) -> float:
     try:
@@ -229,8 +240,10 @@ epilog='''examples:
     )
     parser.add_argument(
         "--plot",
-        action="store_true",
-        help="save the MMS quick-look plot beside the SWMF input",
+        type=_parse_bool,
+        default=True,
+        metavar="{true,false}",
+        help="save the MMS quick-look plot (default: true)",
     )
     return parser.parse_args(argv)
 

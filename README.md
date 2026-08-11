@@ -67,7 +67,7 @@ coordinates:
 ```bash
 ./tools/create_swmf_input.py --mms-start "2018-12-19 19:40:00" \
   --mms-end "2018-12-19 19:52:00" \
-  --plot
+  --plot true
 ```
 
 The command uses `data/Param/PARAM.in.Earth` as its default template. It updates
@@ -77,7 +77,7 @@ at the effective UTC start time. By default, that time is the midpoint of the
 MMS interval; use `--start-time` to override it. The effective time synchronizes
 both `#STARTTIME` and the location timestamp. Probe 1 and automatic burst/fast
 data selection are the defaults, with `--probe` and `--mode` available for
-explicit selection. Supply `--plot` to save the same multi-panel MMS
+explicit selection. Supply `--plot true` to save the same multi-panel MMS
 quick-look figure used by `mms_example.ipynb`. For the example interval, the
 plot is saved as
 `mms_20181219_194000_20181219_195200.png` beside the SWMF input.
