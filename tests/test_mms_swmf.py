@@ -271,6 +271,7 @@ def test_create_swmf_input_exposes_all_workflow_options(
         start_time=start_time,
         probe=3,
         mode="fast",
+        plot=False,
     )
 
     assert result == output
@@ -335,6 +336,7 @@ def test_create_swmf_input_defaults_output_from_interval_midpoint(
     result = mms_swmf.create_swmf_input(
         "2018-12-19 19:40:00",
         "2018-12-19 19:52:00",
+        plot=False,
     )
 
     assert result == Path("PARAM_20181219_194600.in")

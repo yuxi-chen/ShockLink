@@ -115,11 +115,10 @@ See [`connectivity.py`](../src/shocklink/connectivity.py) and
 
 ## MMS and SWMF preprocessing
 
-MMS products are loaded for an explicit interval or a symmetric interval
-derived from the simulation event. Vector products are transformed to GSM when
-requested; finite samples are averaged, and the averaged position is converted
-to `R_E`. Missing burst products can fall back to fast survey products in
-`auto` mode.
+`create_swmf_input()` writes the effective UTC time, interval-averaged GSM
+magnetic field, and MMS GSM position into a PARAM file. The connection workflow
+reads those values directly, so it does not download MMS products a second
+time. The position remains in `R_E` and the magnetic field in nT.
 
 SWMF input generation maps the interval averages into the template's
 `#STARTTIME` and `#SOLARWIND` records. Temperature products are converted from

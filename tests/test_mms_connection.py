@@ -6,7 +6,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
-import pytest
 from matplotlib.figure import Figure
 
 import shocklink.mms_connection as workflow
@@ -16,35 +15,7 @@ def test_connection_plot_dpi_defaults_to_600() -> None:
     assert signature(workflow.save_mms_bow_shock_connection_plots).parameters["dpi"].default == 600
 
 
-def test_resolve_mms_interval_defaults_to_symmetric_window() -> None:
-    start, end = workflow.resolve_mms_interval(
-        datetime(2023, 12, 16, 11, 30, tzinfo=UTC),
-        window_seconds=300.0,
-    )
-
-    assert start == "2023-12-16T11:27:30+00:00"
-    assert end == "2023-12-16T11:32:30+00:00"
-
-
-@pytest.mark.parametrize(
-    ("kwargs", "message"),
-    [
-        ({"start": "2023-12-16T11:30:00+00:00"}, "both"),
-        ({"end": "2023-12-16T11:30:00+00:00"}, "both"),
-        ({"window_seconds": 0.0}, "positive"),
-    ],
-)
-def test_resolve_mms_interval_rejects_invalid_overrides(
-    kwargs: dict[str, object], message: str
-) -> None:
-    with pytest.raises(ValueError, match=message):
-        workflow.resolve_mms_interval(
-            datetime(2023, 12, 16, 11, 30, tzinfo=UTC),
-            **kwargs,
-        )
-
-
-def test_build_workflow_derives_interval_and_uses_public_pipeline(monkeypatch) -> None:
+def test_build_workflow_uses_values_from_param_file(monkeypatch) -> None:
     grid = SimpleNamespace(
         field_data={"time_event": np.array(["2023-12-16T11:30:00+00:00"])},
     )
@@ -80,29 +51,24 @@ def test_build_workflow_derives_interval_and_uses_public_pipeline(monkeypatch) -
     )
     monkeypatch.setattr(
         workflow,
-        "load_mms_data",
-        lambda *args, **kwargs: calls.append("mms") or object(),
-    )
-    monkeypatch.setattr(
-        workflow,
-        "average_plotted_values",
-        lambda value: {
-            "satellite_location_x": 1.0,
-            "satellite_location_y": 2.0,
-            "satellite_location_z": 3.0,
-            "magnetic_field_x": 1.0,
-            "magnetic_field_y": 0.0,
-            "magnetic_field_z": 0.0,
-        },
+        "read_mms_param_file",
+        lambda path: SimpleNamespace(
+            time=datetime(2023, 12, 16, 11, 30, tzinfo=UTC),
+            magnetic_field=(1.0, 0.0, 0.0),
+            location=SimpleNamespace(x=1.0, y=2.0, z=3.0),
+        ),
     )
     monkeypatch.setattr(workflow, "analyze_shock_connection", lambda *args, **kwargs: connection)
 
-    result = workflow.build_mms_bow_shock_connection("sample.dat", mms_window_seconds=60.0)
+    result = workflow.build_mms_bow_shock_connection(
+        "sample.dat", param_file="PARAM.in"
+    )
 
     assert result.connection is connection
-    assert result.mms_start == "2023-12-16T11:29:30+00:00"
-    assert result.mms_end == "2023-12-16T11:30:30+00:00"
-    assert calls == ["divergence", "fit", "range", "surface", "smooth", "normals", "mms"]
+    assert result.mms_time == "2023-12-16T11:30:00+00:00"
+    assert np.array_equal(result.mms_position, [1.0, 2.0, 3.0])
+    assert np.array_equal(result.bavg, [1.0, 0.0, 0.0])
+    assert calls == ["divergence", "fit", "range", "surface", "smooth", "normals"]
 
 
 def test_save_workflow_plots_supports_both_3d_formats(tmp_path: Path, monkeypatch) -> None:

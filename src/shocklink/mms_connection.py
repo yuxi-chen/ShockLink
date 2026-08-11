@@ -8,8 +8,7 @@ tool in ``tools/mms_bow_shock_connection.py`` is a thin adapter over this API.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-import math
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
@@ -32,7 +31,7 @@ from shocklink.connectivity import (
 )
 from shocklink.dataset import calc_velocity_divergence
 from shocklink.io import TIME_EVENT_KEY, load_simulation
-from shocklink.mms import average_plotted_values, load_mms_data
+from shocklink.swmf import read_mms_param_file
 from shocklink.utilities import parse_datetime
 
 # Surface extraction supplies this as its Y/Z default.  The downstream normal
@@ -57,8 +56,8 @@ class MMSBowShockConnection:
         plot-output prefix.
     simulation_time
         UTC simulation event timestamp in ISO-8601 form.
-    mms_start, mms_end
-        UTC bounds of the MMS interval used for the averages.
+    mms_time
+        UTC effective time read from the PARAM file used for the averages.
     surface_x
         Smoothed sampled shock X positions indexed by Y then Z.
     normals
@@ -72,8 +71,7 @@ class MMSBowShockConnection:
     connection: ShockConnection
     input_stem: str
     simulation_time: str
-    mms_start: str
-    mms_end: str
+    mms_time: str
     surface_x: NDArray[np.float64]
     normals: NDArray[np.float64]
     mms_position: NDArray[np.float64]
@@ -122,88 +120,10 @@ def _event_time(dataset: pv.DataSet) -> datetime:
     return parse_datetime(str(values[0]))
 
 
-def _datetime_value(value: str | datetime) -> datetime:
-    """Normalize an ISO-like string or datetime to an aware UTC datetime."""
-
-    if isinstance(value, datetime):
-        if value.tzinfo is None:
-            return value.replace(tzinfo=UTC)
-        return value.astimezone(UTC)
-    return parse_datetime(value)
-
-
-def resolve_mms_interval(
-    event_time: str | datetime,
-    *,
-    window_seconds: float = 300.0,
-    start: str | datetime | None = None,
-    end: str | datetime | None = None,
-) -> tuple[str, str]:
-    """Resolve an MMS interval from an event time or explicit bounds.
-
-    Parameters
-    ----------
-    event_time
-        Simulation event timestamp used as the center of an automatic interval.
-    window_seconds
-        Positive total width of the automatic symmetric interval.
-    start, end
-        Optional explicit interval bounds. They must be supplied together and
-        override ``event_time`` and ``window_seconds``.
-
-    Returns
-    -------
-    tuple of str
-        ISO-8601 UTC start and end timestamps suitable for ``load_mms_data``.
-
-    Raises
-    ------
-    ValueError
-        If only one explicit bound is supplied, the bounds are unordered, or
-        the automatic window is not finite and positive.
-    """
-
-    if (start is None) != (end is None):
-        raise ValueError("both start and end must be provided together")
-    if start is not None and end is not None:
-        start_time = _datetime_value(start)
-        end_time = _datetime_value(end)
-        if start_time > end_time:
-            raise ValueError("MMS start time must not be after end time")
-        return start_time.isoformat(), end_time.isoformat()
-
-    try:
-        seconds = float(window_seconds)
-    except (TypeError, ValueError) as error:
-        raise ValueError("MMS window must be positive and finite") from error
-    if not math.isfinite(seconds) or seconds <= 0.0:
-        raise ValueError("MMS window must be positive and finite")
-    center = _datetime_value(event_time)
-    half_window = timedelta(seconds=seconds / 2.0)
-    return (center - half_window).isoformat(), (center + half_window).isoformat()
-
-
-def _average_vector(averages: dict[str, float], prefix: str) -> NDArray[np.float64]:
-    """Return finite X/Y/Z components from an MMS-average mapping."""
-
-    try:
-        values = [float(averages[f"{prefix}_{axis}"]) for axis in "xyz"]
-    except (KeyError, TypeError, ValueError) as error:
-        raise ValueError(f"MMS averages lack finite {prefix} components") from error
-    vector = np.asarray(values, dtype=np.float64)
-    if not np.isfinite(vector).all():
-        raise ValueError(f"MMS averages lack finite {prefix} components")
-    return vector
-
-
 def build_mms_bow_shock_connection(
     simulation_path: str | Path,
     *,
-    mms_window_seconds: float = 300.0,
-    mms_start: str | datetime | None = None,
-    mms_end: str | datetime | None = None,
-    probe: int = 1,
-    mode: Literal["auto", "brst", "fast"] = "auto",
+    param_file: str | Path,
     x_resolution: int = 512,
     chunk_size: int = 1024,
     smoothing_sigma: float = 5.0,
@@ -211,24 +131,16 @@ def build_mms_bow_shock_connection(
 ) -> MMSBowShockConnection:
     """Build the notebook's complete simulation-to-MMS connection result.
 
-    The simulation event time determines the default MMS interval. The function
-    computes velocity divergence, extracts and smooths the bow shock, downloads
-    MMS products in GSM, and connects the averaged field direction to the shock.
+    The PARAM file supplies the effective MMS time, interval-averaged GSM
+    magnetic field, and MMS GSM position. No MMS products are downloaded by
+    this function.
 
     Parameters
     ----------
     simulation_path
         DAT file, VTM file, or directory containing a VTM simulation output.
-    mms_window_seconds
-        Positive duration of the event-centered MMS interval when explicit
-        bounds are omitted.
-    mms_start, mms_end
-        Optional explicit MMS UTC bounds; provide both to override the automatic
-        interval.
-    probe
-        MMS spacecraft number from 1 through 4.
-    mode
-        MMS acquisition mode: automatic selection, burst, or fast.
+    param_file
+        PARAM.in file produced by ``create_swmf_input()``.
     x_resolution
         Number of X samples used for each bow-shock surface column.
     chunk_size
@@ -253,21 +165,12 @@ def build_mms_bow_shock_connection(
         If the simulation cannot support a valid observed shock connection.
     """
 
-    if probe not in range(1, 5):
-        raise ValueError("probe must be between 1 and 4")
-    if mode not in {"auto", "brst", "fast"}:
-        raise ValueError("mode must be one of: auto, brst, fast")
     if len(shockfit_range) != 2:
         raise ValueError("shockfit_range must contain lower and upper bounds")
 
     grid = load_simulation(simulation_path)
     event = _event_time(grid)
-    start, end = resolve_mms_interval(
-        event,
-        window_seconds=mms_window_seconds,
-        start=mms_start,
-        end=mms_end,
-    )
+    param_values = read_mms_param_file(param_file)
     calc_velocity_divergence(grid)
     fit_bow_shock(grid)
     shock_region = extract_shockfit_range(
@@ -288,16 +191,11 @@ def build_mms_bow_shock_connection(
         z=_SURFACE_AXIS,
     )
 
-    mms_data = load_mms_data(
-        start,
-        end,
-        probe=probe,
-        mode=mode,
-        coordinates="gsm",
+    mms_position = np.asarray(
+        [param_values.location.x, param_values.location.y, param_values.location.z],
+        dtype=np.float64,
     )
-    averages = average_plotted_values(mms_data)
-    mms_position = _average_vector(averages, "satellite_location")
-    bavg = _average_vector(averages, "magnetic_field")
+    bavg = np.asarray(param_values.magnetic_field, dtype=np.float64)
     connection = analyze_shock_connection(
         surface_x,
         normals,
@@ -310,8 +208,7 @@ def build_mms_bow_shock_connection(
         connection=connection,
         input_stem=Path(simulation_path).stem,
         simulation_time=event.isoformat(),
-        mms_start=start,
-        mms_end=end,
+        mms_time=param_values.time.isoformat(),
         surface_x=surface_x,
         normals=normals,
         mms_position=mms_position,
@@ -422,6 +319,5 @@ __all__ = [
     "ConnectionPlotPaths",
     "MMSBowShockConnection",
     "build_mms_bow_shock_connection",
-    "resolve_mms_interval",
     "save_mms_bow_shock_connection_plots",
 ]

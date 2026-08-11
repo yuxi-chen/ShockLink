@@ -9,6 +9,7 @@ from shocklink.swmf import (
     MMSLocation,
     SolarWindValues,
     generate_param_file,
+    read_mms_param_file,
     replace_param_values,
 )
 
@@ -88,6 +89,37 @@ def test_generate_param_file_preserves_crlf_line_endings(tmp_path: Path) -> None
     generated = output.read_bytes()
     assert b"\r\n" in generated
     assert b"\n" not in generated.replace(b"\r\n", b"")
+
+
+def test_read_mms_param_file_extracts_time_field_and_location(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "PARAM.in"
+    source.write_text(
+        replace_param_values(
+            TEMPLATE,
+            datetime(2018, 12, 19, 19, 46, 0, 500000, tzinfo=UTC),
+            SolarWindValues(1.0, 2.0, (3.0, 4.0, 5.0), (6.0, 7.0, 8.0)),
+            MMSLocation(10.8, 9.9, -5.5),
+        ),
+        encoding="utf-8",
+    )
+
+    result = read_mms_param_file(source)
+
+    assert result.time == datetime(2018, 12, 19, 19, 46, 0, 500000, tzinfo=UTC)
+    assert result.magnetic_field == (6.0, 7.0, 8.0)
+    assert result.location == MMSLocation(10.8, 9.9, -5.5)
+
+
+def test_read_mms_param_file_rejects_missing_connection_values(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "PARAM.in"
+    source.write_text(TEMPLATE, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="MMS location"):
+        read_mms_param_file(source)
 
 
 def test_replace_param_values_rejects_malformed_sections() -> None:

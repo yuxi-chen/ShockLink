@@ -118,6 +118,8 @@ def test_connection_tool_help_describes_3d_outputs() -> None:
         capture_output=True,
         text=True,
     )
+    assert "--param-file" in result.stdout
+    assert "--mms-window-seconds" not in result.stdout
     assert "--three-d-output" in result.stdout
     assert "png" in result.stdout and "html" in result.stdout
 

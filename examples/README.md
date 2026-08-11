@@ -47,12 +47,14 @@ pip install -e ".[mms]"
 
 ```bash
 PYTHONPATH=src python tools/mms_bow_shock_connection.py data/3d.dat \
-  --output-directory results --three-d-output both --probe 1 --mode auto
+  --param-file results/PARAM_20181219_194600.in \
+  --output-directory results --three-d-output both
 ```
 
-The tool derives a symmetric five-minute MMS interval from the simulation event.
-Use `--mms-start` and `--mms-end` together to override it. The 2D angle map is
-saved as PNG; the 3D view can be saved as PNG, interactive HTML, or both with
+The tool reads the timestamp, averaged magnetic field, and MMS GSM location
+from the PARAM file created by `create_swmf_input.py`; it does not download MMS
+data. The 2D angle map is saved as PNG; the 3D view can be saved as PNG,
+interactive HTML, or both with
 `--three-d-output`. By default, `xxx.dat` produces
 `xxx_shock_connection_2d.png` and `xxx_shock_connection_3d.png`; use
 `--output-prefix` to override the filename prefix. HTML export requires

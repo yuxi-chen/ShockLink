@@ -21,12 +21,18 @@ def _parser() -> argparse.ArgumentParser:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""examples:
-  mms_bow_shock_connection.py data/3d.dat
+  mms_bow_shock_connection.py data/3d.dat --param-file results/PARAM.in
   mms_bow_shock_connection.py data/3d.dat --output-directory results
   mms_bow_shock_connection.py data/3d.dat --three-d-output both
-  mms_bow_shock_connection.py data/3d.dat --mms-start "2023-12-16 11:29:30" --mms-end "2023-12-16 11:30:30""",
+  mms_bow_shock_connection.py data/3d.dat --param-file PARAM.in --three-d-output both""",
     )
     parser.add_argument("path", type=Path, help="simulation DAT file or VTM directory")
+    parser.add_argument(
+        "--param-file",
+        type=Path,
+        required=True,
+        help="PARAM.in file created by create_swmf_input.py",
+    )
     parser.add_argument(
         "--output-directory",
         type=Path,
@@ -45,23 +51,6 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--dpi", type=int, default=600, help="PNG resolution in dots per inch (default: 600)"
-    )
-    parser.add_argument(
-        "--mms-window-seconds",
-        type=float,
-        default=300.0,
-        help="symmetric MMS interval around the simulation event (default: 300)",
-    )
-    parser.add_argument("--mms-start", help="explicit MMS interval start (UTC)")
-    parser.add_argument("--mms-end", help="explicit MMS interval end (UTC)")
-    parser.add_argument(
-        "--probe", type=int, choices=range(1, 5), default=1, help="MMS probe"
-    )
-    parser.add_argument(
-        "--mode",
-        choices=("auto", "brst", "fast"),
-        default="auto",
-        help="MMS data mode (default: auto)",
     )
     parser.add_argument("--x-resolution", type=int, default=512)
     parser.add_argument("--chunk-size", type=int, default=1024)
@@ -96,11 +85,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         result = build_mms_bow_shock_connection(
             args.path,
-            mms_window_seconds=args.mms_window_seconds,
-            mms_start=args.mms_start,
-            mms_end=args.mms_end,
-            probe=args.probe,
-            mode=args.mode,
+            param_file=args.param_file,
             x_resolution=args.x_resolution,
             chunk_size=args.chunk_size,
             smoothing_sigma=args.smoothing_sigma,
@@ -119,7 +104,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     hit = result.connection.selected_intersection
     print(f"Simulation time: {result.simulation_time}")
-    print(f"MMS interval: {result.mms_start} to {result.mms_end} (MMS{args.probe}, GSM)")
+    print(f"MMS PARAM time: {result.mms_time} (GSM)")
     print(f"Bavg [nT]: {result.bavg}")
     print(f"Intersection [R_E]: {hit.point}")
     print(f"Distance from MMS: {hit.distance:.6g} R_E")

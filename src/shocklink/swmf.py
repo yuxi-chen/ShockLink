@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import math
 from pathlib import Path
 import re
@@ -63,8 +63,128 @@ class MMSLocation:
                 raise ValueError(f"MMS location {name} must be finite")
 
 
+@dataclass(frozen=True)
+class MMSParamValues:
+    """MMS connection values embedded in a generated SWMF PARAM file."""
+
+    time: datetime
+    magnetic_field: tuple[float, float, float]
+    location: MMSLocation
+
+
 def _format_number(value: float) -> str:
     return f"{value:.12g}"
+
+
+def _param_section_values(
+    lines: list[str], marker: str, fields: tuple[str, ...]
+) -> dict[str, str]:
+    """Read scalar values from one named PARAM section."""
+
+    markers = [index for index, line in enumerate(lines) if line.strip() == marker]
+    if len(markers) != 1:
+        raise ValueError(f"PARAM file must contain exactly one {marker} section")
+    start = markers[0] + 1
+    end = next(
+        (index for index in range(start, len(lines)) if lines[index].lstrip().startswith("#")),
+        len(lines),
+    )
+    values: dict[str, str] = {}
+    for field in fields:
+        matches = [
+            line.split()[0]
+            for line in lines[start:end]
+            if re.match(rf"^\s*\S+\s+{re.escape(field)}(?:\s|$)", line)
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"PARAM section {marker} must contain exactly one {field}")
+        values[field] = matches[0]
+    return values
+
+
+def _param_float(value: str, name: str) -> float:
+    try:
+        number = float(value)
+    except ValueError as error:
+        raise ValueError(f"PARAM value {name} must be numeric") from error
+    if not math.isfinite(number):
+        raise ValueError(f"PARAM value {name} must be finite")
+    return number
+
+
+def read_mms_param_file(path: str | Path) -> MMSParamValues:
+    """Read the MMS timestamp, averaged field, and location from PARAM.in.
+
+    Parameters
+    ----------
+    path
+        SWMF PARAM file produced by :func:`shocklink.mms_swmf.create_swmf_input`.
+
+    Returns
+    -------
+    MMSParamValues
+        UTC effective time, averaged GSM magnetic field in nT, and MMS GSM
+        position in Earth radii.
+
+    Raises
+    ------
+    ValueError
+        If the file is unreadable or lacks valid required fields.
+    """
+
+    source = Path(path)
+    try:
+        lines = source.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as error:
+        raise ValueError(f"could not read PARAM file {source}: {error}") from error
+
+    start_values = _param_section_values(
+        lines,
+        "#STARTTIME",
+        ("iYear", "iMonth", "iDay", "iHour", "iMinute", "iSecond", "FracSecond"),
+    )
+    try:
+        calendar = {
+            "year": int(_param_float(start_values["iYear"], "iYear")),
+            "month": int(_param_float(start_values["iMonth"], "iMonth")),
+            "day": int(_param_float(start_values["iDay"], "iDay")),
+            "hour": int(_param_float(start_values["iHour"], "iHour")),
+            "minute": int(_param_float(start_values["iMinute"], "iMinute")),
+            "second": int(_param_float(start_values["iSecond"], "iSecond")),
+        }
+        fraction = _param_float(start_values["FracSecond"], "FracSecond")
+        if not 0.0 <= fraction < 1.0:
+            raise ValueError("PARAM value FracSecond must be in [0, 1)")
+        timestamp = datetime(**calendar, tzinfo=UTC) + timedelta(seconds=fraction)
+    except (OverflowError, TypeError, ValueError) as error:
+        if isinstance(error, ValueError) and str(error).startswith("PARAM value"):
+            raise
+        raise ValueError("PARAM #STARTTIME values do not form a valid UTC time") from error
+
+    solar_values = _param_section_values(
+        lines,
+        "#SOLARWIND",
+        ("SwBxDim", "SwByDim", "SwBzDim"),
+    )
+    magnetic_field = tuple(
+        _param_float(solar_values[f"SwB{axis}Dim"], f"SwB{axis}Dim")
+        for axis in "xyz"
+    )
+    try:
+        location_values = _param_section_values(
+            lines,
+            "#STARTTIME",
+            ("GSM_X", "GSM_Y", "GSM_Z"),
+        )
+    except ValueError as error:
+        raise ValueError(f"MMS location is missing or invalid: {error}") from error
+    location = MMSLocation(
+        *(
+            _param_float(location_values[f"GSM_{axis}"], f"GSM_{axis}")
+            for axis in "XYZ"
+        )
+    )
+    return MMSParamValues(timestamp, magnetic_field, location)
 
 
 def _replace_section(
