@@ -50,6 +50,10 @@ Select 3D output with `--three-d-output png`, `html`, or `both`. HTML export
 requires `pip install "pyvista[jupyter]"`. Use `--mms-start` and `--mms-end`
 together to override the event-derived interval.
 
+By default, an input named `xxx.dat` produces
+`xxx_shock_connection_2d.png` and `xxx_shock_connection_3d.png` in the output
+directory. Supply `--output-prefix` to choose another prefix.
+
 Python callers can use the reusable source interface directly:
 
 ```python

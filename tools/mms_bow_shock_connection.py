@@ -35,8 +35,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--output-prefix",
-        default="shock_connection",
-        help="prefix for output filenames (default: shock_connection)",
+        help="prefix for output filenames (default: input stem plus _shock_connection)",
     )
     parser.add_argument(
         "--three-d-output",

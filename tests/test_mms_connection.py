@@ -126,3 +126,25 @@ def test_save_workflow_plots_supports_both_3d_formats(tmp_path: Path, monkeypatc
     assert paths.three_d_png == tmp_path / "sample_3d.png"
     assert paths.three_d_html == tmp_path / "sample_3d.html"
     assert all(path.is_file() for path in (paths.two_d, paths.three_d_png, paths.three_d_html))
+
+
+def test_save_workflow_plots_defaults_to_input_stem(tmp_path: Path, monkeypatch) -> None:
+    class Plotter:
+        def screenshot(self, path, **kwargs):
+            Path(path).write_bytes(b"png")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(workflow, "plot_shock_angle_contour", lambda *args, **kwargs: (Figure(), object()))
+    monkeypatch.setattr(workflow, "plot_shock_connection_3d", lambda *args, **kwargs: Plotter())
+    result = SimpleNamespace(
+        connection=object(),
+        simulation_time="2023-12-16T11:30:00+00:00",
+        input_stem="sample",
+    )
+
+    paths = workflow.save_mms_bow_shock_connection_plots(result, tmp_path)
+
+    assert paths.two_d == tmp_path / "sample_shock_connection_2d.png"
+    assert paths.three_d_png == tmp_path / "sample_shock_connection_3d.png"

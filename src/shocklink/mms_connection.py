@@ -52,6 +52,9 @@ class MMSBowShockConnection:
     ----------
     connection
         Geometric field-line/shock intersection result.
+    input_stem
+        Original simulation filename without its suffix; used as the default
+        plot-output prefix.
     simulation_time
         UTC simulation event timestamp in ISO-8601 form.
     mms_start, mms_end
@@ -67,6 +70,7 @@ class MMSBowShockConnection:
     """
 
     connection: ShockConnection
+    input_stem: str
     simulation_time: str
     mms_start: str
     mms_end: str
@@ -303,14 +307,15 @@ def build_mms_bow_shock_connection(
         bavg=bavg,
     )
     return MMSBowShockConnection(
-        connection,
-        event.isoformat(),
-        start,
-        end,
-        surface_x,
-        normals,
-        mms_position,
-        bavg,
+        connection=connection,
+        input_stem=Path(simulation_path).stem,
+        simulation_time=event.isoformat(),
+        mms_start=start,
+        mms_end=end,
+        surface_x=surface_x,
+        normals=normals,
+        mms_position=mms_position,
+        bavg=bavg,
     )
 
 
@@ -318,7 +323,7 @@ def save_mms_bow_shock_connection_plots(
     result: MMSBowShockConnection,
     output_directory: str | Path,
     *,
-    output_prefix: str = "shock_connection",
+    output_prefix: str | None = None,
     three_d_output: Literal["png", "html", "both"] = "png",
     dpi: int = 300,
 ) -> ConnectionPlotPaths:
@@ -336,6 +341,7 @@ def save_mms_bow_shock_connection_plots(
         Directory created as needed to contain the generated files.
     output_prefix
         Filename prefix before ``_2d.png``, ``_3d.png``, and ``_3d.html``.
+        When omitted, use ``{input_stem}_shock_connection``.
     three_d_output
         Requested 3D format: static PNG, interactive HTML, or both.
     dpi
@@ -356,21 +362,22 @@ def save_mms_bow_shock_connection_plots(
 
     if three_d_output not in {"png", "html", "both"}:
         raise ValueError("three_d_output must be one of: png, html, both")
-    if not output_prefix.strip():
+    if output_prefix is not None and not output_prefix.strip():
         raise ValueError("output_prefix must not be empty")
     if not isinstance(dpi, int) or dpi <= 0:
         raise ValueError("dpi must be a positive integer")
 
     destination = Path(output_directory)
     destination.mkdir(parents=True, exist_ok=True)
-    two_d_path = destination / f"{output_prefix}_2d.png"
+    prefix = output_prefix or f"{result.input_stem}_shock_connection"
+    two_d_path = destination / f"{prefix}_2d.png"
     three_d_png = (
-        destination / f"{output_prefix}_3d.png"
+        destination / f"{prefix}_3d.png"
         if three_d_output in {"png", "both"}
         else None
     )
     three_d_html = (
-        destination / f"{output_prefix}_3d.html"
+        destination / f"{prefix}_3d.html"
         if three_d_output in {"html", "both"}
         else None
     )
