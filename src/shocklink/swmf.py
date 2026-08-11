@@ -69,7 +69,7 @@ class MMSParamValues:
 
     time: datetime
     magnetic_field: tuple[float, float, float]
-    location: MMSLocation
+    location: MMSLocation | None
 
 
 def _format_number(value: float) -> str:
@@ -112,20 +112,32 @@ def _param_float(value: str, name: str) -> float:
     return number
 
 
-def _param_any_values(lines: list[str], fields: tuple[str, ...]) -> dict[str, str]:
-    """Read uniquely labeled scalar values from a PARAM file."""
+def _mms_location_values(lines: list[str]) -> dict[str, str] | None:
+    """Read coordinates following the explicit MMS-location comment."""
 
+    markers = [
+        index
+        for index, line in enumerate(lines)
+        if line.strip().startswith("! MMS Location at ")
+    ]
+    if not markers:
+        return None
+    if len(markers) != 1:
+        raise ValueError("PARAM file must contain at most one MMS location block")
     values: dict[str, str] = {}
-    for field in fields:
-        matches = [
-            line.split()[0]
-            for line in lines
-            if re.match(rf"^\s*\S+\s+{re.escape(field)}(?:\s|$)", line)
-        ]
-        if len(matches) != 1:
-            raise ValueError(f"PARAM file must contain exactly one {field}")
-        values[field] = matches[0]
-    return values
+    for line in lines[markers[0] + 1 :]:
+        match = re.match(r"^\s*(\S+)\s+(GSM_[XYZ])(?:\s|$)", line)
+        if match:
+            field = match.group(2)
+            if field in values:
+                raise ValueError(f"PARAM MMS location contains duplicate {field}")
+            values[field] = match.group(1)
+            if len(values) == 3:
+                return values
+        if line.lstrip().startswith("#"):
+            break
+    missing = [field for field in ("GSM_X", "GSM_Y", "GSM_Z") if field not in values]
+    raise ValueError(f"PARAM MMS location is missing: {', '.join(missing)}")
 
 
 def read_mms_param_file(path: str | Path) -> MMSParamValues:
@@ -186,26 +198,15 @@ def read_mms_param_file(path: str | Path) -> MMSParamValues:
         _param_float(solar_values[f"SwB{axis}Dim"], f"SwB{axis}Dim")
         for axis in "xyz"
     )
-    try:
-        location_values = _param_section_values(
-            lines,
-            "#STARTTIME",
-            ("GSM_X", "GSM_Y", "GSM_Z"),
+    location_values = _mms_location_values(lines)
+    location = None
+    if location_values is not None:
+        location = MMSLocation(
+            *(
+                _param_float(location_values[f"GSM_{axis}"], f"GSM_{axis}")
+                for axis in "XYZ"
+            )
         )
-    except ValueError:
-        # Some PARAM templates place the MMS coordinates outside the
-        # STARTTIME section.  They are still unambiguous because GSM_X/Y/Z
-        # labels are unique; use them as the compatibility fallback.
-        try:
-            location_values = _param_any_values(lines, ("GSM_X", "GSM_Y", "GSM_Z"))
-        except ValueError as error:
-            raise ValueError(f"MMS location is missing or invalid: {error}") from error
-    location = MMSLocation(
-        *(
-            _param_float(location_values[f"GSM_{axis}"], f"GSM_{axis}")
-            for axis in "XYZ"
-        )
-    )
     return MMSParamValues(timestamp, magnetic_field, location)
 
 

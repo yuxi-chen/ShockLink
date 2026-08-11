@@ -70,6 +70,26 @@ def test_build_workflow_uses_values_from_param_file(monkeypatch) -> None:
     assert np.array_equal(result.bavg, [1.0, 0.0, 0.0])
     assert calls == ["divergence", "fit", "range", "surface", "smooth", "normals"]
 
+    monkeypatch.setattr(
+        workflow,
+        "read_mms_param_file",
+        lambda path: SimpleNamespace(
+            time=datetime(2023, 12, 16, 11, 30, tzinfo=UTC),
+            magnetic_field=(1.0, 0.0, 0.0),
+            location=None,
+        ),
+    )
+    monkeypatch.setattr(workflow, "load_mms_data", lambda *args, **kwargs: "mms-data")
+    monkeypatch.setattr(
+        workflow,
+        "position_at_time_earth_radii",
+        lambda data, time: (4.0, 5.0, 6.0),
+    )
+    fallback = workflow.build_mms_bow_shock_connection(
+        "sample.dat", param_file="PARAM.in"
+    )
+    assert np.array_equal(fallback.mms_position, [4.0, 5.0, 6.0])
+
 
 def test_save_workflow_plots_supports_both_3d_formats(tmp_path: Path, monkeypatch) -> None:
     class Plotter:

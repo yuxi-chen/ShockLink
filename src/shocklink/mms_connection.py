@@ -8,7 +8,7 @@ tool in ``tools/mms_bow_shock_connection.py`` is a thin adapter over this API.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -31,6 +31,7 @@ from shocklink.connectivity import (
 )
 from shocklink.dataset import calc_velocity_divergence
 from shocklink.io import TIME_EVENT_KEY, load_simulation
+from shocklink.mms import load_mms_data, position_at_time_earth_radii
 from shocklink.swmf import read_mms_param_file
 from shocklink.utilities import parse_datetime
 
@@ -38,6 +39,7 @@ from shocklink.utilities import parse_datetime
 # and intersection routines still need the matching coordinates explicitly.
 _SURFACE_AXIS = np.linspace(-30.0, 30.0, 241)
 _SURFACE_AXIS.setflags(write=False)
+_MMS_POSITION_WINDOW_SECONDS = 300.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,9 +133,10 @@ def build_mms_bow_shock_connection(
 ) -> MMSBowShockConnection:
     """Build the notebook's complete simulation-to-MMS connection result.
 
-    The PARAM file supplies the effective MMS time, interval-averaged GSM
-    magnetic field, and MMS GSM position. No MMS products are downloaded by
-    this function.
+    The PARAM file supplies the effective MMS time and interval-averaged GSM
+    magnetic field. If it contains an explicit ``! MMS Location at`` block,
+    that position is used; otherwise MMS data are downloaded to interpolate
+    the GSM position at the PARAM timestamp.
 
     Parameters
     ----------
@@ -191,10 +194,21 @@ def build_mms_bow_shock_connection(
         z=_SURFACE_AXIS,
     )
 
-    mms_position = np.asarray(
-        [param_values.location.x, param_values.location.y, param_values.location.z],
-        dtype=np.float64,
-    )
+    if param_values.location is None:
+        half_window = timedelta(seconds=_MMS_POSITION_WINDOW_SECONDS / 2.0)
+        mms_data = load_mms_data(
+            (param_values.time - half_window).isoformat(),
+            (param_values.time + half_window).isoformat(),
+            coordinates="gsm",
+        )
+        location = position_at_time_earth_radii(mms_data, param_values.time)
+    else:
+        location = (
+            param_values.location.x,
+            param_values.location.y,
+            param_values.location.z,
+        )
+    mms_position = np.asarray(location, dtype=np.float64)
     bavg = np.asarray(param_values.magnetic_field, dtype=np.float64)
     connection = analyze_shock_connection(
         surface_x,

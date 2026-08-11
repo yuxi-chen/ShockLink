@@ -112,17 +112,16 @@ def test_read_mms_param_file_extracts_time_field_and_location(
     assert result.location == MMSLocation(10.8, 9.9, -5.5)
 
 
-def test_read_mms_param_file_rejects_missing_connection_values(
+def test_read_mms_param_file_allows_missing_mms_location(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "PARAM.in"
     source.write_text(TEMPLATE, encoding="utf-8")
 
-    with pytest.raises(ValueError, match="MMS location"):
-        read_mms_param_file(source)
+    assert read_mms_param_file(source).location is None
 
 
-def test_read_mms_param_file_falls_back_to_gsm_location_outside_starttime(
+def test_read_mms_param_file_ignores_unmarked_gsm_coordinates(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "PARAM.in"
@@ -133,14 +132,14 @@ def test_read_mms_param_file_falls_back_to_gsm_location_outside_starttime(
             SolarWindValues(1.0, 2.0, (3.0, 4.0, 5.0), (6.0, 7.0, 8.0)),
         ).replace(
             "#SOLARWIND\n",
-            "#MMSLOCATION\n10.8 GSM_X\n9.9 GSM_Y\n-5.5 GSM_Z\n#SOLARWIND\n",
+            "10.8 GSM_X\n9.9 GSM_Y\n-5.5 GSM_Z\n#SOLARWIND\n",
         ),
         encoding="utf-8",
     )
 
     result = read_mms_param_file(source)
 
-    assert result.location == MMSLocation(10.8, 9.9, -5.5)
+    assert result.location is None
 
 
 def test_replace_param_values_rejects_malformed_sections() -> None:
