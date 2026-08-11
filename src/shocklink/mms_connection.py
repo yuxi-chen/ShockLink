@@ -1,4 +1,9 @@
-"""Reusable MMS-to-bow-shock connection workflow."""
+"""Build and export MMS magnetic connections to simulated bow shocks.
+
+The public functions in this module reproduce the end-to-end workflow from the
+MMS connection notebook without exposing command-line concerns.  The companion
+tool in ``tools/mms_bow_shock_connection.py`` is a thin adapter over this API.
+"""
 
 from __future__ import annotations
 
@@ -30,13 +35,36 @@ from shocklink.io import TIME_EVENT_KEY, load_simulation
 from shocklink.mms import average_plotted_values, load_mms_data
 from shocklink.utilities import parse_datetime
 
+# Surface extraction supplies this as its Y/Z default.  The downstream normal
+# and intersection routines still need the matching coordinates explicitly.
 _SURFACE_AXIS = np.linspace(-30.0, 30.0, 241)
 _SURFACE_AXIS.setflags(write=False)
 
 
 @dataclass(frozen=True, slots=True)
 class MMSBowShockConnection:
-    """Analysis result and metadata for one MMS bow-shock connection."""
+    """Analysis result and metadata for one MMS bow-shock connection.
+
+    The array attributes are defensive, read-only float64 copies, so callers
+    can safely retain a result while passing derived arrays elsewhere.
+
+    Attributes
+    ----------
+    connection
+        Geometric field-line/shock intersection result.
+    simulation_time
+        UTC simulation event timestamp in ISO-8601 form.
+    mms_start, mms_end
+        UTC bounds of the MMS interval used for the averages.
+    surface_x
+        Smoothed sampled shock X positions indexed by Y then Z.
+    normals
+        Outward shock normals corresponding to ``surface_x``.
+    mms_position
+        Interval-averaged MMS GSM position in Earth radii.
+    bavg
+        Interval-averaged MMS magnetic-field vector in GSM nT.
+    """
 
     connection: ShockConnection
     simulation_time: str
@@ -61,7 +89,18 @@ class MMSBowShockConnection:
 
 @dataclass(frozen=True, slots=True)
 class ConnectionPlotPaths:
-    """Paths written by :func:`save_mms_bow_shock_connection_plots`."""
+    """Paths written by :func:`save_mms_bow_shock_connection_plots`.
+
+    Attributes
+    ----------
+    two_d
+        Saved PNG contour of the shock-normal angle.
+    three_d_png
+        Saved static 3D PNG, or ``None`` when PNG was not requested.
+    three_d_html
+        Saved interactive 3D HTML scene, or ``None`` when HTML was not
+        requested.
+    """
 
     two_d: Path
     three_d_png: Path | None
@@ -69,6 +108,8 @@ class ConnectionPlotPaths:
 
 
 def _event_time(dataset: pv.DataSet) -> datetime:
+    """Return the single normalized simulation event time from field data."""
+
     if TIME_EVENT_KEY not in dataset.field_data:
         raise ValueError(f"simulation lacks field_data[{TIME_EVENT_KEY!r}]")
     values = np.asarray(dataset.field_data[TIME_EVENT_KEY]).reshape(-1)
@@ -78,6 +119,8 @@ def _event_time(dataset: pv.DataSet) -> datetime:
 
 
 def _datetime_value(value: str | datetime) -> datetime:
+    """Normalize an ISO-like string or datetime to an aware UTC datetime."""
+
     if isinstance(value, datetime):
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
@@ -92,7 +135,29 @@ def resolve_mms_interval(
     start: str | datetime | None = None,
     end: str | datetime | None = None,
 ) -> tuple[str, str]:
-    """Resolve an MMS interval from an event time or explicit bounds."""
+    """Resolve an MMS interval from an event time or explicit bounds.
+
+    Parameters
+    ----------
+    event_time
+        Simulation event timestamp used as the center of an automatic interval.
+    window_seconds
+        Positive total width of the automatic symmetric interval.
+    start, end
+        Optional explicit interval bounds. They must be supplied together and
+        override ``event_time`` and ``window_seconds``.
+
+    Returns
+    -------
+    tuple of str
+        ISO-8601 UTC start and end timestamps suitable for ``load_mms_data``.
+
+    Raises
+    ------
+    ValueError
+        If only one explicit bound is supplied, the bounds are unordered, or
+        the automatic window is not finite and positive.
+    """
 
     if (start is None) != (end is None):
         raise ValueError("both start and end must be provided together")
@@ -115,6 +180,8 @@ def resolve_mms_interval(
 
 
 def _average_vector(averages: dict[str, float], prefix: str) -> NDArray[np.float64]:
+    """Return finite X/Y/Z components from an MMS-average mapping."""
+
     try:
         values = [float(averages[f"{prefix}_{axis}"]) for axis in "xyz"]
     except (KeyError, TypeError, ValueError) as error:
@@ -138,7 +205,49 @@ def build_mms_bow_shock_connection(
     smoothing_sigma: float = 5.0,
     shockfit_range: tuple[float, float] = (-5.0, 5.0),
 ) -> MMSBowShockConnection:
-    """Build the notebook's complete simulation-to-MMS connection result."""
+    """Build the notebook's complete simulation-to-MMS connection result.
+
+    The simulation event time determines the default MMS interval. The function
+    computes velocity divergence, extracts and smooths the bow shock, downloads
+    MMS products in GSM, and connects the averaged field direction to the shock.
+
+    Parameters
+    ----------
+    simulation_path
+        DAT file, VTM file, or directory containing a VTM simulation output.
+    mms_window_seconds
+        Positive duration of the event-centered MMS interval when explicit
+        bounds are omitted.
+    mms_start, mms_end
+        Optional explicit MMS UTC bounds; provide both to override the automatic
+        interval.
+    probe
+        MMS spacecraft number from 1 through 4.
+    mode
+        MMS acquisition mode: automatic selection, burst, or fast.
+    x_resolution
+        Number of X samples used for each bow-shock surface column.
+    chunk_size
+        Number of Y-Z columns sampled in one batch.
+    smoothing_sigma
+        Gaussian smoothing width in surface-grid cells.
+    shockfit_range
+        Lower and upper residual bounds used to retain cells near the fitted
+        bow shock.
+
+    Returns
+    -------
+    MMSBowShockConnection
+        Connection geometry, source intervals, sampled arrays, and average MMS
+        vectors.
+
+    Raises
+    ------
+    ValueError
+        If public workflow options or required MMS averages are invalid.
+    DatasetError, GeometryError
+        If the simulation cannot support a valid observed shock connection.
+    """
 
     if probe not in range(1, 5):
         raise ValueError("probe must be between 1 and 4")
@@ -213,7 +322,37 @@ def save_mms_bow_shock_connection_plots(
     three_d_output: Literal["png", "html", "both"] = "png",
     dpi: int = 300,
 ) -> ConnectionPlotPaths:
-    """Save the 2D angle map and selected 3D connection views."""
+    """Save the 2D angle map and selected 3D connection views.
+
+    The 2D angle contour is always written as PNG. The 3D scene is rendered
+    off-screen so command-line use does not require a display; HTML output uses
+    PyVista's Trame exporter.
+
+    Parameters
+    ----------
+    result
+        Completed connection workflow to render.
+    output_directory
+        Directory created as needed to contain the generated files.
+    output_prefix
+        Filename prefix before ``_2d.png``, ``_3d.png``, and ``_3d.html``.
+    three_d_output
+        Requested 3D format: static PNG, interactive HTML, or both.
+    dpi
+        Positive resolution for the 2D PNG.
+
+    Returns
+    -------
+    ConnectionPlotPaths
+        Paths of the files written during this call.
+
+    Raises
+    ------
+    ValueError
+        If output options are invalid.
+    RuntimeError
+        If interactive HTML output is requested without Trame installed.
+    """
 
     if three_d_output not in {"png", "html", "both"}:
         raise ValueError("three_d_output must be one of: png, html, both")

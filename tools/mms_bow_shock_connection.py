@@ -15,6 +15,8 @@ from shocklink.mms_connection import (
 
 
 def _parser() -> argparse.ArgumentParser:
+    """Create the command-line interface for the reusable workflow API."""
+
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -76,7 +78,20 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the connection workflow and return its process status."""
+    """Run the connection workflow and return its process status.
+
+    Parameters
+    ----------
+    argv
+        Optional command-line arguments excluding the executable name. Omit to
+        parse the process command line.
+
+    Returns
+    -------
+    int
+        Zero after all requested plots are written; one after a workflow or
+        export error has been reported on standard error.
+    """
 
     args = _parser().parse_args(argv)
     try:
