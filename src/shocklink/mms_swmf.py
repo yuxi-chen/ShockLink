@@ -120,6 +120,20 @@ def create_swmf_input(
     ValueError
         If ``probe`` or ``mode`` is invalid, or MMS values/timestamps are
         invalid.
+
+    Examples
+    --------
+    Create the SWMF input and save the MMS quick-look plot beside it::
+
+        output = create_swmf_input(
+            "2018-12-19 19:40:00",
+            "2018-12-19 19:52:00",
+            output="results/PARAM.in",
+            plot=True,
+        )
+
+    For this interval, the plot is saved as
+    ``results/mms_20181219_194000_20181219_195200.png``.
     """
     if probe not in range(1, 5):
         raise ValueError("probe must be between 1 and 4")
