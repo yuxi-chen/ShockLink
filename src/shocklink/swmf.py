@@ -112,6 +112,22 @@ def _param_float(value: str, name: str) -> float:
     return number
 
 
+def _param_any_values(lines: list[str], fields: tuple[str, ...]) -> dict[str, str]:
+    """Read uniquely labeled scalar values from a PARAM file."""
+
+    values: dict[str, str] = {}
+    for field in fields:
+        matches = [
+            line.split()[0]
+            for line in lines
+            if re.match(rf"^\s*\S+\s+{re.escape(field)}(?:\s|$)", line)
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"PARAM file must contain exactly one {field}")
+        values[field] = matches[0]
+    return values
+
+
 def read_mms_param_file(path: str | Path) -> MMSParamValues:
     """Read the MMS timestamp, averaged field, and location from PARAM.in.
 
@@ -176,8 +192,14 @@ def read_mms_param_file(path: str | Path) -> MMSParamValues:
             "#STARTTIME",
             ("GSM_X", "GSM_Y", "GSM_Z"),
         )
-    except ValueError as error:
-        raise ValueError(f"MMS location is missing or invalid: {error}") from error
+    except ValueError:
+        # Some PARAM templates place the MMS coordinates outside the
+        # STARTTIME section.  They are still unambiguous because GSM_X/Y/Z
+        # labels are unique; use them as the compatibility fallback.
+        try:
+            location_values = _param_any_values(lines, ("GSM_X", "GSM_Y", "GSM_Z"))
+        except ValueError as error:
+            raise ValueError(f"MMS location is missing or invalid: {error}") from error
     location = MMSLocation(
         *(
             _param_float(location_values[f"GSM_{axis}"], f"GSM_{axis}")
