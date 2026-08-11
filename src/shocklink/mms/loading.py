@@ -74,9 +74,7 @@ def _load_pyspedas_products(
     try:
         from pyspedas.projects import mms
     except ImportError as error:  # pragma: no cover - optional dependency
-        raise ImportError(
-            "MMS analysis requires pySPEDAS; install it with `pip install -e '.[mms]'`."
-        ) from error
+        raise ImportError("MMS analysis requires the installed pySPEDAS package.") from error
 
     trange = [start, end]
     probe_id = str(probe)
@@ -181,9 +179,7 @@ def _convert_vector_coordinates(
     try:
         from pyspedas import cotrans
     except ImportError as error:  # pragma: no cover - optional dependency
-        raise ImportError(
-            "GSM conversion requires pySPEDAS; install it with `pip install -e '.[mms]'`."
-        ) from error
+        raise ImportError("GSM conversion requires the installed pySPEDAS package.") from error
 
     for product_name, source in available:
         destination = _converted_variable_name(source, coordinates)

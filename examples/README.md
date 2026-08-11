@@ -39,7 +39,7 @@ checkpoints are not committed.
 
 ### MMS–bow-shock connection
 
-Install the optional MMS dependencies and read [the algorithm guide](../docs/algorithms.md), then run:
+Install ShockLink (pySPEDAS is included in the base installation) and read [the algorithm guide](../docs/algorithms.md), then run:
 
 ```bash
 pip install -e ".[mms]"
@@ -73,7 +73,7 @@ PYTHONPATH=src python examples/create_swmf_inputs.py
 The script creates one `PARAM_*.in` file per `(start, end)` interval and saves
 the MMS quick-look plot beside each file by default.
 
-Install the optional MMS tools, then launch the notebook for a short MMS
+Install the optional MMS plotting tools, then launch the notebook for a short MMS
 interval. Automatic mode prefers burst data and uses fast survey data when
 burst is not available:
 

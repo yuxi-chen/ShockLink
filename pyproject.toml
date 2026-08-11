@@ -22,6 +22,7 @@ classifiers = [
 ]
 dependencies = [
   "numpy>=1.26",
+  "pyspedas>=1.7",
   "pyvista>=0.48",
   "scipy>=1.14.1",
 ]
@@ -33,7 +34,6 @@ Documentation = "https://github.com/yuxi-chen/ShockLink/blob/main/docs/algorithm
 [project.optional-dependencies]
 mms = [
   "matplotlib>=3.8",
-  "pyspedas>=1.7",
 ]
 test = [
   "nbformat>=5",

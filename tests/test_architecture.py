@@ -15,14 +15,13 @@ from shocklink.constants import CARTESIAN_COMPONENTS, EARTH_RADIUS_KM, EV_TO_K
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_package_metadata_and_optional_dependencies_are_declared() -> None:
+def test_package_metadata_and_mms_dependencies_are_declared() -> None:
     assert shocklink.__version__ == version("shocklink")
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text())
     assert metadata["project"]["readme"] == "README.md"
     assert metadata["project"]["urls"]["Documentation"].endswith("docs/algorithms.md")
-    mms_dependencies = metadata["project"]["optional-dependencies"]["mms"]
-    assert any(dependency.startswith("pyspedas") for dependency in mms_dependencies)
-    assert any(dependency.startswith("matplotlib") for dependency in mms_dependencies)
+    assert any(dependency.startswith("pyspedas") for dependency in metadata["project"]["dependencies"])
+    assert "matplotlib>=3.8" in metadata["project"]["optional-dependencies"]["mms"]
 
 
 def test_import_does_not_load_optional_paraview() -> None:

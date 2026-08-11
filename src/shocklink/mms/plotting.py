@@ -68,7 +68,7 @@ def plot_mms_data(data: MMSData):
         import matplotlib.pyplot as plt
     except ImportError as error:  # pragma: no cover - optional dependency
         raise ImportError(
-            "MMS plotting requires Matplotlib; install it with `pip install -e '.[mms]'`."
+            "MMS plotting requires Matplotlib; install the optional `mms` extra."
         ) from error
 
     series = _resolve_series(data)

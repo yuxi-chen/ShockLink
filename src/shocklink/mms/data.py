@@ -42,9 +42,7 @@ def _resolve_series(data: MMSData) -> dict[str, ResolvedSeries]:
     try:
         from pytplot import get_data
     except ImportError as error:  # pragma: no cover - optional dependency
-        raise ImportError(
-            "MMS analysis requires pySPEDAS; install it with `pip install -e '.[mms]'`."
-        ) from error
+        raise ImportError("MMS analysis requires the installed pySPEDAS package.") from error
 
     bounds = (
         TimeBounds.from_strings(data.start, data.end)

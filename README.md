@@ -54,8 +54,8 @@ lists the notebook and command-line examples.
 
 ## SWMF input generation
 
-Install ShockLink with the optional MMS dependencies from a development
-checkout:
+Install ShockLink with the optional MMS plotting dependencies from a development
+checkout; pySPEDAS is included in the base installation:
 
 ```bash
 pip install -e ".[mms]"
