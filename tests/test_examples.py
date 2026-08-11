@@ -3,8 +3,11 @@ from __future__ import annotations
 import ast
 import inspect
 import os
-from pathlib import Path
+import runpy
 import subprocess
+import sys
+from pathlib import Path
+from types import ModuleType
 
 import nbformat
 import pytest
@@ -17,7 +20,6 @@ from shocklink.bowshock import (
 )
 from shocklink.dataset import calc_velocity_divergence
 from shocklink.io import load_simulation
-
 
 ROOT = Path(__file__).resolve().parents[1]
 ALGORITHMS = ROOT / "docs/algorithms.md"
@@ -133,8 +135,12 @@ def test_swmf_tool_is_thin_and_helpful() -> None:
     assert "raise SystemExit(main())" in source
 
     result = subprocess.run(
-        [str(tool), "-h"], cwd=ROOT, env=_tool_environment(), check=True,
-        capture_output=True, text=True,
+        [str(tool), "-h"],
+        cwd=ROOT,
+        env=_tool_environment(),
+        check=True,
+        capture_output=True,
+        text=True,
     )
     for option in (
         "--mms-start",
@@ -147,3 +153,35 @@ def test_swmf_tool_is_thin_and_helpful() -> None:
     ):
         assert option in result.stdout
     assert "PARAM_YYYYMMDD_HHMMSS.in" in result.stdout
+
+
+def test_create_swmf_inputs_uses_writable_local_dependency_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name in ("MPLBACKEND", "MPLCONFIGDIR", "SPACEPY", "SPEDAS_DATA_DIR"):
+        monkeypatch.delenv(name, raising=False)
+
+    calls: list[Path] = []
+    dependency = ModuleType("shocklink.mms_swmf")
+
+    def create_swmf_input(_start: str, _end: str, *, output: Path, **_kwargs) -> Path:
+        calls.append(output)
+        return output
+
+    dependency.create_swmf_input = create_swmf_input  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "shocklink.mms_swmf", dependency)
+    namespace = runpy.run_path(str(ROOT / "examples/create_swmf_inputs.py"))
+
+    output_directory = tmp_path / "results"
+    outputs = namespace["create_inputs"](
+        [("2023-12-16 08:30:00", "2023-12-16 11:00:00")],
+        output_directory=output_directory,
+        plot=False,
+    )
+
+    cache = output_directory / ".cache"
+    assert os.environ["MPLBACKEND"] == "Agg"
+    assert Path(os.environ["MPLCONFIGDIR"]) == cache / "matplotlib"
+    assert Path(os.environ["SPACEPY"]) == cache / "spacepy"
+    assert Path(os.environ["SPEDAS_DATA_DIR"]) == cache / "spedas"
+    assert outputs == calls
