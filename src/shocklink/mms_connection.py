@@ -325,7 +325,7 @@ def save_mms_bow_shock_connection_plots(
     *,
     output_prefix: str | None = None,
     three_d_output: Literal["png", "html", "both"] = "png",
-    dpi: int = 300,
+    dpi: int = 600,
 ) -> ConnectionPlotPaths:
     """Save the 2D angle map and selected 3D connection views.
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from inspect import signature
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,6 +10,10 @@ import pytest
 from matplotlib.figure import Figure
 
 import shocklink.mms_connection as workflow
+
+
+def test_connection_plot_dpi_defaults_to_600() -> None:
+    assert signature(workflow.save_mms_bow_shock_connection_plots).parameters["dpi"].default == 600
 
 
 def test_resolve_mms_interval_defaults_to_symmetric_window() -> None:

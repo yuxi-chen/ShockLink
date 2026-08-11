@@ -44,7 +44,7 @@ def _parser() -> argparse.ArgumentParser:
         help="3D output format (default: png; html requires Trame)",
     )
     parser.add_argument(
-        "--dpi", type=int, default=300, help="PNG resolution in dots per inch"
+        "--dpi", type=int, default=600, help="PNG resolution in dots per inch (default: 600)"
     )
     parser.add_argument(
         "--mms-window-seconds",
