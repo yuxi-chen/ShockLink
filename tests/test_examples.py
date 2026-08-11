@@ -161,11 +161,13 @@ def test_create_swmf_inputs_uses_writable_local_dependency_directories(
     for name in ("MPLBACKEND", "MPLCONFIGDIR", "SPACEPY", "SPEDAS_DATA_DIR"):
         monkeypatch.delenv(name, raising=False)
 
-    calls: list[Path] = []
+    calls: list[tuple[Path, Path]] = []
     dependency = ModuleType("shocklink.mms_swmf")
 
-    def create_swmf_input(_start: str, _end: str, *, output: Path, **_kwargs) -> Path:
-        calls.append(output)
+    def create_swmf_input(
+        _start: str, _end: str, *, output: Path, input: Path, **_kwargs
+    ) -> Path:
+        calls.append((output, input))
         return output
 
     dependency.create_swmf_input = create_swmf_input  # type: ignore[attr-defined]
@@ -184,4 +186,5 @@ def test_create_swmf_inputs_uses_writable_local_dependency_directories(
     assert Path(os.environ["MPLCONFIGDIR"]) == cache / "matplotlib"
     assert Path(os.environ["SPACEPY"]) == cache / "spacepy"
     assert Path(os.environ["SPEDAS_DATA_DIR"]) == cache / "spedas"
-    assert outputs == calls
+    assert outputs == [output for output, _input in calls]
+    assert [input for _output, input in calls] == [ROOT / "data/Param/PARAM.in.Earth"]

@@ -6,6 +6,9 @@ import os
 from collections.abc import Iterable
 from pathlib import Path
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_TEMPLATE = REPOSITORY_ROOT / "data/Param/PARAM.in.Earth"
+
 # Each event is an MMS observation interval: (UTC start, UTC end).
 EVENTS = [
     ("2023-12-16 08:30:00", "2023-12-16 11:00:00"),
@@ -33,6 +36,7 @@ def create_inputs(
     *,
     output_directory: str | Path = "results",
     cache_directory: str | Path | None = None,
+    template: str | Path = DEFAULT_TEMPLATE,
     probe: int = 1,
     mode: str = "auto",
     plot: bool = True,
@@ -49,6 +53,9 @@ def create_inputs(
         Writable directory for SpacePy, pySPEDAS, and Matplotlib state. By
         default, use ``<output_directory>/.cache``. Existing environment
         variable settings take precedence.
+    template
+        SWMF template. By default, use ``data/Param/PARAM.in.Earth`` from this
+        ShockLink checkout.
     probe
         MMS spacecraft number passed to :func:`create_swmf_input`.
     mode
@@ -82,6 +89,7 @@ def create_inputs(
             start,
             end,
             output=output,
+            input=Path(template),
             probe=probe,
             mode=mode,
             plot=plot,
