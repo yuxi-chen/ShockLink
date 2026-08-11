@@ -1,12 +1,4 @@
 #!/usr/bin/env python
-"""Create SWMF PARAM files for a list of MMS observation intervals.
-
-Run from the repository root after installing the MMS extras::
-
-    PYTHONPATH=src python examples/create_swmf_inputs.py
-
-Edit ``EVENTS`` below to process the intervals needed for a study.
-"""
 
 from __future__ import annotations
 
@@ -18,8 +10,9 @@ from shocklink.mms_swmf import create_swmf_input
 
 # Each event is an MMS observation interval: (UTC start, UTC end).
 EVENTS = [
-    ("2018-12-19 19:40:00", "2018-12-19 19:52:00"),
-    ("2019-01-01 00:20:00", "2019-01-01 00:30:00"),
+    ("2023-12-16 16:24:00", "2023-12-16 16:46:00"),
+    ("2023-12-16 08:30:00", "2023-12-16 11:00:00"),
+    ("2017-12-07 07:54:00", "2017-12-07 08:06:00")
 ]
 
 
