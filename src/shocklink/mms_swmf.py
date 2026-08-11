@@ -15,6 +15,7 @@ from shocklink.mms import (
     average_plotted_values,
     load_mms_data,
     position_at_time_earth_radii,
+    plot_mms_data,
 )
 from shocklink.swmf import MMSLocation, SolarWindValues, generate_param_file
 from shocklink.utilities import TimeBounds, midpoint_datetime, parse_datetime
@@ -76,6 +77,7 @@ def create_swmf_input(
     start_time: str | datetime | None = None,
     probe: int = 1,
     mode: Literal["auto", "brst", "fast"] = "auto",
+    plot_output: str | Path | None = None,
 ) -> Path:
     """Create an SWMF input file from interval-averaged MMS observations.
 
@@ -94,6 +96,10 @@ def create_swmf_input(
         MMS spacecraft number from 1 through 4.
     mode
         MMS data mode: ``auto``, ``brst``, or ``fast``.
+    plot_output
+        Optional path for saving the multi-panel MMS quick-look plot. When
+        provided, the plot is generated from the loaded data used for the
+        SWMF averages.
 
     Returns
     -------
@@ -136,6 +142,12 @@ def create_swmf_input(
     location = MMSLocation(
         *position_at_time_earth_radii(data, effective_start_time)
     )
+
+    if plot_output is not None:
+        plot_path = Path(plot_output)
+        plot_path.parent.mkdir(parents=True, exist_ok=True)
+        figure = plot_mms_data(data)
+        figure.savefig(plot_path, bbox_inches="tight")
 
     output_path = (
         Path(f"PARAM_{effective_start_time:%Y%m%d_%H%M%S}.in")
@@ -189,6 +201,11 @@ epilog='''examples:
         default="auto",
         help="data rate (default: auto; auto prefers burst, then fast)",
     )
+    parser.add_argument(
+        "--plot-output",
+        type=Path,
+        help="save the MMS quick-look plot to this path",
+    )
     return parser.parse_args(argv)
 
 
@@ -203,9 +220,12 @@ def main(argv: list[str] | None = None) -> int:
             start_time=arguments.start_time,
             probe=arguments.probe,
             mode=arguments.mode,
+            plot_output=arguments.plot_output,
         )
     except Exception as error:
         print(f"Could not create SWMF input: {error}", file=sys.stderr)
         return 1
     print(f"Wrote SWMF input to {output}")
+    if arguments.plot_output is not None:
+        print(f"Wrote MMS plot to {arguments.plot_output}")
     return 0

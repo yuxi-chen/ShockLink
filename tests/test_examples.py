@@ -134,6 +134,14 @@ def test_swmf_tool_is_thin_and_helpful() -> None:
         [str(tool), "-h"], cwd=ROOT, env=_tool_environment(), check=True,
         capture_output=True, text=True,
     )
-    for option in ("--mms-start", "--mms-end", "--input", "--start-time", "--probe", "--mode"):
+    for option in (
+        "--mms-start",
+        "--mms-end",
+        "--input",
+        "--start-time",
+        "--probe",
+        "--mode",
+        "--plot-output",
+    ):
         assert option in result.stdout
     assert "PARAM_YYYYMMDD_HHMMSS.in" in result.stdout

@@ -148,6 +148,8 @@ def test_parse_args_accepts_workflow_options() -> None:
             "2018-12-19 19:40:00",
             "--mms-end",
             "2018-12-19 19:52:00",
+            "--plot-output",
+            "mms.png",
             "--input",
             "template.in",
             "--output",
@@ -168,6 +170,7 @@ def test_parse_args_accepts_workflow_options() -> None:
     assert arguments.start_time == "2018-12-19 19:52:00"
     assert arguments.probe == 3
     assert arguments.mode == "fast"
+    assert arguments.plot_output == Path("mms.png")
 
 
 def test_parse_args_allows_omitted_output() -> None:
@@ -177,6 +180,8 @@ def test_parse_args_allows_omitted_output() -> None:
             "2018-12-19 19:40:00",
             "--mms-end",
             "2018-12-19 19:52:00",
+            "--plot-output",
+            "mms.png",
         ]
     )
 
@@ -279,6 +284,44 @@ def test_create_swmf_input_exposes_all_workflow_options(
     assert path == output
     assert effective_time == start_time
     assert calls["position_time"] == start_time
+
+
+def test_create_swmf_input_saves_mms_plot_when_requested(
+    tmp_path: Path, monkeypatch
+) -> None:
+    calls: dict[str, object] = {}
+    _stub_mms_generation(monkeypatch, calls)
+
+    class Figure:
+        def savefig(self, path: Path, **kwargs: object) -> None:
+            calls["plot"] = (path, kwargs)
+
+    monkeypatch.setattr(mms_swmf, "plot_mms_data", lambda _data: Figure())
+    plot_output = tmp_path / "mms.png"
+
+    mms_swmf.create_swmf_input(
+        "2018-12-19 19:40:00",
+        "2018-12-19 19:52:00",
+        output=tmp_path / "generated.in",
+        plot_output=plot_output,
+    )
+
+    assert calls["plot"] == (plot_output, {"bbox_inches": "tight"})
+
+
+def test_parse_args_accepts_mms_plot_output() -> None:
+    arguments = mms_swmf.parse_args(
+        [
+            "--mms-start",
+            "2018-12-19 19:40:00",
+            "--mms-end",
+            "2018-12-19 19:52:00",
+            "--plot-output",
+            "mms.png",
+        ]
+    )
+
+    assert arguments.plot_output == Path("mms.png")
 
 
 def test_create_swmf_input_defaults_output_from_interval_midpoint(
@@ -445,6 +488,8 @@ def test_main_delegates_to_create_swmf_input(monkeypatch, capsys) -> None:
             "2018-12-19 19:40:00",
             "--mms-end",
             "2018-12-19 19:52:00",
+            "--plot-output",
+            "mms.png",
         ]
     )
 
@@ -457,5 +502,6 @@ def test_main_delegates_to_create_swmf_input(monkeypatch, capsys) -> None:
         "start_time": None,
         "probe": 1,
         "mode": "auto",
+        "plot_output": Path("mms.png"),
     }
     assert "Wrote SWMF input to PARAM_20181219_194600.in" in capsys.readouterr().out
