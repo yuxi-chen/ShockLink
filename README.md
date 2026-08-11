@@ -27,10 +27,10 @@ The implemented analysis sequence is:
 Tecplot -> div(U) -> paraboloid fit -> near-shock region -> regular Y-Z surface -> outward unit normals
 ```
 
-Source checkouts include
-[docs/bow-shock-workflow.md](https://github.com/yuxi-chen/ShockLink/blob/main/docs/bow-shock-workflow.md),
-which explains the scientific conventions and provides a copy-paste Python
-example. They also include the same pipeline as the runnable script
+Source checkouts include the
+[algorithm guide](https://github.com/yuxi-chen/ShockLink/blob/main/docs/algorithms.md),
+which explains the scientific conventions and numerical methods. They also
+include the same pipeline as the runnable script
 [examples/bow_shock_workflow.py](https://github.com/yuxi-chen/ShockLink/blob/main/examples/bow_shock_workflow.py).
 
 The final call:
@@ -44,7 +44,7 @@ X component.
 
 ## Examples
 
-The [MMS–bow-shock connection guide](https://github.com/yuxi-chen/ShockLink/blob/main/docs/mms-bow-shock-connection.md)
+The [algorithm guide](https://github.com/yuxi-chen/ShockLink/blob/main/docs/algorithms.md)
 and runnable [connection tool](https://github.com/yuxi-chen/ShockLink/blob/main/tools/mms_bow_shock_connection.py)
 show the acute 0–90° angle and closest straight-line intersection workflow.
 

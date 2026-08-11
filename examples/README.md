@@ -2,8 +2,8 @@
 
 ## Complete bow-shock workflow
 
-The [bow-shock workflow guide](../docs/bow-shock-workflow.md) explains the
-full Tecplot-to-normal pipeline and its array/sign conventions.
+The [algorithm guide](../docs/algorithms.md) explains the full
+Tecplot-to-normal pipeline and its array/sign conventions.
 
 Run the non-graphical example:
 
@@ -47,7 +47,7 @@ checkpoints are not committed.
 
 ### MMS–bow-shock connection
 
-Install the optional MMS dependencies and read [the connection guide](../docs/mms-bow-shock-connection.md), then run:
+Install the optional MMS dependencies and read [the algorithm guide](../docs/algorithms.md), then run:
 
 ```bash
 pip install -e ".[mms]"

@@ -28,7 +28,7 @@ dependencies = [
 
 [project.urls]
 Repository = "https://github.com/yuxi-chen/ShockLink"
-Documentation = "https://github.com/yuxi-chen/ShockLink/blob/main/docs/bow-shock-workflow.md"
+Documentation = "https://github.com/yuxi-chen/ShockLink/blob/main/docs/algorithms.md"
 
 [project.optional-dependencies]
 mms = [
