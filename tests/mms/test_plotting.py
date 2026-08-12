@@ -95,16 +95,27 @@ def test_plot_mms_data_uses_exact_requested_time_limits(monkeypatch) -> None:
         SimpleNamespace(get_data=lambda *_args, **_kwargs: product),
     )
 
-    with pytest.raises(ValueError, match="OMNI temperature"):
-        plot_mms_data(
-            MMSData(
-                cadence="fast",
-                series={"ion_density": "density"},
-                start="1970-01-01 00:00:10",
-                end="1970-01-01 00:00:20",
-            )
+    figure = plot_mms_data(
+        MMSData(
+            cadence="fast",
+            series={"ion_density": "density"},
+            start="1970-01-01 00:00:10",
+            end="1970-01-01 00:00:20",
         )
+    )
+
+    np.testing.assert_allclose(
+        figure.axes[0].get_xlim(),
+        mdates.date2num(
+            np.array(
+                ["1970-01-01T00:00:10", "1970-01-01T00:00:20"],
+                dtype="datetime64[s]",
+            )
+        ),
+    )
 
 def test_plot_mms_data_rejects_empty_products() -> None:
-    with pytest.raises(ValueError, match="OMNI temperature"):
-        plot_mms_data(MMSData(cadence="fast", series={}))
+    figure = plot_mms_data(MMSData(cadence="fast", series={}))
+
+    assert len(figure.axes) == 1
+    assert figure.axes[0].get_ylabel() == "OMNI $T_p$ [K]"

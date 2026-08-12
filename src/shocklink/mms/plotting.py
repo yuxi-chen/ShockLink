@@ -15,6 +15,7 @@ from shocklink.utilities import TimeBounds, ev_to_kelvin, kelvin_to_ev
 from .data import (
     MMSData,
     ResolvedSeries,
+    _default_omni_temperature,
     _mean_position_earth_radii,
     _resolve_series,
 )
@@ -49,7 +50,7 @@ def _build_panels(series: Mapping[str, ResolvedSeries]) -> list[PlotPanel]:
         )
     temperature = series.get("omni_temperature")
     if temperature is None or not len(temperature.values):
-        raise ValueError("No valid OMNI temperature data were available for this interval.")
+        temperature = _default_omni_temperature(series)
     panels.append(PlotPanel("omni_temperature", temperature, _plot_omni_temperature))
     return panels
 
@@ -66,6 +67,9 @@ def plot_mms_data(data: MMSData):
         ) from error
 
     series = _resolve_series(data)
+    if "omni_temperature" not in series or not len(series["omni_temperature"].values):
+        series = dict(series)
+        series["omni_temperature"] = _default_omni_temperature(series)
     panels = _build_panels(series)
     if not panels:
         raise ValueError("No plot-able MMS time series were loaded.")
