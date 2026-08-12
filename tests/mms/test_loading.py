@@ -33,6 +33,25 @@ def test_load_auto_prefers_burst_then_falls_back_to_fast() -> None:
     assert data.start == "2015-10-16 13:06:00"
 
 
+def test_load_auto_does_not_accept_omni_only_burst_data() -> None:
+    requested: list[str] = []
+
+    def loader(**kwargs: object) -> dict[str, str]:
+        cadence = str(kwargs["cadence"])
+        requested.append(cadence)
+        return {"omni_temperature": "T"} if cadence == "brst" else {"magnetic_field": "b"}
+
+    data = load_mms_data(
+        "2015-10-16 13:06:00",
+        "2015-10-16 13:07:00",
+        loader=loader,
+    )
+
+    assert requested == ["brst", "fast"]
+    assert data.cadence == "fast"
+    assert data.series == {"magnetic_field": "b"}
+
+
 def test_load_burst_does_not_fall_back_to_fast() -> None:
     requested: list[str] = []
 
