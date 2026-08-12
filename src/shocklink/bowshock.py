@@ -328,7 +328,9 @@ def _surface_axis(
         raise DatasetError(f"{label} coordinates must be a nonempty 1D array")
     if axis.size < minimum_size:
         minimum_text = "three" if minimum_size == 3 else str(minimum_size)
-        raise DatasetError(f"{label} coordinates must contain at least {minimum_text} values")
+        raise DatasetError(
+            f"{label} coordinates must contain at least {minimum_text} values"
+        )
     if not np.isfinite(axis).all():
         raise DatasetError(f"{label} coordinates must be finite")
     if axis.size > 1 and np.any(np.diff(axis) <= 0.0):

@@ -20,7 +20,10 @@ def test_package_metadata_and_mms_dependencies_are_declared() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text())
     assert metadata["project"]["readme"] == "README.md"
     assert metadata["project"]["urls"]["Documentation"].endswith("docs/algorithms.md")
-    assert any(dependency.startswith("pyspedas") for dependency in metadata["project"]["dependencies"])
+    assert any(
+        dependency.startswith("pyspedas")
+        for dependency in metadata["project"]["dependencies"]
+    )
     assert "matplotlib>=3.8" in metadata["project"]["dependencies"]
     assert "mms" not in metadata["project"]["optional-dependencies"]
 
@@ -56,11 +59,15 @@ def test_module_boundaries_keep_optional_workflows_lazy() -> None:
 
     for module in ("data.py", "loading.py", "analysis.py", "plotting.py", "cli.py"):
         tree = ast.parse((ROOT / "src/shocklink/mms" / module).read_text())
-        imported = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
+        imported = {
+            node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+        }
         assert "shocklink.mms" not in imported
 
     tree = ast.parse((ROOT / "src/shocklink/swmf.py").read_text())
-    imported_modules = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
+    imported_modules = {
+        node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+    }
     imported_names = {
         alias.name
         for node in ast.walk(tree)
@@ -78,7 +85,9 @@ def test_connectivity_import_has_no_mms_plotting_side_effects() -> None:
         "print(','.join(name for name in ('shocklink.mms','pytplot','pyspedas','matplotlib') "
         "if name in sys.modules))"
     )
-    result = subprocess.run([sys.executable, "-c", probe], check=True, capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, "-c", probe], check=True, capture_output=True, text=True
+    )
     assert result.stdout.strip() == ""
 
 
