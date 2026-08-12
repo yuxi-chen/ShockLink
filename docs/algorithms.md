@@ -1,149 +1,316 @@
 # ShockLink algorithms and data conventions
 
-This guide records the scientific assumptions and numerical algorithms used by
-the public ShockLink workflow. It is intentionally implementation-oriented:
-the linked modules are the source of truth for defaults and validation.
+This guide describes the implemented ShockLink pipeline, including its data
+contracts, numerical steps, failure modes, and scientific approximations. The
+linked source modules remain the authority for defaults and validation.
+
+## End-to-end data flow
+
+The connection workflow is:
+
+```text
+BATSRUS DAT/VTM
+  -> normalized geometry, B, U, and event time
+  -> div(U)
+  -> paraboloid landmark fit and shockfit residual
+  -> near-fit cell extraction
+  -> strongest-compression X(Y,Z) samples
+  -> NaN-aware smoothing and outward normals
+  -> acute theta_Bn map and observed-cell triangles
+  -> straight MMS field-line intersections
+  -> nearest intersection and 2D/3D outputs
+
+MMS interval
+  -> pySPEDAS products in GSM
+  -> finite interval averages and interpolated spacecraft position
+  -> SWMF #STARTTIME, #SOLARWIND, and MMS-location records
+```
+
+`build_mms_bow_shock_connection()` composes the simulation branch. The MMS
+loader and SWMF generator compose the observation branch. Keeping these
+operations separate makes the numerical core usable without invoking plotting
+or command-line code.
 
 ## Coordinate and field conventions
 
-ShockLink uses GSM coordinates with X along the Sun--Earth line and distances
-in Earth radii (`R_E`). BATSRUS component arrays (`X [R]`, `Y [R]`, `Z [R]`)
-are assigned to the PyVista geometry. Magnetic components are combined into
-`B [nT]`; velocity components are combined into `U [km/s]`.
+ShockLink uses geocentric solar magnetospheric (GSM) coordinates. X is directed
+along the Sun--Earth line; position is measured in Earth radii (`R_E`), magnetic
+field in nT, and velocity in km/s. BATSRUS component arrays are combined into
+point vectors named `B [nT]` and `U [km/s]`. A regular shock surface is indexed
+as `surface_x[i, j] = X(Y[i], Z[j])`: Y is axis 0 and Z is axis 1.
 
-The loader accepts Tecplot DAT and VTK/VTM inputs, preserves multiple zones as
-a `MultiBlock`, and walks the leaf datasets when a calculation needs a point
-array. This keeps file-format handling separate from the numerical routines.
-See [`io.py`](../src/shocklink/io.py) and [`dataset.py`](../src/shocklink/dataset.py).
+## Input loading and normalization
+
+`load_simulation()` accepts an ASCII Tecplot `.dat`, a VTK multiblock `.vtm`,
+or a directory containing `.vtm` files. Directory input selects the
+lexicographically first VTM filename. DAT event time comes from the header
+`TITLE`; VTM event time comes from root `field_data["time_event"]`. Both are
+normalized to ISO-8601 UTC.
+
+The loader requires PyVista to return a `MultiBlock`, recursively visits
+nonempty dataset leaves, preserves the original hierarchy, and normalizes each
+leaf independently. Coordinate component arrays replace the PyVista geometry
+when present. Magnetic and velocity components are combined without changing
+their values. A one-zone multiblock returns its dataset directly; multiple
+zones retain the multiblock container.
+
+Implementation: [`io.py`](../src/shocklink/io.py).
 
 ## Velocity compression
 
-`calc_velocity_divergence` differentiates the point vector `U [km/s]` on the
-dataset geometry with PyVista's derivative filter and stores `div(U)` in the
-point data. The most negative finite value is treated as the strongest local
-compression. No fixed physical unit is assigned to the divergence; its units
-follow the input velocity and coordinate units.
-
-See [`dataset.py`](../src/shocklink/dataset.py).
-
-## Bow-shock fit and candidate surface
-
-The fit is an axisymmetric paraboloid,
+For velocity field \(\mathbf U=(U_x,U_y,U_z)\), the compression diagnostic is
 
 ```text
-x_fit = x0 - a * (y**2 + z**2),  a > 0
+div(U) = dUx/dx + dUy/dy + dUz/dz.
 ```
 
-The nose and two Y-flank locations are selected from compression samples; the
-three points determine `x0` and `a`. Every point receives the signed residual
+`calc_velocity_divergence()` delegates spatial differentiation to PyVista's
+point-data derivative filter. It validates that the input is a finite
+`(n_points, 3)` vector and that the result is a finite `(n_points,)` scalar
+before copying it onto the original dataset. The strongest compression is the
+minimum valid `div(U)`. Its physical units follow the input coordinate and
+velocity units; ShockLink does not rescale them.
+
+Implementation: [`dataset.py`](../src/shocklink/dataset.py).
+
+## Paraboloid landmark selection
+
+`fit_bow_shock()` first samples the X axis and selects the finite point with the
+most negative divergence as the nose \(p_0\). It then samples a Y-directed line
+at `p0.x - x_offset`, selecting the strongest compression independently on the
+negative-Y and positive-Y sides as flank landmarks \(p_1\) and \(p_2\).
+
+The axisymmetric model is
 
 ```text
-shockfit = x - x_fit
+x_fit(y,z) = x0 - a * (y^2 + z^2),  a > 0.
 ```
 
-The residual only narrows the cells searched later. The final regular surface
-is found from the simulated compression rather than from the fitted curve.
-`fit_bow_shock` computes the fit and writes the residual; then
-`extract_shockfit_range` keeps cells around an inclusive residual interval and
-can retain neighboring cells for interpolation.
+With \(r_i^2=y_i^2+z_i^2\) and \(d_i=x_0-x_i\), the two flank samples determine
+the least-squares curvature
 
-See [`bowshock.py`](../src/shocklink/bowshock.py), including
-`calc_bow_shock_normals` for the final normal field.
+```text
+a = sum(r_i^2 * d_i) / sum(r_i^4).
+```
+
+Degenerate landmarks or nonpositive curvature are rejected. Every simulation
+point receives the signed residual
+
+```text
+shockfit = x - x_fit(y,z).
+```
+
+This fit limits the later search region; it is not the final shock surface.
+
+Implementation: [`bowshock.py`](../src/shocklink/bowshock.py).
+
+## Residual-region extraction
+
+`extract_shockfit_range()` selects points whose finite residual is inside an
+inclusive `[lower, upper]` interval and asks PyVista for their cells. Adjacent
+cells are included by default so interpolation near the residual boundary
+retains support. Nonfinite residuals never enter the mask.
 
 ## Regular Y--Z surface sampling
 
-`get_bow_shock_surface` probes a finite X interval for every requested
-`(y, z)` column
-and chooses the X coordinate with the minimum finite `div(U)`. It deliberately
-does not require negative divergence, a magnitude threshold, or continuity
-with adjacent columns: positive or weak minima can therefore be candidates.
-Columns with no valid samples are returned as `NaN`.
+For every requested `(y,z)` column, `get_bow_shock_surface()` samples a regular
+finite X interval and chooses
 
-Sampling is chunked to bound temporary VTK point allocations. A local
-parabolic refinement can improve the X estimate around a discrete minimum;
-the refinement is accepted only when its neighborhood is finite and
-well-conditioned. The returned array uses Y as axis 0 and Z as axis 1:
-`surface_x[i, j]` corresponds to `(y[i], z[j])`.
+```text
+x_shock(y,z) = x[argmin_x div(U)(x,y,z)].
+```
 
-See [`bowshock.py`](../src/shocklink/bowshock.py).
+VTK's valid-point mask and finite divergence jointly define valid samples.
+Columns without a valid sample return `NaN`; a dataset without cells returns an
+all-NaN surface. The algorithm intentionally imposes no negative-divergence
+threshold and no continuity constraint between neighboring columns. Weak or
+positive minima can therefore be selected and must be judged scientifically.
+
+Sampling is processed in Y-Z column chunks. One reusable static cell locator
+accelerates interpolation without copying unrelated point, cell, or field
+arrays into the probe result.
+
+## Minimum refinement
+
+An optional local refinement estimates the vertex of the three-point parabola
+around an interior discrete minimum. With uniform X spacing \(h\) and samples
+\(f_{-1}, f_0, f_{+1}\), its offset from the center is
+
+```text
+delta = h * (f_-1 - f_+1) / (2 * (f_-1 - 2*f_0 + f_+1)).
+```
+
+The refined point is accepted only when both neighbors are valid and finite,
+the center is a strict minimum, curvature is finite and positive, and
+`abs(delta) <= h`. Otherwise ShockLink retains the discrete minimum.
+
+Implementation for extraction, sampling, and refinement:
+[`bowshock.py`](../src/shocklink/bowshock.py).
 
 ## Surface smoothing and missing values
 
-The optional Gaussian smoother is NaN-aware. It convolves both the data with
-NaNs replaced by zero and a finite-value coverage mask, then divides the two
-convolutions. This prevents missing columns from biasing neighboring values.
-The original mask is retained so unsupported regions remain visibly masked.
-
-See [`bowshock.py`](../src/shocklink/bowshock.py).
-
-## Outward normals
-
-For the graph surface `r(y,z) = (x_s(y,z), y, z)`, the unnormalized outward
-normal is
+The optional Gaussian smoother filters the finite values and their support
+weights separately:
 
 ```text
-n = (1, -∂x_s/∂y, -∂x_s/∂z).
+smoothed = G(surface where finite, else 0) / G(finite_mask).
 ```
 
-Gradients use the supplied Y and Z coordinates, including nonuniform spacing.
-Missing surface values are filled in two stages: linear interpolation inside
-the finite samples' support, followed by nearest-neighbor extrapolation at
-edges and corners. Measured finite values are restored exactly before taking
-gradients. Normals are normalized and oriented so `nx > 0`; retain the
-original finite mask when interpreting edge normals.
+This normalized convolution prevents missing columns from behaving like
+physical zeros. By default, the original NaN mask is restored after smoothing,
+so unsupported columns remain visible.
 
-See [`bowshock.py`](../src/shocklink/bowshock.py).
+## Gap filling, derivatives, and outward normals
 
-## Shock angle and magnetic connectivity
+Normals require derivatives on a complete regular grid. Missing surface values
+are filled in two stages: linear interpolation within the finite samples'
+convex support, then nearest-neighbor extrapolation at remaining edges and
+corners. Original finite samples are restored exactly before differentiation.
+At least three non-collinear finite samples are required.
 
-The acute shock angle is computed from the unit magnetic-field direction and
-unit shock normal:
+For the graph surface
 
 ```text
-theta_Bn = acos(abs(dot(B_hat, n_hat)))
+r(y,z) = (x_s(y,z), y, z),
 ```
 
-The absolute value reports the 0--90 degree acute angle independent of field
-polarity. The sampled surface is triangulated from complete observed Y--Z
-quads only. A straight field line through the interval-averaged MMS position
-is intersected with those triangles using a scaled Möller--Trumbore test.
-Parallel/coplanar cases are treated as ambiguous, duplicate hits are removed,
-and the hit nearest to MMS is selected by default.
+the positive-X cross product is
 
-See [`connectivity.py`](../src/shocklink/connectivity.py) and
+```text
+n_raw = r_y cross r_z = (1, -dx_s/dy, -dx_s/dz).
+```
+
+NumPy gradients use the supplied Y and Z coordinates, including nonuniform
+spacing. Components are scaled before norm evaluation to avoid overflow, then
+normalized. Returned normals are finite unit vectors with strictly positive X
+components. The original surface mask should still be used when interpreting
+normals near unsupported regions.
+
+Implementation: [`bowshock.py`](../src/shocklink/bowshock.py).
+
+## Shock angle
+
+The directed angle between a normal and magnetic field spans 0--180 degrees.
+The connection workflow uses the polarity-independent acute convention
+
+```text
+theta_Bn = degrees(acos(clip(abs(dot(n_hat, B_hat)), 0, 1))),
+```
+
+which spans 0--90 degrees. Inputs are normalized with scale-safe arithmetic,
+and clipping protects `acos` from roundoff outside its mathematical domain.
+
+## Surface triangulation
+
+Only observed surface values participate in connectivity. A regular Y-Z quad
+is accepted when all four corner X values are finite, then split into two
+triangles with consistent vertex order. Interpolated gap-fill values used for
+normal derivatives never create triangles across missing observations. Normal
+and angle arrays are attached to the compact PyVista mesh as point data.
+
+## Straight field-line intersection
+
+The MMS field line is modeled as infinite and straight:
+
+```text
+p(s) = p_MMS + s * B_hat,  -infinity < s < infinity.
+```
+
+Triangles are translated by `p_MMS` and divided by a characteristic distance
+before a vectorized Möller--Trumbore intersection test. This scaling makes the
+relative tolerance less sensitive to the absolute coordinate magnitude.
+Accepted barycentric coordinates interpolate the triangle's vertex normals;
+the normal is renormalized before computing the local acute angle.
+
+Parallel triangles are checked separately. A line lying in a triangle plane
+and overlapping its interior or edges has infinitely many intersections and is
+reported as ambiguous. Hits are sorted by `abs(s)`, and coincident hits from a
+shared triangle edge are deduplicated within the scaled tolerance. The first
+remaining hit is the intersection nearest MMS.
+
+Implementation: [`connectivity.py`](../src/shocklink/connectivity.py).
+
+## MMS loading, averaging, and coordinates
+
+MMS loading uses pySPEDAS FGM, FPI, and MEC products. Automatic cadence tries
+burst data first, then fast data. Magnetic field and plasma velocities are
+converted from GSE to GSM when requested; spacecraft position is loaded from
+MEC in GSM. Series are clipped to the requested inclusive interval.
+
+Statistics and SWMF inputs use finite samples only. Vector components are
+averaged independently. Magnetic magnitude is averaged from each sample's
+three-component norm, rather than taking the norm of the mean vector. Total
+species temperature is
+
+```text
+T = (T_parallel + 2*T_perpendicular) / 3
+```
+
+on timestamps shared by both products. The spacecraft location used by the
+connection workflow is linearly interpolated at the effective UTC time after
+invalid samples are removed, times are stably sorted, and duplicate timestamps
+are collapsed. Kilometres are converted to Earth radii only at the final step.
+
+Implementation: [`mms/loading.py`](../src/shocklink/mms/loading.py),
+[`mms/data.py`](../src/shocklink/mms/data.py), and
+[`mms/analysis.py`](../src/shocklink/mms/analysis.py).
+
+## SWMF PARAM generation
+
+`create_swmf_input()` uses the requested interval midpoint as the effective
+start time unless explicitly overridden. It writes that time to `#STARTTIME`,
+maps finite ion density, velocity, and magnetic averages to `#SOLARWIND`, and
+stores the interpolated GSM MMS location in a nearby annotated block. Ion and
+electron temperatures are added and converted from eV to K for the template.
+The original template structure, comments, whitespace, and newline style are
+otherwise retained.
+
+If a later connection run finds the MMS-location block, it uses that stored
+position. Older PARAM files without the block trigger an MMS download over a
+five-minute window centered on the PARAM time and interpolate the position.
+
+Implementation: [`mms_swmf.py`](../src/shocklink/mms_swmf.py),
+[`swmf.py`](../src/shocklink/swmf.py), and
 [`mms_connection.py`](../src/shocklink/mms_connection.py).
 
-## MMS and SWMF preprocessing
+## Plot and file outputs
 
-`create_swmf_input()` writes the effective UTC time, interval-averaged GSM
-magnetic field, and (when available) an explicit MMS GSM position into a PARAM
-file. The connection workflow uses that position when the `! MMS Location at`
-block is present; otherwise it downloads MMS data to interpolate the position
-at the PARAM timestamp. The position remains in `R_E` and the magnetic field
-in nT.
+The 2D plot masks unsupported cells, shows the acute angle on Y-Z, marks the
+nearest intersection, and optionally draws 45° and 50° reference contours. The
+3D plot shows the observed triangulated shock, Earth, MMS, the field line, and
+the selected hit. CLI output defaults to
+`<input>_shock_connection_2d.png` and `<input>_shock_connection_3d.png`; the 3D
+scene can also be exported as HTML. MMS-to-SWMF generation can save a separate
+multi-panel quick-look plot for the requested interval.
 
-SWMF input generation maps the interval averages into the template's
-`#STARTTIME` and `#SOLARWIND` records. Temperature products are converted from
-eV to K only when writing the template's temperature fields; magnetic fields,
-density, velocity, and position retain their documented units.
-The optional `plot=True` API argument and CLI `--plot true|false` option save the
-multi-panel MMS quick-look figure when enabled. The CLI defaults to `true`; the
-filename is
-`mms_YYYYMMDD_HHMMSS_YYYYMMDD_HHMMSS.png`, based on the requested interval,
-and is placed beside the generated SWMF input.
+## Computational cost
 
-See [`mms.py`](../src/shocklink/mms.py) and
-[`mms_swmf.py`](../src/shocklink/mms_swmf.py).
+Let `Ny * Nz` be the number of surface columns, `Nx` the X resolution, `C` the
+column chunk size, and `T` the number of observed surface triangles.
 
-## Plot outputs and scientific limits
+- Surface interpolation performs `Ny * Nz * Nx` probe evaluations. Temporary
+  probe storage is `O(C * Nx)` rather than `O(Ny * Nz * Nx)`.
+- Smoothing, gap filling, gradients, and angle calculation operate on the
+  `Ny * Nz` surface grid. SciPy interpolation may dominate gap filling for
+  sparse, irregular support.
+- Field-line intersection is vectorized over `T` triangles and uses `O(T)`
+  temporary arrays.
 
-The 2D plot shows the Y--Z angle map with unsupported cells masked. The 3D
-plot shows the triangulated shock, Earth, MMS, the straight field line,
-magnetic-field arrow, and the selected intersection. The CLI writes
-`xxx_shock_connection_2d.png` and `xxx_shock_connection_3d.png` by default for
-an input named `xxx.dat`; 3D output can additionally be HTML.
+Increasing X resolution improves discrete localization; increasing Y-Z
+resolution improves surface and normal resolution. Both require convergence
+checks because they can change the selected intersection.
 
-The paraboloid, straight field line, finite-column minimum, and interpolated
-normal field are practical approximations. Resolution and residual limits can
-change the selected surface and intersection, so convergence and coverage
-checks are required before scientific interpretation.
+## Failure modes and validation
+
+ShockLink rejects missing or incorrectly shaped vectors, nonnumeric or
+nonfinite required data, unordered axes and ranges, empty simulation zones,
+degenerate paraboloid landmarks, insufficient surface support, invalid normal
+fields, coplanar line/surface overlap, and field lines with no intersection in
+observed coverage. These are represented by `DatasetError` or `GeometryError`
+in the numerical pipeline and by `ValueError` for malformed MMS/SWMF inputs.
+
+Successful execution does not prove that a selected compression minimum is a
+physical bow shock. The paraboloid search region, finite-column minimum,
+Gaussian smoothing, interpolated normal field, and straight field line are
+deliberate approximations. Inspect coverage, vary residual and grid settings,
+and establish convergence before scientific interpretation.

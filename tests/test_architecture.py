@@ -80,3 +80,31 @@ def test_connectivity_import_has_no_mms_plotting_side_effects() -> None:
     )
     result = subprocess.run([sys.executable, "-c", probe], check=True, capture_output=True, text=True)
     assert result.stdout.strip() == ""
+
+
+def test_algorithm_guide_documents_the_complete_pipeline() -> None:
+    guide = (ROOT / "docs/algorithms.md").read_text()
+
+    for heading in (
+        "## End-to-end data flow",
+        "## Input loading and normalization",
+        "## Paraboloid landmark selection",
+        "## Minimum refinement",
+        "## Computational cost",
+        "## Failure modes and validation",
+    ):
+        assert heading in guide
+
+    for source in (
+        "../src/shocklink/io.py",
+        "../src/shocklink/dataset.py",
+        "../src/shocklink/bowshock.py",
+        "../src/shocklink/connectivity.py",
+        "../src/shocklink/mms/analysis.py",
+        "../src/shocklink/mms/loading.py",
+        "../src/shocklink/mms_swmf.py",
+        "../src/shocklink/swmf.py",
+    ):
+        assert source in guide
+
+    assert "../src/shocklink/mms.py" not in guide

@@ -34,6 +34,10 @@ The implemented analysis sequence is:
 Tecplot -> div(U) -> paraboloid fit -> near-shock region -> regular Y-Z surface -> outward unit normals
 ```
 
+The connection stage triangulates only observed surface cells, calculates the
+acute shock angle, and intersects an infinite straight MMS field line with the
+triangles. The nearest unique intersection is selected.
+
 Source checkouts include the
 [algorithm guide](https://github.com/yuxi-chen/ShockLink/blob/main/docs/algorithms.md),
 which explains the scientific conventions and numerical methods. Runnable
