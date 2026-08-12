@@ -13,7 +13,6 @@ from shocklink.utilities import parse_datetime
 from .data import (
     _finite_mean,
     _mean_position_earth_radii,
-    _default_omni_temperature,
     _resolve_series,
 )
 from .data import MMSData, ResolvedSeries
@@ -59,11 +58,9 @@ def _add_temperature_averages(
     averages: dict[str, float],
     series: dict[str, ResolvedSeries],
 ) -> None:
-    """Add the cleaned OMNI proton-temperature mean."""
+    """Add the normalized total-temperature mean."""
 
-    product = series.get("omni_temperature")
-    if product is None or not len(product.values):
-        product = _default_omni_temperature(series)
+    product = series["omni_temperature"]
     averages["omni_temperature"] = _finite_mean(product.values)
 
 

@@ -22,9 +22,6 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
         "vi": np.array(
             [[10.0, 20.0, 30.0], [20.0, 40.0, 60.0], [30.0, 60.0, 90.0]]
         ),
-        "ve": np.array(
-            [[40.0, 50.0, 60.0], [50.0, 60.0, 70.0], [60.0, 70.0, 80.0]]
-        ),
         "location": np.array(
             [
                 [6371.2, -3185.6, 637.12],
@@ -32,10 +29,6 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
                 [6371.2, -3185.6, 637.12],
             ]
         ),
-        "ti_parallel": np.array([300.0, 600.0, 900.0]),
-        "ti_perpendicular": np.array([30.0, 60.0, 90.0]),
-        "te_parallel": np.array([100.0, 200.0, 300.0]),
-        "te_perpendicular": np.array([10.0, 20.0, 30.0]),
     }
     monkeypatch.setitem(
         sys.modules,
@@ -55,11 +48,6 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
             "electron_density": "ne",
             "omni_temperature": "omni_t",
             "ion_velocity": "vi",
-            "electron_velocity": "ve",
             "satellite_location": "location",
-            "ion_temperature_parallel": "ti_parallel",
-            "ion_temperature_perpendicular": "ti_perpendicular",
-            "electron_temperature_parallel": "te_parallel",
-            "electron_temperature_perpendicular": "te_perpendicular",
         },
     )
