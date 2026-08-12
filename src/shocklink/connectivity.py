@@ -164,6 +164,132 @@ def _build_surface_mesh(
     return mesh
 
 
+def _cross2(a: NDArray[np.float64], b: NDArray[np.float64]) -> float:
+    """Return the scalar cross product of two 2D vectors."""
+
+    return float(a[0] * b[1] - a[1] * b[0])
+
+
+def _line_overlaps_triangle(
+    triangle: NDArray[np.float64],
+    direction: NDArray[np.float64],
+    normal: NDArray[np.float64],
+    *,
+    tolerance: float,
+) -> bool:
+    """Return whether an origin-centered coplanar line overlaps a triangle."""
+
+    drop = int(np.argmax(np.abs(normal)))
+    keep = [axis for axis in range(3) if axis != drop]
+    triangle_2d = triangle[:, keep]
+    direction_2d = direction[keep]
+    origin_2d = np.zeros(2)
+    signs = [
+        _cross2(
+            triangle_2d[(index + 1) % 3] - triangle_2d[index],
+            origin_2d - triangle_2d[index],
+        )
+        for index in range(3)
+    ]
+    if min(signs) >= -tolerance or max(signs) <= tolerance:
+        return True
+
+    for index in range(3):
+        start = triangle_2d[index]
+        edge = triangle_2d[(index + 1) % 3] - start
+        denominator = _cross2(direction_2d, edge)
+        if abs(denominator) > tolerance:
+            if 0.0 <= _cross2(start, direction_2d) / denominator <= 1.0:
+                return True
+        elif abs(_cross2(start, direction_2d)) <= tolerance:
+            return True
+    return False
+
+
+def _reject_coplanar_overlaps(
+    triangles: NDArray[np.float64],
+    edge1: NDArray[np.float64],
+    edge2: NDArray[np.float64],
+    tvec: NDArray[np.float64],
+    nonparallel: NDArray[np.bool_],
+    *,
+    direction: NDArray[np.float64],
+    tolerance: float,
+) -> None:
+    """Reject lines that have infinitely many points on a mesh triangle."""
+
+    for index in np.flatnonzero(~nonparallel):
+        normal = np.cross(edge1[index], edge2[index])
+        magnitude = np.linalg.norm(normal)
+        if magnitude == 0.0:
+            continue
+        coplanar = abs(float(np.dot(normal, tvec[index]))) <= tolerance * magnitude
+        if coplanar and _line_overlaps_triangle(
+            triangles[index], direction, normal, tolerance=tolerance
+        ):
+            raise GeometryError(
+                "Field line overlaps the shock surface; intersection is ambiguous"
+            )
+
+
+def _intersection_hits(
+    mesh: pv.PolyData,
+    faces: NDArray[np.int64],
+    inside: NDArray[np.bool_],
+    u: NDArray[np.float64],
+    v: NDArray[np.float64],
+    parameters: NDArray[np.float64],
+    *,
+    origin: NDArray[np.float64],
+    direction: NDArray[np.float64],
+) -> list[ShockIntersection]:
+    """Build sorted intersection records for accepted mesh faces."""
+
+    normals = np.asarray(mesh.point_data[NORMAL_NAME], dtype=np.float64)
+    result: list[ShockIntersection] = []
+    for index in np.flatnonzero(inside):
+        barycentric = np.array([1.0 - u[index] - v[index], u[index], v[index]])
+        parameter = float(parameters[index])
+        point = origin + parameter * direction
+        shock_normal = barycentric @ normals[faces[index]]
+        magnitude = np.linalg.norm(shock_normal)
+        if not np.isfinite(magnitude) or magnitude == 0.0:
+            raise GeometryError(
+                "Shock normal at intersection must be finite and nonzero"
+            )
+        shock_normal = shock_normal / magnitude
+        theta = float(calc_bow_shock_normal_angle(shock_normal, direction, acute=True))
+        result.append(
+            ShockIntersection(
+                point,
+                parameter,
+                abs(parameter),
+                int(index),
+                barycentric,
+                shock_normal,
+                theta,
+            )
+        )
+    return sorted(result, key=lambda hit: hit.distance)
+
+
+def _unique_hits(
+    hits: list[ShockIntersection],
+    *,
+    absolute_tolerance: float,
+) -> list[ShockIntersection]:
+    """Remove consecutive, distance-sorted hits at the same mesh location."""
+
+    unique: list[ShockIntersection] = []
+    for hit in hits:
+        if (
+            not unique
+            or np.linalg.norm(hit.point - unique[-1].point) > absolute_tolerance
+        ):
+            unique.append(hit)
+    return unique
+
+
 def _line_triangle_intersections(
     mesh: pv.PolyData,
     *,
@@ -192,72 +318,26 @@ def _line_triangle_intersections(
         nonparallel & (u >= -tolerance) & (v >= -tolerance) & (u + v <= 1.0 + tolerance)
     )
 
-    # A line lying in a triangle's plane has infinitely many intersections.
-    for index in np.flatnonzero(~nonparallel):
-        normal = np.cross(edge1[index], edge2[index])
-        if np.linalg.norm(normal) == 0.0:
-            continue
-        if abs(float(np.dot(normal, tvec[index]))) <= tolerance * np.linalg.norm(
-            normal
-        ):
-            drop = int(np.argmax(np.abs(normal)))
-            keep = [axis for axis in range(3) if axis != drop]
-            tri2 = triangles[index][:, keep]
-            line0 = np.zeros(2)
-            line_d = direction[keep]
-
-            def cross2(a: np.ndarray, b: np.ndarray) -> float:
-                return float(a[0] * b[1] - a[1] * b[0])
-
-            # Point-in-triangle test for the line origin.
-            signs = [
-                cross2(tri2[(k + 1) % 3] - tri2[k], line0 - tri2[k]) for k in range(3)
-            ]
-            overlaps = min(signs) >= -tolerance or max(signs) <= tolerance
-            for k in range(3):
-                a, b = tri2[k], tri2[(k + 1) % 3]
-                edge = b - a
-                denom = cross2(line_d, edge)
-                if abs(denom) > tolerance:
-                    # Segment parameter is cross(a, line_d) / cross(line_d, edge).
-                    if 0.0 <= cross2(a, line_d) / denom <= 1.0:
-                        overlaps = True
-                elif abs(cross2(a, line_d)) <= tolerance:
-                    # Collinear line/edge: any finite edge segment is overlap.
-                    overlaps = True
-            if overlaps:
-                raise GeometryError(
-                    "Field line overlaps the shock surface; intersection is ambiguous"
-                )
-
-    normals = np.asarray(mesh.point_data[NORMAL_NAME], dtype=np.float64)
-    result: list[ShockIntersection] = []
-    for index in np.flatnonzero(inside):
-        bary = np.array([1.0 - u[index] - v[index], u[index], v[index]])
-        parameter = float(s_scaled[index] * scale)
-        point = origin + parameter * direction
-        shock_normal = bary @ normals[faces[index]]
-        norm = np.linalg.norm(shock_normal)
-        if not np.isfinite(norm) or norm == 0.0:
-            raise GeometryError(
-                "Shock normal at intersection must be finite and nonzero"
-            )
-        shock_normal = shock_normal / norm
-        theta = float(calc_bow_shock_normal_angle(shock_normal, direction, acute=True))
-        result.append(
-            ShockIntersection(
-                point, parameter, abs(parameter), int(index), bary, shock_normal, theta
-            )
-        )
-    result.sort(key=lambda hit: hit.distance)
-    unique: list[ShockIntersection] = []
-    for hit in result:
-        if (
-            not unique
-            or np.linalg.norm(hit.point - unique[-1].point) > tolerance * scale
-        ):
-            unique.append(hit)
-    return unique
+    _reject_coplanar_overlaps(
+        triangles,
+        edge1,
+        edge2,
+        tvec,
+        nonparallel,
+        direction=direction,
+        tolerance=tolerance,
+    )
+    hits = _intersection_hits(
+        mesh,
+        faces,
+        inside,
+        u,
+        v,
+        s_scaled * scale,
+        origin=origin,
+        direction=direction,
+    )
+    return _unique_hits(hits, absolute_tolerance=tolerance * scale)
 
 
 def analyze_shock_connection(
@@ -312,6 +392,128 @@ def analyze_shock_connection(
     )
 
 
+def _contour_levels(values: ArrayLike | None) -> NDArray[np.float64]:
+    """Return validated contour levels spanning the acute-angle domain."""
+
+    if values is None:
+        return np.linspace(0.0, 90.0, 201)
+    try:
+        levels = np.asarray(values, dtype=float)
+    except (TypeError, ValueError) as error:
+        raise DatasetError(
+            "Contour levels must be finite and strictly increasing"
+        ) from error
+    if levels.ndim != 1 or levels.size < 2:
+        raise DatasetError("Contour levels must contain at least two values")
+    if not np.isfinite(levels).all() or np.any(np.diff(levels) <= 0.0):
+        raise DatasetError("Contour levels must be finite and strictly increasing")
+    if (
+        levels[0] != 0.0
+        or levels[-1] != 90.0
+        or np.any((levels < 0.0) | (levels > 90.0))
+    ):
+        raise DatasetError("Contour levels must span values between 0 and 90 degrees")
+    return levels
+
+
+def _plot_range(values: ArrayLike, *, label: str) -> tuple[float, float]:
+    """Return one finite, increasing plot range."""
+
+    try:
+        bounds = np.asarray(values, dtype=float)
+    except (TypeError, ValueError) as error:
+        raise DatasetError(
+            f"{label} must contain two finite increasing values"
+        ) from error
+    if bounds.shape != (2,) or not np.isfinite(bounds).all() or bounds[0] >= bounds[1]:
+        raise DatasetError(f"{label} must contain two finite increasing values")
+    return float(bounds[0]), float(bounds[1])
+
+
+def _connection_plot_limits(
+    hit: ShockIntersection,
+    *,
+    yrange: ArrayLike | None,
+    zrange: ArrayLike | None,
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Return explicit or reference-style symmetric Y-Z plot limits."""
+
+    if (yrange is None) != (zrange is None):
+        raise DatasetError("yrange and zrange must be supplied together")
+    if yrange is not None and zrange is not None:
+        return _plot_range(yrange, label="yrange"), _plot_range(zrange, label="zrange")
+
+    maximum = max(abs(float(hit.point[1])), abs(float(hit.point[2])))
+    for threshold, limit in ((13.0, 15.0), (18.0, 20.0), (23.0, 25.0)):
+        if maximum < threshold:
+            return (-limit, limit), (-limit, limit)
+    return (-28.0, 28.0), (-28.0, 28.0)
+
+
+def _draw_reference_contours(
+    ax: Axes,
+    connection: ShockConnection,
+    angles: np.ma.MaskedArray,
+) -> None:
+    """Draw the optional 45° and 50° reference contours."""
+
+    finite_angles = angles.compressed()
+    for threshold, color in ((45.0, "black"), (50.0, "blue")):
+        if (
+            finite_angles.size
+            and finite_angles.min() <= threshold <= finite_angles.max()
+        ):
+            contour = ax.contour(
+                connection.y,
+                connection.z,
+                angles,
+                colors=color,
+                linestyles="--",
+                linewidths=3.5,
+                levels=[threshold],
+            )
+            ax.clabel(contour, fmt="%1.0f°", fontsize=16, colors=color)
+
+
+def _toward_center(value: float, bounds: tuple[float, float], step: float) -> float:
+    center = 0.5 * (bounds[0] + bounds[1])
+    distance = center - value
+    return value + np.sign(distance) * min(abs(distance), step)
+
+
+def _draw_connection_metadata(
+    ax: Axes,
+    connection: ShockConnection,
+    hit: ShockIntersection,
+    *,
+    simulation_time: str | None,
+) -> None:
+    """Draw vector, position, and optional timestamp captions."""
+
+    mms = ", ".join(f"{value:.1f}" for value in connection.mms_position)
+    field = ", ".join(f"{value:.1f}" for value in connection.bavg)
+    point = ", ".join(f"{value:.1f}" for value in hit.point)
+    ax.text(
+        -0.15, -0.2, f"MMS (GSM): ({mms}) [R$_E$]", transform=ax.transAxes, fontsize=12
+    )
+    ax.text(0.35, -0.2, f"IMF = ({field}) [nT]", transform=ax.transAxes, fontsize=12)
+    ax.text(
+        0.7,
+        -0.2,
+        f"Intersection = ({point}) [R$_E$]",
+        transform=ax.transAxes,
+        fontsize=12,
+    )
+    if simulation_time is not None:
+        ax.text(
+            -0.15,
+            -0.3,
+            f"Simulation time: {simulation_time}",
+            transform=ax.transAxes,
+            fontsize=12,
+        )
+
+
 def plot_shock_angle_contour(
     connection: ShockConnection,
     *,
@@ -340,25 +542,7 @@ def plot_shock_angle_contour(
     if ax is None:
         _, ax = plt.subplots(figsize=(10.0, 8.0))
     angles = np.ma.masked_invalid(np.asarray(connection.theta_bn_deg, dtype=float).T)
-    if levels is None:
-        contour_levels = np.linspace(0.0, 90.0, 201)
-    else:
-        try:
-            contour_levels = np.asarray(levels, dtype=float)
-        except (TypeError, ValueError) as error:
-            raise DatasetError(
-                "Contour levels must be finite and strictly increasing"
-            ) from error
-    if contour_levels.ndim != 1 or contour_levels.size < 2:
-        raise DatasetError("Contour levels must contain at least two values")
-    if not np.isfinite(contour_levels).all() or np.any(np.diff(contour_levels) <= 0.0):
-        raise DatasetError("Contour levels must be finite and strictly increasing")
-    if (
-        contour_levels[0] != 0.0
-        or contour_levels[-1] != 90.0
-        or np.any((contour_levels < 0.0) | (contour_levels > 90.0))
-    ):
-        raise DatasetError("Contour levels must span values between 0 and 90 degrees")
+    contour_levels = _contour_levels(levels)
     mesh = ax.contourf(
         connection.y,
         connection.z,
@@ -384,55 +568,8 @@ def plot_shock_angle_contour(
         zorder=5,
         label="intersection",
     )
-    finite_angles = angles.compressed()
-    for threshold, color in ((45.0, "black"), (50.0, "blue")):
-        if finite_angles.size and finite_angles.min() <= threshold <= finite_angles.max():
-            contour = ax.contour(
-                connection.y,
-                connection.z,
-                angles,
-                colors=color,
-                linestyles="--",
-                linewidths=3.5,
-                levels=[threshold],
-            )
-            ax.clabel(contour, fmt="%1.0f°", fontsize=16, colors=color)
-
-    if (yrange is None) != (zrange is None):
-        raise DatasetError("yrange and zrange must be supplied together")
-
-    def _plot_range(values: ArrayLike, *, label: str) -> tuple[float, float]:
-        try:
-            bounds = np.asarray(values, dtype=float)
-        except (TypeError, ValueError) as error:
-            raise DatasetError(f"{label} must contain two finite increasing values") from error
-        if (
-            bounds.shape != (2,)
-            or not np.isfinite(bounds).all()
-            or bounds[0] >= bounds[1]
-        ):
-            raise DatasetError(f"{label} must contain two finite increasing values")
-        return float(bounds[0]), float(bounds[1])
-
-    if yrange is None:
-        maximum = max(abs(float(hit.point[1])), abs(float(hit.point[2])))
-        if maximum < 13.0:
-            limit = 15.0
-        elif maximum < 18.0:
-            limit = 20.0
-        elif maximum < 23.0:
-            limit = 25.0
-        else:
-            limit = 28.0
-        y_limits = z_limits = (-limit, limit)
-    else:
-        y_limits = _plot_range(yrange, label="yrange")
-        z_limits = _plot_range(zrange, label="zrange")
-
-    def _toward_center(value: float, bounds: tuple[float, float], step: float) -> float:
-        center = 0.5 * (bounds[0] + bounds[1])
-        distance = center - value
-        return value + np.sign(distance) * min(abs(distance), step)
+    _draw_reference_contours(ax, connection, angles)
+    y_limits, z_limits = _connection_plot_limits(hit, yrange=yrange, zrange=zrange)
 
     ax.text(
         _toward_center(float(hit.point[1]), y_limits, 3.0),
@@ -442,20 +579,12 @@ def plot_shock_angle_contour(
         fontsize=24,
     )
 
-    mms = ", ".join(f"{value:.1f}" for value in connection.mms_position)
-    field = ", ".join(f"{value:.1f}" for value in connection.bavg)
-    point = ", ".join(f"{value:.1f}" for value in hit.point)
-    ax.text(-0.15, -0.2, f"MMS (GSM): ({mms}) [R$_E$]", transform=ax.transAxes, fontsize=12)
-    ax.text(0.35, -0.2, f"IMF = ({field}) [nT]", transform=ax.transAxes, fontsize=12)
-    ax.text(0.7, -0.2, f"Intersection = ({point}) [R$_E$]", transform=ax.transAxes, fontsize=12)
-    if simulation_time is not None:
-        ax.text(
-            -0.15,
-            -0.3,
-            f"Simulation time: {simulation_time}",
-            transform=ax.transAxes,
-            fontsize=12,
-        )
+    _draw_connection_metadata(
+        ax,
+        connection,
+        hit,
+        simulation_time=simulation_time,
+    )
 
     ax.set_xlabel(r"Y [R$_E$]", fontsize=26)
     ax.set_ylabel(r"Z [R$_E$]", fontsize=26)
@@ -463,7 +592,7 @@ def plot_shock_angle_contour(
     ax.set_xlim(y_limits)
     ax.set_ylim(z_limits)
     ax.set_aspect("equal", adjustable="box")
-    #ax.set_title("Bow-shock magnetic connection angle", fontsize=24)
+    # ax.set_title("Bow-shock magnetic connection angle", fontsize=24)
     if created_figure:
         ax.figure.subplots_adjust(bottom=0.22)
     plt.tight_layout()
