@@ -105,6 +105,42 @@ def test_stops_batch_when_swmf_fails(tmp_path: Path, monkeypatch) -> None:
     assert (run_directory / "runlog").read_text() == "simulation failed\n"
 
 
+def test_rejects_file_at_planned_result_before_starting_swmf(
+    tmp_path: Path, monkeypatch
+) -> None:
+    input_directory = tmp_path / "inputs"
+    input_directory.mkdir()
+    suffix = "20200101_000000_20200101_010000"
+    (input_directory / f"PARAM_{suffix}.in").write_text("first")
+
+    run_directory = tmp_path / "run"
+    run_directory.mkdir()
+    result_directory = run_directory / "res"
+    (result_directory / "run005_previous").mkdir(parents=True)
+    planned_result = result_directory / f"run006_{suffix}"
+    planned_result.write_text("occupied")
+
+    swmf_marker = run_directory / "swmf_started"
+    _write_executable(
+        run_directory / "SWMF.exe",
+        f'#!/bin/sh\ntouch "{swmf_marker}"\n',
+    )
+    _write_executable(run_directory / "PostProc.pl", "#!/bin/sh\nexit 0\n")
+    binary_directory = tmp_path / "bin"
+    binary_directory.mkdir()
+    _write_executable(binary_directory / "mpiexec", '#!/bin/sh\nexec "$@"\n')
+    monkeypatch.setenv(
+        "PATH", f"{binary_directory}{os.pathsep}{os.environ.get('PATH', '')}"
+    )
+
+    namespace = runpy.run_path(str(SCRIPT))
+    with pytest.raises(FileExistsError, match=planned_result.name):
+        namespace["run_param_files"](input_directory, run_directory=run_directory)
+
+    assert not swmf_marker.exists()
+    assert not (run_directory / "PARAM.in").exists()
+
+
 def test_stops_batch_when_postprocessing_fails(tmp_path: Path, monkeypatch) -> None:
     input_directory = tmp_path / "inputs"
     input_directory.mkdir()
