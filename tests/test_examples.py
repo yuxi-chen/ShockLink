@@ -188,3 +188,28 @@ def test_create_swmf_inputs_uses_writable_local_dependency_directories(
     assert Path(os.environ["SPEDAS_DATA_DIR"]) == cache / "spedas"
     assert outputs == [output for output, _input in calls]
     assert [input for _output, input in calls] == [ROOT / "data/Param/PARAM.in.Earth"]
+
+
+def test_copied_create_swmf_inputs_finds_repository_template(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dependency = ModuleType("shocklink.mms_swmf")
+
+    def create_swmf_input(
+        _start: str, _end: str, *, output: Path, input: Path, **_kwargs
+    ) -> Path:
+        assert input == ROOT / "data/Param/PARAM.in.Earth"
+        return output
+
+    dependency.create_swmf_input = create_swmf_input  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "shocklink.mms_swmf", dependency)
+
+    copied_script = tmp_path / "create_swmf_inputs.py"
+    copied_script.write_text((ROOT / "examples/create_swmf_inputs.py").read_text())
+    namespace = runpy.run_path(str(copied_script))
+
+    namespace["create_inputs"](
+        [("2023-12-16 08:30:00", "2023-12-16 11:00:00")],
+        output_directory=tmp_path / "results",
+        plot=False,
+    )

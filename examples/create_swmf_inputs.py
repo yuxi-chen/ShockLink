@@ -6,7 +6,9 @@ import os
 from collections.abc import Iterable
 from pathlib import Path
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+import shocklink
+
+REPOSITORY_ROOT = Path(shocklink.__file__).resolve().parents[2]
 DEFAULT_TEMPLATE = REPOSITORY_ROOT / "data/Param/PARAM.in.Earth"
 
 # Each event is an MMS observation interval: (UTC start, UTC end).
