@@ -1,11 +1,9 @@
 from __future__ import annotations
 
+import ast
 import os
 from pathlib import Path
-import runpy
-
-import pytest
-
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "examples/run_swmf_inputs.py"
@@ -14,6 +12,14 @@ SCRIPT = ROOT / "examples/run_swmf_inputs.py"
 def _write_executable(path: Path, source: str) -> None:
     path.write_text(source)
     path.chmod(0o755)
+
+
+def test_runner_is_a_top_level_script() -> None:
+    tree = ast.parse(SCRIPT.read_text())
+    assert not any(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        for node in ast.walk(tree)
+    )
 
 
 def test_runs_param_files_sequentially_in_sorted_order(
@@ -53,18 +59,17 @@ def test_runs_param_files_sequentially_in_sorted_order(
         "PATH", f"{binary_directory}{os.pathsep}{os.environ.get('PATH', '')}"
     )
 
-    namespace = runpy.run_path(str(SCRIPT))
-    results = namespace["run_param_files"](input_directory, run_directory=run_directory)
+    subprocess.run([str(SCRIPT), str(input_directory)], cwd=run_directory, check=True)
 
+    results = [
+        run_directory / "res/run006_20200101_000000_20200101_010000",
+        run_directory / "res/run007_20200102_000000_20200102_010000",
+    ]
     assert order_path.read_text().splitlines() == [
         "swmf:first",
         "post:first:res/run006_20200101_000000_20200101_010000",
         "swmf:second",
         "post:second:res/run007_20200102_000000_20200102_010000",
-    ]
-    assert results == [
-        run_directory / "res/run006_20200101_000000_20200101_010000",
-        run_directory / "res/run007_20200102_000000_20200102_010000",
     ]
     assert (results[0] / "runlog").read_text() == "runlog:first\n"
     assert (results[1] / "runlog").read_text() == "runlog:second\n"
@@ -96,9 +101,14 @@ def test_stops_batch_when_swmf_fails(tmp_path: Path, monkeypatch) -> None:
         "PATH", f"{binary_directory}{os.pathsep}{os.environ.get('PATH', '')}"
     )
 
-    namespace = runpy.run_path(str(SCRIPT))
-    with pytest.raises(RuntimeError, match=first_name):
-        namespace["run_param_files"](input_directory, run_directory=run_directory)
+    result = subprocess.run(
+        [str(SCRIPT), str(input_directory)],
+        cwd=run_directory,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert first_name in result.stderr
 
     assert not postprocess_marker.exists()
     assert (run_directory / "PARAM.in").read_text() == "first"
@@ -133,9 +143,14 @@ def test_rejects_file_at_planned_result_before_starting_swmf(
         "PATH", f"{binary_directory}{os.pathsep}{os.environ.get('PATH', '')}"
     )
 
-    namespace = runpy.run_path(str(SCRIPT))
-    with pytest.raises(FileExistsError, match=planned_result.name):
-        namespace["run_param_files"](input_directory, run_directory=run_directory)
+    result = subprocess.run(
+        [str(SCRIPT), str(input_directory)],
+        cwd=run_directory,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert planned_result.name in result.stderr
 
     assert not swmf_marker.exists()
     assert not (run_directory / "PARAM.in").exists()
@@ -165,9 +180,14 @@ def test_stops_batch_when_postprocessing_fails(tmp_path: Path, monkeypatch) -> N
         "PATH", f"{binary_directory}{os.pathsep}{os.environ.get('PATH', '')}"
     )
 
-    namespace = runpy.run_path(str(SCRIPT))
-    with pytest.raises(RuntimeError, match=first_name):
-        namespace["run_param_files"](input_directory, run_directory=run_directory)
+    result = subprocess.run(
+        [str(SCRIPT), str(input_directory)],
+        cwd=run_directory,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert first_name in result.stderr
 
     assert swmf_runs.read_text() == "first"
     assert (run_directory / "PARAM.in").read_text() == "first"

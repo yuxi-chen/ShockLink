@@ -175,7 +175,7 @@ def test_swmf_batch_example_is_executable_helpful_and_documented() -> None:
         text=True,
     )
 
-    assert "input_directory" in result.stdout
+    assert "INPUT_DIRECTORY" in result.stdout
     assert "sequentially" in result.stdout
     assert "runNNN_<input-suffix>" in result.stdout
     assert "run_swmf_inputs.py" in (ROOT / "examples/README.md").read_text()
