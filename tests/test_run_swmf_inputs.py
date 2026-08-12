@@ -22,6 +22,13 @@ def test_runner_is_a_top_level_script() -> None:
     )
 
 
+def test_runner_uses_python_36_compatible_string_operations() -> None:
+    source = SCRIPT.read_text()
+    assert "from __future__ import annotations" not in source
+    assert ".removeprefix(" not in source
+    assert ".removesuffix(" not in source
+
+
 def test_runs_param_files_sequentially_in_sorted_order(
     tmp_path: Path, monkeypatch
 ) -> None:

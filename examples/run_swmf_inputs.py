@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 """Run and postprocess a directory of SWMF PARAM inputs sequentially."""
 
-from __future__ import annotations
-
 import os
 from pathlib import Path
 import re
@@ -46,7 +44,7 @@ if result_directory.is_dir():
 
 jobs = []
 for number, param_file in enumerate(param_files, start=highest_run + 1):
-    suffix = param_file.name.removeprefix("PARAM_").removesuffix(".in")
+    suffix = param_file.name[len("PARAM_") : -len(".in")]
     jobs.append((param_file, Path("res") / f"run{number:03d}_{suffix}"))
 
 for _, result in jobs:
