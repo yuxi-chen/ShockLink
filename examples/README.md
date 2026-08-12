@@ -102,11 +102,14 @@ a time. For each input, it:
 For example, the first input named
 `PARAM_20171207_075400_20171207_080600.in` is postprocessed into
 `res/run001_20171207_075400_20171207_080600`. The next input uses `run002`, and
-so on. The script creates `res/` if necessary. If SWMF or postprocessing fails,
-the batch stops immediately and leaves the active `PARAM.in` and `runlog` in
-the run directory for diagnosis. Before starting, it also checks every planned
-result path and stops if any already exists, preventing an accidental rerun from
-mixing with earlier results.
+so on. If `res/` already contains matching result directories, numbering starts
+one above the highest numeric prefix; for example, existing `run001_*` through
+`run005_*` results make the next result `run006_*`. Gaps are not reused, and
+unrelated names and files are ignored. The script creates `res/` if necessary.
+If SWMF or postprocessing fails, the batch stops immediately and leaves the
+active `PARAM.in` and `runlog` in the run directory for diagnosis. Before
+starting, it also checks every planned result path and stops if any already
+exists, preventing an accidental rerun from mixing with earlier results.
 
 MMS loading and plotting packages are included in the standard installation.
 Launch the notebook for a short MMS interval after installing the notebook

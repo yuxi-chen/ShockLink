@@ -7,6 +7,7 @@ import argparse
 from collections.abc import Sequence
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,16 @@ def _require_executable(path: Path, name: str) -> None:
         raise FileNotFoundError(f"{name} was not found at {path}")
     if not os.access(path, os.X_OK):
         raise PermissionError(f"{name} is not executable: {path}")
+
+
+def _next_result_index(result_directory: Path) -> int:
+    highest = 0
+    if result_directory.is_dir():
+        for path in result_directory.iterdir():
+            match = re.match(r"^run(\d+)_", path.name)
+            if path.is_dir() and match is not None:
+                highest = max(highest, int(match.group(1)))
+    return highest + 1
 
 
 def run_param_files(
@@ -42,8 +53,11 @@ def run_param_files(
     if not param_files:
         raise ValueError(f"no PARAM_*.in files were found in {inputs}")
 
+    result_directory = run / "res"
     jobs: list[tuple[Path, Path]] = []
-    for index, param_file in enumerate(param_files, start=1):
+    for index, param_file in enumerate(
+        param_files, start=_next_result_index(result_directory)
+    ):
         suffix = param_file.name.removeprefix("PARAM_").removesuffix(".in")
         jobs.append((param_file, Path("res") / f"run{index:03d}_{suffix}"))
     existing_results = [run / result for _, result in jobs if (run / result).exists()]
@@ -51,7 +65,7 @@ def run_param_files(
         names = ", ".join(str(path) for path in existing_results)
         raise FileExistsError(f"result destination already exists: {names}")
 
-    (run / "res").mkdir(exist_ok=True)
+    result_directory.mkdir(exist_ok=True)
     results: list[Path] = []
     for index, (param_file, relative_result) in enumerate(jobs, start=1):
         print(f"[{index}/{len(jobs)}] Running {param_file.name}")
@@ -93,7 +107,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Run each PARAM_*.in file sequentially from the current SWMF run "
-            "directory, then postprocess it into res/runNNN_<input-suffix>."
+            "directory, then postprocess it into res/runNNN_<input-suffix>, "
+            "continuing after the highest existing run number."
         )
     )
     parser.add_argument("input_directory", help="directory containing PARAM_*.in files")
