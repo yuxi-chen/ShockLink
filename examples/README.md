@@ -5,6 +5,13 @@
 The [algorithm guide](../docs/algorithms.md) explains the full
 Tecplot-to-normal pipeline and its array/sign conventions.
 
+Install the repository in editable mode before running copied examples or
+examples from outside the checkout:
+
+```bash
+pip install -e .
+```
+
 ## Extract bow-shock notebook
 
 Install ShockLink with the notebook tools from the repository root:
@@ -67,8 +74,12 @@ For batch creation of SWMF inputs, edit the ``EVENTS`` list in
 [`create_swmf_inputs.py`](create_swmf_inputs.py), then run:
 
 ```bash
-PYTHONPATH=src python examples/create_swmf_inputs.py
+python examples/create_swmf_inputs.py
 ```
+
+After the editable install, the script can also be copied elsewhere and run
+without setting `PYTHONPATH`; it locates the default template from the
+ShockLink checkout.
 
 The script creates one `PARAM_*.in` file per `(start, end)` interval and saves
 the MMS quick-look plot beside each file by default.

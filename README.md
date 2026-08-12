@@ -16,6 +16,12 @@ pip install shocklink
 For a development checkout:
 
 ```bash
+pip install -e .
+```
+
+To install the development and notebook tools as well:
+
+```bash
 pip install -e ".[dev,notebook]"
 ```
 
@@ -60,6 +66,10 @@ checkout; pySPEDAS is included in the base installation:
 ```bash
 pip install -e ".[mms]"
 ```
+
+The editable install is also required when copying
+`examples/create_swmf_inputs.py` outside the repository; the script uses the
+installed ShockLink checkout to locate the default SWMF template.
 
 Generate an SWMF parameter file from interval-averaged MMS observations in GSM
 coordinates:
