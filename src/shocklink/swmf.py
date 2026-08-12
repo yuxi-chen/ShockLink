@@ -86,7 +86,12 @@ def _param_section_values(
         raise ValueError(f"PARAM file must contain exactly one {marker} section")
     start = markers[0] + 1
     end = next(
-        (index for index in range(start, len(lines)) if lines[index].lstrip().startswith("#")),
+        (
+            index
+            for index in range(start, len(lines))
+            if lines[index].lstrip().startswith("#")
+            or lines[index].strip() == marker.removeprefix("#")
+        ),
         len(lines),
     )
     values: dict[str, str] = {}

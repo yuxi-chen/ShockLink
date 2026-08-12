@@ -121,6 +121,24 @@ def test_read_mms_param_file_allows_missing_mms_location(
     assert read_mms_param_file(source).location is None
 
 
+def test_read_mms_param_file_stops_at_legacy_unmarked_section(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "PARAM.in"
+    source.write_text(
+        TEMPLATE
+        + "SOLARWIND\n"
+        + "5.844 SwNDim\n100000 SwTDim\n"
+        + "-460 SwUxDim\n59 SwUyDim\n-31 SwUzDim\n"
+        + "-6 SwBxDim\n0.5 SwByDim\n2.5 SwBzDim\n",
+        encoding="utf-8",
+    )
+
+    result = read_mms_param_file(source)
+
+    assert result.magnetic_field == (-7.52, 2.67, 2.67)
+
+
 def test_read_mms_param_file_ignores_unmarked_gsm_coordinates(
     tmp_path: Path,
 ) -> None:
