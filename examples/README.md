@@ -81,6 +81,31 @@ ShockLink checkout.
 The script creates one `PARAM_*.in` file per `(start, end)` interval and saves
 the MMS quick-look plot beside each file by default.
 
+### Sequential SWMF batch runs
+
+[`run_swmf_inputs.py`](run_swmf_inputs.py) runs a directory of generated PARAM
+files from an SWMF `run/` directory. For example:
+
+```bash
+cd /path/to/SWMF/run
+python /path/to/ShockLink/examples/run_swmf_inputs.py /path/to/param-files
+```
+
+The script sorts `PARAM_*.in` files lexicographically and processes them one at
+a time. For each input, it:
+
+1. copies the input to `PARAM.in`;
+2. runs `mpiexec ./SWMF.exe`, writing stdout and stderr to `runlog` and waiting
+   for completion; and
+3. runs `./PostProc.pl res/runNNN_<input-suffix>`.
+
+For example, the first input named
+`PARAM_20171207_075400_20171207_080600.in` is postprocessed into
+`res/run001_20171207_075400_20171207_080600`. The next input uses `run002`, and
+so on. The script creates `res/` if necessary. If SWMF or postprocessing fails,
+the batch stops immediately and leaves the active `PARAM.in` and `runlog` in
+the run directory for diagnosis.
+
 MMS loading and plotting packages are included in the standard installation.
 Launch the notebook for a short MMS interval after installing the notebook
 tools. Automatic mode prefers burst data and uses fast survey data when burst

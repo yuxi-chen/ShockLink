@@ -107,8 +107,8 @@ def test_connection_notebook_preserves_the_simplified_default_grid() -> None:
 def test_mms_notebooks_use_current_installation_command(name: str) -> None:
     source = (ROOT / "examples" / name).read_text()
 
-    assert '.[mms' not in source
-    assert 'pip install -e ' in source
+    assert ".[mms" not in source
+    assert "pip install -e " in source
 
 
 def _tool_environment() -> dict[str, str]:
@@ -161,6 +161,24 @@ def test_swmf_tool_is_thin_and_helpful() -> None:
     ):
         assert option in result.stdout
     assert "PARAM_YYYYMMDD_HHMMSS.in" in result.stdout
+
+
+def test_swmf_batch_example_is_executable_helpful_and_documented() -> None:
+    script = ROOT / "examples/run_swmf_inputs.py"
+    assert os.access(script, os.X_OK)
+
+    result = subprocess.run(
+        [str(script), "--help"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "input_directory" in result.stdout
+    assert "sequentially" in result.stdout
+    assert "runNNN_<input-suffix>" in result.stdout
+    assert "run_swmf_inputs.py" in (ROOT / "examples/README.md").read_text()
 
 
 def test_create_swmf_inputs_uses_writable_local_dependency_directories(
