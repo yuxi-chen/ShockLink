@@ -97,6 +97,43 @@ def test_default_loader_uses_survey_fgm_and_fast_fpi(
     assert series["magnetic_field"] == "mms1_fgm_b_gse_srvy_l2_bvec"
 
 
+def test_default_loader_requests_omni_temperature(monkeypatch: pytest.MonkeyPatch) -> None:
+    requests: dict[str, object] = {}
+    mms = ModuleType("mms")
+    mms.fgm = lambda **_: []  # type: ignore[attr-defined]
+    mms.fpi = lambda **_: []  # type: ignore[attr-defined]
+    omni = ModuleType("omni")
+
+    def data(**kwargs: object) -> list[str]:
+        requests.update(kwargs)
+        return ["T"]
+
+    omni.data = data  # type: ignore[attr-defined]
+    projects = ModuleType("pyspedas.projects")
+    projects.mms = mms  # type: ignore[attr-defined]
+    projects.omni = omni  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyspedas", ModuleType("pyspedas"))
+    monkeypatch.setitem(sys.modules, "pyspedas.projects", projects)
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(
+            get_data=lambda _: SimpleNamespace(times=np.array([1_445_000_800.0]))
+        ),
+    )
+
+    series = _load_pyspedas_products(
+        start="2015-10-16 13:06:00",
+        end="2015-10-16 13:07:00",
+        probe=1,
+        cadence="fast",
+    )
+
+    assert requests["datatype"] == "1min"
+    assert requests["varnames"] == ["T"]
+    assert series["omni_temperature"] == "T"
+
+
 def test_default_loader_requests_optional_mec_position(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

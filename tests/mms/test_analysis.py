@@ -16,9 +16,9 @@ def test_summarize_data_reports_scalar_and_vector_statistics(mms_data) -> None:
 
     assert summary["ion_density"] == {
         "count": 3,
-        "mean": 2.0,
-        "min": 1.0,
-        "max": 3.0,
+        "mean": 5.0,
+        "min": 4.0,
+        "max": 6.0,
     }
     assert summary["magnetic_field"]["x"] == {
         "count": 3,
@@ -59,15 +59,21 @@ def test_average_plotted_values_returns_only_displayed_means(mms_data) -> None:
     averages = average_plotted_values(mms_data)
 
     assert averages["magnetic_field_x"] == 2.0
-    assert averages["ion_density"] == 2.0
+    assert averages["ion_density"] == 5.0
     assert averages["ion_velocity_z"] == 60.0
     assert averages["satellite_location_x"] == 1.0
     assert averages["satellite_location_y"] == -0.5
     assert averages["satellite_location_z"] == 0.1
-    assert averages["ion_temperature"] == 240.0
-    assert averages["electron_temperature"] == 80.0
+    assert averages["omni_temperature"] == 200000.0
+    assert "ion_temperature" not in averages
+    assert "electron_temperature" not in averages
     assert "electron_density" not in averages
     assert "electron_velocity_x" not in averages
+
+
+def test_average_plotted_values_fails_without_valid_omni_temperature() -> None:
+    with pytest.raises(ValueError, match="OMNI temperature"):
+        average_plotted_values(MMSData(cadence="fast", series={}))
 
 
 def test_position_at_time_interpolates_between_mec_samples(monkeypatch) -> None:

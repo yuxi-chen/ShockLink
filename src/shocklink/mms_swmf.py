@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 from typing import Literal
 
-from shocklink.constants import CARTESIAN_COMPONENTS, EV_TO_K
+from shocklink.constants import CARTESIAN_COMPONENTS
 from shocklink.mms import (
     average_plotted_values,
     load_mms_data,
@@ -61,13 +61,12 @@ def _vector_average(
 def solar_wind_from_averages(averages: Mapping[str, float]) -> SolarWindValues:
     """Map GSM MMS averages to SWMF solar-wind values."""
     density = _required_average(averages, "ion_density")
-    ion_temperature = _required_average(averages, "ion_temperature")
-    electron_temperature = _required_average(averages, "electron_temperature")
+    temperature = _required_average(averages, "omni_temperature")
     velocity = _vector_average(averages, "ion_velocity")
     magnetic_field = _vector_average(averages, "magnetic_field")
     return SolarWindValues(
         density=density,
-        temperature_kelvin=(ion_temperature + electron_temperature) * EV_TO_K,
+        temperature_kelvin=temperature,
         velocity=velocity,
         magnetic_field=magnetic_field,
     )

@@ -14,7 +14,6 @@ from .data import (
     _finite_mean,
     _mean_position_earth_radii,
     _resolve_series,
-    _total_temperature,
 )
 from .data import MMSData, ResolvedSeries
 
@@ -59,12 +58,12 @@ def _add_temperature_averages(
     averages: dict[str, float],
     series: dict[str, ResolvedSeries],
 ) -> None:
-    """Add total ion and electron temperatures when available."""
+    """Add the cleaned OMNI proton-temperature mean."""
 
-    for species in ("ion", "electron"):
-        product = _total_temperature(series, species)
-        if product is not None:
-            averages[f"{species}_temperature"] = _finite_mean(product.values)
+    product = series.get("omni_temperature")
+    if product is None or not len(product.values):
+        raise ValueError("No valid OMNI temperature data were available for this interval.")
+    averages["omni_temperature"] = _finite_mean(product.values)
 
 
 def summarize_data(
