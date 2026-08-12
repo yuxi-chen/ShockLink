@@ -13,6 +13,7 @@ from shocklink.exceptions import DatasetError
 from shocklink.utilities import parse_datetime
 
 TIME_EVENT_KEY = "time_event"
+DEFAULT_TIME_EVENT = "1970-01-01T00:00:00.000+00:00"
 
 COORDINATE_COMPONENT_CANDIDATES = (
     ("X [R]", "Y [R]", "Z [R]"),
@@ -70,9 +71,7 @@ def _read_vtm_time(data: pv.MultiBlock, *, source: Path) -> str:
     """Return and normalize the VTM root event time."""
 
     if TIME_EVENT_KEY not in data.field_data:
-        raise DatasetError(
-            f"VTM file {source} lacks root field_data[{TIME_EVENT_KEY!r}]"
-        )
+        return DEFAULT_TIME_EVENT
     values = np.asarray(data.field_data[TIME_EVENT_KEY]).reshape(-1)
     if values.size != 1:
         raise DatasetError(

@@ -5,7 +5,7 @@ import pyvista as pv
 import pytest
 
 from shocklink.exceptions import DatasetError
-from shocklink.io import TIME_EVENT_KEY, load_simulation
+from shocklink.io import DEFAULT_TIME_EVENT, TIME_EVENT_KEY, load_simulation
 
 
 TITLE = 'TITLE="BATSRUS: 3D Data,2023/12/16 11:30:00.000"\n'
@@ -182,7 +182,7 @@ def test_load_simulation_reads_single_vtm_and_preserves_geometry_type(
     assert np.asarray(grid.field_data[TIME_EVENT_KEY]).item() == EXPECTED_TIME_EVENT
 
 
-def test_load_simulation_rejects_vtm_without_time_metadata(
+def test_load_simulation_defaults_vtm_without_time_metadata_to_midnight(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     source = tmp_path / "sample.vtm"
@@ -190,8 +190,9 @@ def test_load_simulation_rejects_vtm_without_time_metadata(
     loaded = pv.MultiBlock([_cleaned_leaf(structured=True)])
     monkeypatch.setattr(pv, "read", lambda _path: loaded)
 
-    with pytest.raises(DatasetError, match="time_event"):
-        load_simulation(source)
+    grid = load_simulation(source)
+
+    assert np.asarray(grid.field_data[TIME_EVENT_KEY]).item() == DEFAULT_TIME_EVENT
 
 
 def test_load_simulation_wraps_pyvista_failure(
