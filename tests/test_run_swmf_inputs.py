@@ -25,13 +25,12 @@ def test_runner_is_a_top_level_script() -> None:
 def test_runs_param_files_sequentially_in_sorted_order(
     tmp_path: Path, monkeypatch
 ) -> None:
-    input_directory = tmp_path / "inputs"
-    input_directory.mkdir()
+    input_directory = tmp_path / "run" / "param-files"
+    input_directory.mkdir(parents=True)
     (input_directory / "PARAM_20200102_000000_20200102_010000.in").write_text("second")
     (input_directory / "PARAM_20200101_000000_20200101_010000.in").write_text("first")
 
-    run_directory = tmp_path / "run"
-    run_directory.mkdir()
+    run_directory = input_directory.parent
     result_directory = run_directory / "res"
     (result_directory / "run001_previous").mkdir(parents=True)
     (result_directory / "run005_previous").mkdir()
@@ -59,7 +58,7 @@ def test_runs_param_files_sequentially_in_sorted_order(
         "PATH", f"{binary_directory}{os.pathsep}{os.environ.get('PATH', '')}"
     )
 
-    subprocess.run([str(SCRIPT), str(input_directory)], cwd=run_directory, check=True)
+    subprocess.run([str(SCRIPT)], cwd=run_directory, check=True)
 
     results = [
         run_directory / "res/run006_20200101_000000_20200101_010000",
@@ -77,14 +76,13 @@ def test_runs_param_files_sequentially_in_sorted_order(
 
 
 def test_stops_batch_when_swmf_fails(tmp_path: Path, monkeypatch) -> None:
-    input_directory = tmp_path / "inputs"
-    input_directory.mkdir()
+    input_directory = tmp_path / "run" / "param-files"
+    input_directory.mkdir(parents=True)
     first_name = "PARAM_20200101_000000_20200101_010000.in"
     (input_directory / first_name).write_text("first")
     (input_directory / "PARAM_20200102_000000_20200102_010000.in").write_text("second")
 
-    run_directory = tmp_path / "run"
-    run_directory.mkdir()
+    run_directory = input_directory.parent
     _write_executable(
         run_directory / "SWMF.exe",
         '#!/bin/sh\nprintf "simulation failed\\n" >&2\nexit 7\n',
@@ -102,7 +100,7 @@ def test_stops_batch_when_swmf_fails(tmp_path: Path, monkeypatch) -> None:
     )
 
     result = subprocess.run(
-        [str(SCRIPT), str(input_directory)],
+        [str(SCRIPT)],
         cwd=run_directory,
         capture_output=True,
         text=True,
@@ -118,13 +116,12 @@ def test_stops_batch_when_swmf_fails(tmp_path: Path, monkeypatch) -> None:
 def test_rejects_file_at_planned_result_before_starting_swmf(
     tmp_path: Path, monkeypatch
 ) -> None:
-    input_directory = tmp_path / "inputs"
-    input_directory.mkdir()
+    input_directory = tmp_path / "run" / "param-files"
+    input_directory.mkdir(parents=True)
     suffix = "20200101_000000_20200101_010000"
     (input_directory / f"PARAM_{suffix}.in").write_text("first")
 
-    run_directory = tmp_path / "run"
-    run_directory.mkdir()
+    run_directory = input_directory.parent
     result_directory = run_directory / "res"
     (result_directory / "run005_previous").mkdir(parents=True)
     planned_result = result_directory / f"run006_{suffix}"
@@ -144,7 +141,7 @@ def test_rejects_file_at_planned_result_before_starting_swmf(
     )
 
     result = subprocess.run(
-        [str(SCRIPT), str(input_directory)],
+        [str(SCRIPT)],
         cwd=run_directory,
         capture_output=True,
         text=True,
@@ -157,14 +154,13 @@ def test_rejects_file_at_planned_result_before_starting_swmf(
 
 
 def test_stops_batch_when_postprocessing_fails(tmp_path: Path, monkeypatch) -> None:
-    input_directory = tmp_path / "inputs"
-    input_directory.mkdir()
+    input_directory = tmp_path / "run" / "param-files"
+    input_directory.mkdir(parents=True)
     first_name = "PARAM_20200101_000000_20200101_010000.in"
     (input_directory / first_name).write_text("first")
     (input_directory / "PARAM_20200102_000000_20200102_010000.in").write_text("second")
 
-    run_directory = tmp_path / "run"
-    run_directory.mkdir()
+    run_directory = input_directory.parent
     swmf_runs = run_directory / "swmf_runs"
     _write_executable(
         run_directory / "SWMF.exe",
@@ -181,7 +177,7 @@ def test_stops_batch_when_postprocessing_fails(tmp_path: Path, monkeypatch) -> N
     )
 
     result = subprocess.run(
-        [str(SCRIPT), str(input_directory)],
+        [str(SCRIPT)],
         cwd=run_directory,
         capture_output=True,
         text=True,

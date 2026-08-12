@@ -84,11 +84,12 @@ the MMS quick-look plot beside each file by default.
 ### Sequential SWMF batch runs
 
 [`run_swmf_inputs.py`](run_swmf_inputs.py) runs a directory of generated PARAM
-files from an SWMF `run/` directory. For example:
+files from an SWMF `run/` directory. Edit `INPUT_DIRECTORY` near the top of the
+script to point to the directory containing the PARAM files, then run:
 
 ```bash
 cd /path/to/SWMF/run
-python /path/to/ShockLink/examples/run_swmf_inputs.py /path/to/param-files
+python /path/to/ShockLink/examples/run_swmf_inputs.py
 ```
 
 The script sorts `PARAM_*.in` files lexicographically and processes them one at

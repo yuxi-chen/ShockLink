@@ -166,19 +166,11 @@ def test_swmf_tool_is_thin_and_helpful() -> None:
 def test_swmf_batch_example_is_executable_helpful_and_documented() -> None:
     script = ROOT / "examples/run_swmf_inputs.py"
     assert os.access(script, os.X_OK)
-
-    result = subprocess.run(
-        [str(script), "--help"],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-    assert "INPUT_DIRECTORY" in result.stdout
-    assert "sequentially" in result.stdout
-    assert "runNNN_<input-suffix>" in result.stdout
-    assert "run_swmf_inputs.py" in (ROOT / "examples/README.md").read_text()
+    source = script.read_text()
+    assert 'INPUT_DIRECTORY = Path("param-files")' in source
+    assert "sequentially" in source
+    assert "runNNN_<input-suffix>" in (ROOT / "examples/README.md").read_text()
+    assert "Edit `INPUT_DIRECTORY`" in (ROOT / "examples/README.md").read_text()
 
 
 def test_create_swmf_inputs_uses_writable_local_dependency_directories(

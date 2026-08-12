@@ -11,18 +11,11 @@ import subprocess
 import sys
 
 
-if len(sys.argv) == 2 and sys.argv[1] in {"-h", "--help"}:
-    print(
-        "usage: run_swmf_inputs.py INPUT_DIRECTORY\n"
-        "Run PARAM_*.in files sequentially and postprocess them into "
-        "res/runNNN_<input-suffix>."
-    )
-    sys.exit(0)
-if len(sys.argv) != 2:
-    print(f"usage: {Path(sys.argv[0]).name} INPUT_DIRECTORY", file=sys.stderr)
-    sys.exit(2)
+# Edit this path before running the script. It is relative to the SWMF run/
+# directory from which this script is executed.
+INPUT_DIRECTORY = Path("param-files")
 
-input_directory = Path(sys.argv[1]).expanduser().resolve()
+input_directory = (Path.cwd() / INPUT_DIRECTORY).resolve()
 run_directory = Path.cwd()
 if not input_directory.is_dir():
     print(f"error: input directory was not found: {input_directory}", file=sys.stderr)
