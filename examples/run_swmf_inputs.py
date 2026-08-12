@@ -42,12 +42,19 @@ def run_param_files(
     if not param_files:
         raise ValueError(f"no PARAM_*.in files were found in {inputs}")
 
-    (run / "res").mkdir(exist_ok=True)
-    results: list[Path] = []
+    jobs: list[tuple[Path, Path]] = []
     for index, param_file in enumerate(param_files, start=1):
         suffix = param_file.name.removeprefix("PARAM_").removesuffix(".in")
-        relative_result = Path("res") / f"run{index:03d}_{suffix}"
-        print(f"[{index}/{len(param_files)}] Running {param_file.name}")
+        jobs.append((param_file, Path("res") / f"run{index:03d}_{suffix}"))
+    existing_results = [run / result for _, result in jobs if (run / result).exists()]
+    if existing_results:
+        names = ", ".join(str(path) for path in existing_results)
+        raise FileExistsError(f"result destination already exists: {names}")
+
+    (run / "res").mkdir(exist_ok=True)
+    results: list[Path] = []
+    for index, (param_file, relative_result) in enumerate(jobs, start=1):
+        print(f"[{index}/{len(jobs)}] Running {param_file.name}")
         shutil.copy2(param_file, run / "PARAM.in")
 
         try:
@@ -65,7 +72,7 @@ def run_param_files(
                 f"{error.returncode}; see {run / 'runlog'}"
             ) from error
 
-        print(f"[{index}/{len(param_files)}] Postprocessing to {relative_result}")
+        print(f"[{index}/{len(jobs)}] Postprocessing to {relative_result}")
         try:
             subprocess.run(
                 ["./PostProc.pl", str(relative_result)],

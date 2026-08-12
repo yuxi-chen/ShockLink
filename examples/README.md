@@ -104,7 +104,9 @@ For example, the first input named
 `res/run001_20171207_075400_20171207_080600`. The next input uses `run002`, and
 so on. The script creates `res/` if necessary. If SWMF or postprocessing fails,
 the batch stops immediately and leaves the active `PARAM.in` and `runlog` in
-the run directory for diagnosis.
+the run directory for diagnosis. Before starting, it also checks every planned
+result path and stops if any already exists, preventing an accidental rerun from
+mixing with earlier results.
 
 MMS loading and plotting packages are included in the standard installation.
 Launch the notebook for a short MMS interval after installing the notebook
