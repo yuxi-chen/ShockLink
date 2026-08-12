@@ -162,11 +162,12 @@ so unsupported columns remain visible.
 
 ## Gap filling, derivatives, and outward normals
 
-Normals require derivatives on a complete regular grid. Missing surface values
-are filled in two stages: linear interpolation within the finite samples'
-convex support, then nearest-neighbor extrapolation at remaining edges and
-corners. Original finite samples are restored exactly before differentiation.
-At least three non-collinear finite samples are required.
+`calc_bow_shock_normals()` requires derivatives on a complete regular grid.
+Missing surface values are filled in two stages: linear interpolation within
+the finite samples' convex support, then nearest-neighbor extrapolation at
+remaining edges and corners. Original finite samples are restored exactly
+before differentiation. At least three non-collinear finite samples are
+required.
 
 For the graph surface
 
@@ -179,6 +180,9 @@ the positive-X cross product is
 ```text
 n_raw = r_y cross r_z = (1, -dx_s/dy, -dx_s/dz).
 ```
+
+Equivalently, using partial-derivative notation, this is
+`(1, -∂x_s/∂y, -∂x_s/∂z)`.
 
 NumPy gradients use the supplied Y and Z coordinates, including nonuniform
 spacing. Components are scaled before norm evaluation to avoid overflow, then
