@@ -237,23 +237,29 @@ Implementation: [`connectivity.py`](../src/shocklink/connectivity.py).
 ## MMS loading, averaging, and coordinates
 
 MMS loading uses pySPEDAS FGM, FPI, and MEC products. Automatic cadence tries
-burst data first, then fast data. Magnetic field and plasma velocities are
-converted from GSE to GSM when requested; spacecraft position is loaded from
-MEC in GSM. Series are clipped to the requested inclusive interval.
+burst data first, then fast data. Magnetic field and ion velocity are converted
+from GSE to GSM when requested; spacecraft position is loaded from MEC in GSM.
+Series are clipped to the requested inclusive interval. Ion density is inferred
+from the MMS electron density under charge neutrality.
 
 Statistics and SWMF inputs use finite samples only. Vector components are
 averaged independently. Magnetic magnitude is averaged from each sample's
-three-component norm, rather than taking the norm of the mean vector. Total
-species temperature is
+three-component norm, rather than taking the norm of the mean vector. OMNI
+one-minute proton temperature is filtered using its metadata bounds and fill
+value, as well as numeric all-9 placeholders. Assuming `T_e = T_i`, the total
+temperature is
 
 ```text
-T = (T_parallel + 2*T_perpendicular) / 3
+T_total = T_i + T_e = 2*T_OMNI
 ```
 
-on timestamps shared by both products. The spacecraft location used by the
-connection workflow is linearly interpolated at the effective UTC time after
-invalid samples are removed, times are stably sorted, and duplicate timestamps
-are collapsed. Kilometres are converted to Earth radii only at the final step.
+If no valid OMNI temperature remains, the total temperature defaults to
+100,000 K.
+
+The spacecraft location used by the connection workflow is linearly
+interpolated at the effective UTC time after invalid samples are removed, times
+are stably sorted, and duplicate timestamps are collapsed. Kilometres are
+converted to Earth radii only at the final step.
 
 Implementation: [`mms/loading.py`](../src/shocklink/mms/loading.py),
 [`mms/data.py`](../src/shocklink/mms/data.py), and
@@ -263,9 +269,10 @@ Implementation: [`mms/loading.py`](../src/shocklink/mms/loading.py),
 
 `create_swmf_input()` uses the requested interval midpoint as the effective
 start time unless explicitly overridden. It writes that time to `#STARTTIME`,
-maps finite ion density, velocity, and magnetic averages to `#SOLARWIND`, and
-stores the interpolated GSM MMS location in a nearby annotated block. Ion and
-electron temperatures are added and converted from eV to K for the template.
+maps finite inferred ion density, velocity, and magnetic averages to
+`#SOLARWIND`, and stores the interpolated GSM MMS location in a nearby annotated
+block. Ion and electron temperatures are represented by the cleaned, doubled
+OMNI proton temperature in K, or the 100,000 K fallback.
 The original template structure, comments, whitespace, and newline style are
 otherwise retained.
 

@@ -83,13 +83,13 @@ the MMS quick-look plot beside each file by default.
 
 ### Sequential SWMF batch runs
 
-[`run_swmf_inputs.py`](run_swmf_inputs.py) runs a directory of generated PARAM
+[`run_swmf.py`](run_swmf.py) runs a directory of generated PARAM
 files from an SWMF `run/` directory. Edit `INPUT_DIRECTORY` near the top of the
 script to point to the directory containing the PARAM files, then run:
 
 ```bash
 cd /path/to/SWMF/run
-python /path/to/ShockLink/examples/run_swmf_inputs.py
+python /path/to/ShockLink/examples/run_swmf.py
 ```
 
 The script sorts `PARAM_*.in` files lexicographically and processes them one at
@@ -112,6 +112,25 @@ active `PARAM.in` and `runlog` in the run directory for diagnosis. Before
 starting, it also checks every planned result path and stops if any already
 exists, preventing an accidental rerun from mixing with earlier results.
 
+### Batch MMS connection figures
+
+After SWMF and `PostProc.pl` finish, copy the PARAM used for each run to
+`res/runNNN_*/PARAM.in`. Then run
+[`process_swmf_results.py`](process_swmf_results.py) from the SWMF `run/`
+directory:
+
+```bash
+python /path/to/ShockLink/examples/process_swmf_results.py
+```
+
+The script visits sorted `res/runNNN*` directories. Within each directory it
+searches recursively for `*.dat` and `*.vtm`, selects the latest result by
+lexicographic filename, and pairs it with that directory's `PARAM.in`. The 2D
+and 3D PNG connection figures are written into the same `runNNN*` directory.
+A missing PARAM, missing simulation, or processing error is reported and
+skipped without stopping later runs. Edit `RESULT_DIRECTORY` near the top if
+the result tree is not `res/` relative to the current directory.
+
 MMS loading and plotting packages are included in the standard installation.
 Launch the notebook for a short MMS interval after installing the notebook
 tools. Automatic mode prefers burst data and uses fast survey data when burst
@@ -130,18 +149,18 @@ from shocklink.mms import load_mms_data, plot_mms_data
 ```
 
 Vectors use GSE coordinates by default. When `COORDINATES = "gsm"` is selected,
-pySPEDAS transforms the magnetic-field and bulk-velocity vectors to
-time-dependent GSM coordinates; scalar density and temperature products remain
-unchanged:
+pySPEDAS transforms the magnetic-field and ion bulk-velocity vectors to
+time-dependent GSM coordinates. Ion density is inferred from MMS electron
+density under charge neutrality. Temperature uses cleaned one-minute OMNI
+proton temperature and assumes `T_e = T_i`, so the plotted and SWMF total is
+`2*T_OMNI`; when no valid sample is available it defaults to 100,000 K.
 
 Set `START`, `END`, `PROBE`, `MODE`, and `COORDINATES = "gsm"` in the notebook
 to select this interval and coordinate system.
 
 The figure subtitle reports the interval-averaged MMS position in GSM and
-Earth radii (`$R_E$`) when MEC ephemeris data are available. The command also prints means for the
-displayed variables; total ion/electron temperatures and their means are
-shown in eV on the left-hand plot axis, with a linked K scale on the right for
-the same temperature lines.
+Earth radii (`$R_E$`) when MEC ephemeris data are available. The command also
+prints means for displayed variables, including OMNI total temperature in K.
 
 For interactive exploration, launch `jupyter lab examples/mms_example.ipynb`.
 The notebook exposes the time range, probe, `auto`/`brst`/`fast` mode, and GSE

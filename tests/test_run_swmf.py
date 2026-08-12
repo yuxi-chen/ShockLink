@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "examples/run_swmf_inputs.py"
+SCRIPT = ROOT / "examples/run_swmf.py"
 
 
 def _write_executable(path: Path, source: str) -> None:

@@ -164,13 +164,41 @@ def test_swmf_tool_is_thin_and_helpful() -> None:
 
 
 def test_swmf_batch_example_is_executable_helpful_and_documented() -> None:
-    script = ROOT / "examples/run_swmf_inputs.py"
+    script = ROOT / "examples/run_swmf.py"
     assert os.access(script, os.X_OK)
+    assert not (ROOT / "examples/run_swmf_inputs.py").exists()
     source = script.read_text()
     assert 'INPUT_DIRECTORY = Path("param-files")' in source
     assert "sequentially" in source
     assert "runNNN_<input-suffix>" in (ROOT / "examples/README.md").read_text()
     assert "Edit `INPUT_DIRECTORY`" in (ROOT / "examples/README.md").read_text()
+
+
+def test_batch_connection_example_is_executable_and_documented() -> None:
+    script = ROOT / "examples/process_swmf_results.py"
+    examples = (ROOT / "examples/README.md").read_text()
+    assert os.access(script, os.X_OK)
+    assert "process_swmf_results.py" in examples
+    assert "PARAM.in" in examples
+    assert "latest" in examples
+
+
+def test_current_docs_describe_charge_neutral_density_and_omni_temperature() -> None:
+    algorithms = ALGORITHMS.read_text()
+    examples = (ROOT / "examples/README.md").read_text()
+    readme = (ROOT / "README.md").read_text()
+    current_docs = "\n".join((algorithms, examples, readme))
+
+    assert "charge neutrality" in current_docs
+    assert "100,000 K" in current_docs
+    assert "T_e = T_i" in current_docs
+    assert "run_swmf_inputs.py" not in examples
+    assert "run_swmf.py" in examples
+
+    notebook = (ROOT / "examples/mms_example.ipynb").read_text()
+    assert "electron density" in notebook
+    assert "OMNI" in notebook
+    assert "100,000 K" in notebook
 
 
 def test_create_swmf_inputs_uses_writable_local_dependency_directories(

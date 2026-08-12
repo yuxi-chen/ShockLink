@@ -87,12 +87,18 @@ MMS interval; use `--start-time` to override it. The effective time synchronizes
 both `#STARTTIME` and the location timestamp. Probe 1 and automatic burst/fast
 data selection are the defaults, with `--probe` and `--mode` available for
 explicit selection. Supply `--plot true` to save the same multi-panel MMS
-quick-look figure used by `mms_example.ipynb`. For the example interval, the
-plot is saved as
+quick-look figure used by `mms_example.ipynb`. Ion density is inferred from MMS
+electron density under charge neutrality. Temperature uses cleaned OMNI proton
+data with `T_e = T_i`, giving `T_total = 2*T_OMNI`; missing OMNI temperature
+defaults to 100,000 K. For the example interval, the plot is saved as
 `mms_20181219_194000_20181219_195200.png` beside the SWMF input.
 When `--output` is omitted, the file is named
 `PARAM_YYYYMMDD_HHMMSS.in` using the effective UTC start time. Supply
 `--output` to choose a different filename.
+
+The [examples guide](examples/README.md) also documents `run_swmf.py` and
+`process_swmf_results.py` for sequential simulations and batch MMS connection
+figures.
 
 Show all template, time, probe, and data-mode options with:
 
