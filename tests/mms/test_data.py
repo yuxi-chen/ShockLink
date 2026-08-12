@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import builtins
 import sys
 from types import ModuleType, SimpleNamespace
 
 import numpy as np
 
 from shocklink.constants import EV_TO_K
-from shocklink.mms.data import _clean_omni_temperature, _resolve_series, _total_temperature
+from shocklink.mms.data import _clean_omni_temperature, _get_tplot_data, _resolve_series
 from shocklink.mms import MMSData
 from shocklink.utilities import ev_to_kelvin, kelvin_to_ev
 
@@ -69,12 +70,26 @@ def test_resolve_series_uses_bundled_pyspedas_registry(monkeypatch) -> None:
     np.testing.assert_array_equal(resolved["ion_density"].values, [2.0])
 
 
-def test_total_temperature_uses_one_parallel_and_two_perpendicular_directions(
-    mms_data,
-) -> None:
-    temperature = _total_temperature(_resolve_series(mms_data), "ion")
+def test_tplot_lookup_uses_loaded_legacy_registry_first(monkeypatch) -> None:
+    product = SimpleNamespace(times=np.array([0.0]), y=np.array([2.0]))
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(get_data=lambda *_args, **_kwargs: product),
+    )
+    imported_pyspedas = False
+    import_module = builtins.__import__
 
-    np.testing.assert_allclose(temperature.values, [120.0, 240.0, 360.0])
+    def track_import(name, *args, **kwargs):
+        nonlocal imported_pyspedas
+        if name == "pyspedas":
+            imported_pyspedas = True
+        return import_module(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", track_import)
+
+    assert _get_tplot_data("density") is product
+    assert imported_pyspedas is False
 
 
 def test_clean_omni_temperature_removes_fill_and_all_nines() -> None:
@@ -106,3 +121,24 @@ def test_resolve_series_prefers_electron_density_for_ion_density(monkeypatch) ->
     )
 
     np.testing.assert_array_equal(resolved["ion_density"].values, [4.0])
+
+
+def test_resolve_series_adds_bounded_default_total_temperature() -> None:
+    resolved = _resolve_series(
+        MMSData(
+            cadence="fast",
+            series={},
+            start="2023-12-16 08:30:00",
+            end="2023-12-16 11:00:00",
+        )
+    )
+
+    temperature = resolved["omni_temperature"]
+    np.testing.assert_array_equal(temperature.values, [100000.0, 100000.0])
+    np.testing.assert_array_equal(
+        temperature.times,
+        np.array(
+            ["2023-12-16T08:30:00", "2023-12-16T11:00:00"],
+            dtype="datetime64[s]",
+        ),
+    )

@@ -12,7 +12,7 @@ from .data import CoordinateSystem, MMSData, _get_tplot_data
 
 
 MMSLoader = Callable[..., Mapping[str, str]]
-VECTOR_SERIES = ("magnetic_field", "ion_velocity", "electron_velocity")
+VECTOR_SERIES = ("magnetic_field", "ion_velocity")
 
 
 def load_mms_data(
@@ -31,6 +31,7 @@ def load_mms_data(
     TimeBounds.from_strings(start, end)
 
     load = loader or _load_pyspedas_products
+    interval_series = _load_omni_temperature(start, end) if loader is None else {}
     cadences = ("brst", "fast") if mode == "auto" else (mode,)
     for cadence in cadences:
         series = dict(
@@ -42,9 +43,10 @@ def load_mms_data(
                 coordinates=coordinates,
             )
         )
+        series.update(interval_series)
         mms_products = {
-            name: variable
-            for name, variable in series.items()
+            name: value
+            for name, value in series.items()
             if name != "omni_temperature"
         }
         if any(mms_products.values()) or mode != "auto":
@@ -77,21 +79,11 @@ def _load_pyspedas_products(
 ) -> Mapping[str, str]:
     """Request MMS products and return the available pytplot names."""
     try:
-        from pyspedas import projects
-        mms = projects.mms
+        from pyspedas.projects import mms
     except ImportError as error:  # pragma: no cover - optional dependency
         raise ImportError("MMS analysis requires the installed pySPEDAS package.") from error
 
     trange = [start, end]
-    omni_loader = getattr(projects, "omni", None)
-    if omni_loader is not None:
-        omni_loader.data(
-            trange=trange,
-            datatype="1min",
-            level="hro",
-            varnames=["T"],
-            time_clip=True,
-        )
     probe_id = str(probe)
     fgm_cadence = "srvy" if cadence == "fast" else cadence
     fgm_variables = mms.fgm(
@@ -108,7 +100,7 @@ def _load_pyspedas_products(
         data_rate=cadence,
         level="l2",
         datatype=["dis-moms", "des-moms"],
-        varformat=["*numberdensity*", "*bulkv_gse*", "*temp*"],
+        varformat=["*des_numberdensity*", "*dis_bulkv_gse*"],
         time_clip=True,
     )
     mec_variables: list[str] = []
@@ -128,18 +120,9 @@ def _load_pyspedas_products(
     prefix = f"mms{probe_id}_"
     expected = {
         "magnetic_field": f"{prefix}fgm_b_gse_{fgm_cadence}_l2_bvec",
-        "ion_density": f"{prefix}dis_numberdensity_{cadence}",
         "electron_density": f"{prefix}des_numberdensity_{cadence}",
         "ion_velocity": f"{prefix}dis_bulkv_gse_{cadence}",
-        "electron_velocity": f"{prefix}des_bulkv_gse_{cadence}",
-        "ion_temperature": f"{prefix}dis_temp_{cadence}",
-        "electron_temperature": f"{prefix}des_temp_{cadence}",
-        "ion_temperature_parallel": f"{prefix}dis_temppara_{cadence}",
-        "electron_temperature_parallel": f"{prefix}des_temppara_{cadence}",
-        "ion_temperature_perpendicular": f"{prefix}dis_tempperp_{cadence}",
-        "electron_temperature_perpendicular": f"{prefix}des_tempperp_{cadence}",
         "satellite_location": f"{prefix}mec_r_gsm",
-        "omni_temperature": "T",
     }
     bounds = TimeBounds.from_strings(start, end)
     start_time, end_time = bounds.unix
@@ -148,9 +131,28 @@ def _load_pyspedas_products(
         for name, variable in expected.items()
         if variable in loaded and _has_samples_in_interval(variable, start_time, end_time)
     }
-    if omni_loader is not None and _has_samples_in_interval("T", start_time, end_time):
-        selected["omni_temperature"] = "T"
     return _convert_vector_coordinates(selected, coordinates)
+
+
+def _load_omni_temperature(start: str, end: str) -> dict[str, str]:
+    """Load the interval-level OMNI proton temperature once."""
+    try:
+        from pyspedas.projects import omni
+    except ImportError:  # pragma: no cover - optional product
+        return {}
+    omni.data(
+        trange=[start, end],
+        datatype="1min",
+        level="hro",
+        varnames=["T"],
+        time_clip=True,
+    )
+    start_time, end_time = TimeBounds.from_strings(start, end).unix
+    return (
+        {"omni_temperature": "T"}
+        if _has_samples_in_interval("T", start_time, end_time)
+        else {}
+    )
 
 
 def _has_samples_in_interval(variable: str, start: float, end: float) -> bool:

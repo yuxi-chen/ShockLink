@@ -6,10 +6,12 @@ import sys
 import numpy as np
 import pytest
 
+import shocklink.mms.loading as loading
 from shocklink.mms.loading import (
     _converted_variable_name,
     _convert_vector_coordinates,
     _has_samples_in_interval,
+    _load_omni_temperature,
     _load_pyspedas_products,
 )
 from shocklink.mms import load_mms_data
@@ -113,7 +115,48 @@ def test_default_loader_uses_survey_fgm_and_fast_fpi(
 
     assert requests["fgm"]["data_rate"] == "srvy"
     assert requests["fpi"]["data_rate"] == "fast"
+    assert requests["fpi"]["varformat"] == [
+        "*des_numberdensity*",
+        "*dis_bulkv_gse*",
+    ]
     assert series["magnetic_field"] == "mms1_fgm_b_gse_srvy_l2_bvec"
+
+
+def test_default_loader_requests_omni_once_across_auto_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    omni_requests = 0
+    mms = ModuleType("mms")
+
+    def fgm(**kwargs: object) -> list[str]:
+        if kwargs["data_rate"] == "brst":
+            return []
+        return ["mms1_fgm_b_gse_srvy_l2_bvec"]
+
+    mms.fgm = fgm  # type: ignore[attr-defined]
+    mms.fpi = lambda **_: []  # type: ignore[attr-defined]
+    omni = ModuleType("omni")
+
+    def data(**_kwargs: object) -> list[str]:
+        nonlocal omni_requests
+        omni_requests += 1
+        return ["T"]
+
+    omni.data = data  # type: ignore[attr-defined]
+    projects = ModuleType("pyspedas.projects")
+    projects.mms = mms  # type: ignore[attr-defined]
+    projects.omni = omni  # type: ignore[attr-defined]
+    pyspedas = ModuleType("pyspedas")
+    pyspedas.projects = projects  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyspedas", pyspedas)
+    monkeypatch.setitem(sys.modules, "pyspedas.projects", projects)
+    monkeypatch.setattr(loading, "_has_samples_in_interval", lambda *_: True)
+
+    result = load_mms_data("2015-10-16 13:06:00", "2015-10-16 13:07:00")
+
+    assert result.cadence == "fast"
+    assert result.series["omni_temperature"] == "T"
+    assert omni_requests == 1
 
 
 def test_default_loader_requests_omni_temperature(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -141,11 +184,9 @@ def test_default_loader_requests_omni_temperature(monkeypatch: pytest.MonkeyPatc
         ),
     )
 
-    series = _load_pyspedas_products(
-        start="2015-10-16 13:06:00",
-        end="2015-10-16 13:07:00",
-        probe=1,
-        cadence="fast",
+    series = _load_omni_temperature(
+        "2015-10-16 13:06:00",
+        "2015-10-16 13:07:00",
     )
 
     assert requests["datatype"] == "1min"
@@ -232,9 +273,8 @@ def test_default_loader_converts_all_available_vectors_to_gsm(
     mms = ModuleType("mms")
     mms.fgm = lambda **_: ["mms1_fgm_b_gse_srvy_l2_bvec"]  # type: ignore[attr-defined]
     mms.fpi = lambda **_: [  # type: ignore[attr-defined]
-        "mms1_dis_numberdensity_fast",
+        "mms1_des_numberdensity_fast",
         "mms1_dis_bulkv_gse_fast",
-        "mms1_des_bulkv_gse_fast",
     ]
 
     def cotrans(**kwargs: str) -> int:
@@ -265,11 +305,10 @@ def test_default_loader_converts_all_available_vectors_to_gsm(
 
     assert series["magnetic_field"] == "mms1_fgm_b_gsm_srvy_l2_bvec"
     assert series["ion_velocity"] == "mms1_dis_bulkv_gsm_fast"
-    assert series["electron_velocity"] == "mms1_des_bulkv_gsm_fast"
+    assert series["electron_density"] == "mms1_des_numberdensity_fast"
     assert [call["name_in"] for call in transformed] == [
         "mms1_fgm_b_gse_srvy_l2_bvec",
         "mms1_dis_bulkv_gse_fast",
-        "mms1_des_bulkv_gse_fast",
     ]
 
 

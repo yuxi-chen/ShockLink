@@ -10,12 +10,11 @@ from functools import partial
 import numpy as np
 
 from shocklink.constants import CARTESIAN_COMPONENTS
-from shocklink.utilities import TimeBounds, ev_to_kelvin, kelvin_to_ev
+from shocklink.utilities import TimeBounds
 
 from .data import (
     MMSData,
     ResolvedSeries,
-    _default_omni_temperature,
     _mean_position_earth_radii,
     _resolve_series,
 )
@@ -48,9 +47,7 @@ def _build_panels(series: Mapping[str, ResolvedSeries]) -> list[PlotPanel]:
                 partial(_plot_vector, fallback_name=r"$V_i$", fallback_units="[km/s]"),
             )
         )
-    temperature = series.get("omni_temperature")
-    if temperature is None or not len(temperature.values):
-        temperature = _default_omni_temperature(series)
+    temperature = series["omni_temperature"]
     panels.append(PlotPanel("omni_temperature", temperature, _plot_omni_temperature))
     return panels
 
@@ -67,12 +64,7 @@ def plot_mms_data(data: MMSData):
         ) from error
 
     series = _resolve_series(data)
-    if "omni_temperature" not in series or not len(series["omni_temperature"].values):
-        series = dict(series)
-        series["omni_temperature"] = _default_omni_temperature(series)
     panels = _build_panels(series)
-    if not panels:
-        raise ValueError("No plot-able MMS time series were loaded.")
 
     figure, axes = plt.subplots(
         len(panels),
@@ -181,35 +173,9 @@ def _plot_vector(
     axis.set_ylabel(_axis_label(product, fallback_name, fallback_units))
 
 
-def _plot_temperature(
-    axis: object,
-    product: ResolvedSeries,
-    fallback_name: str,
-) -> None:
-    from matplotlib.ticker import FuncFormatter
-
-    axis.plot(product.times, product.values, linewidth=PLOT_LINE_WIDTH)
-    axis.set_ylabel(f"{fallback_name} [eV]")
-    kelvin_axis = axis.secondary_yaxis(
-        "right", functions=(ev_to_kelvin, kelvin_to_ev)
-    )
-    kelvin_axis.set_ylabel("[K]")
-    kelvin_axis.yaxis.set_major_formatter(FuncFormatter(_format_kelvin_tick))
-
-
 def _plot_omni_temperature(axis: object, product: ResolvedSeries) -> None:
     axis.plot(product.times, product.values, linewidth=PLOT_LINE_WIDTH)
     axis.set_ylabel("OMNI total $T$ [K]")
-
-
-def _format_kelvin_tick(value: float, _position: float | None = None) -> str:
-    if value == 0:
-        return "0"
-    exponent = int(np.floor(np.log10(abs(value))))
-    if abs(exponent) >= 3:
-        coefficient = value / 10**exponent
-        return rf"${coefficient:g}\times10^{{{exponent}}}$"
-    return f"{value:g}"
 
 
 def _vector_component_label(fallback_name: str, component: str) -> str:

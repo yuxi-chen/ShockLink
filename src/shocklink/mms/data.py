@@ -40,33 +40,32 @@ class ResolvedSeries:
 
 def _get_tplot_data(variable: str, *, metadata: bool = False) -> object:
     """Read a variable from bundled or legacy pytplot storage."""
-
-    bundled_available = False
+    legacy_available = False
     try:
-        from pyspedas import get_data as get_bundled_data
-    except Exception:  # pragma: no cover - compatibility with pySPEDAS 1.x
+        from pytplot import get_data as get_legacy_data
+    except ImportError:  # pragma: no cover - pySPEDAS 2.x may omit pytplot
         pass
     else:
-        bundled_available = True
+        legacy_available = True
         product = (
-            get_bundled_data(variable, metadata=True)
+            get_legacy_data(variable, metadata=True)
             if metadata
-            else get_bundled_data(variable)
+            else get_legacy_data(variable)
         )
         if product is not None:
             return product
 
     try:
-        from pytplot import get_data as get_legacy_data
+        from pyspedas import get_data as get_bundled_data
     except ImportError as error:  # pragma: no cover - optional dependency
-        if bundled_available:
+        if legacy_available:
             return None
         raise ImportError(
             "MMS analysis requires the installed pySPEDAS package."
         ) from error
     if metadata:
-        return get_legacy_data(variable, metadata=True)
-    return get_legacy_data(variable)
+        return get_bundled_data(variable, metadata=True)
+    return get_bundled_data(variable)
 
 
 def _resolve_series(data: MMSData) -> dict[str, ResolvedSeries]:
@@ -100,22 +99,27 @@ def _resolve_series(data: MMSData) -> dict[str, ResolvedSeries]:
             metadata = _get_tplot_data(variable, metadata=True) or {}
         except TypeError:
             metadata = {}
-        resolved[name] = ResolvedSeries(
+        resolved_product = ResolvedSeries(
             times=times_array,
             values=values_array,
             units=_metadata_text(metadata, "units"),
         )
-    electron_density = resolved.get("electron_density")
+        if name == "omni_temperature":
+            resolved_product = _clean_omni_temperature(
+                resolved_product,
+                fill_value=_metadata_number(metadata, "FILLVAL"),
+                valid_min=_metadata_number(metadata, "VALIDMIN"),
+                valid_max=_metadata_number(metadata, "VALIDMAX"),
+            )
+        resolved[name] = resolved_product
+    electron_density = resolved.pop("electron_density", None)
     if electron_density is not None:
         resolved["ion_density"] = electron_density
-    omni_temperature = resolved.get("omni_temperature")
-    if omni_temperature is not None:
-        metadata = _get_tplot_data(data.series["omni_temperature"], metadata=True) or {}
-        resolved["omni_temperature"] = _clean_omni_temperature(
-            omni_temperature,
-            fill_value=_metadata_number(metadata, "FILLVAL"),
-            valid_min=_metadata_number(metadata, "VALIDMIN"),
-            valid_max=_metadata_number(metadata, "VALIDMAX"),
+    temperature = resolved.get("omni_temperature")
+    if temperature is None or not len(temperature.values):
+        resolved["omni_temperature"] = _default_omni_temperature(
+            resolved,
+            bounds=bounds,
         )
     return resolved
 
@@ -149,16 +153,19 @@ def _clean_omni_temperature(
 
 def _default_omni_temperature(
     series: Mapping[str, ResolvedSeries],
+    *,
+    bounds: TimeBounds | None = None,
 ) -> ResolvedSeries:
     """Return the configured fallback OMNI temperature for plotting/averaging."""
-    if series:
-        times = np.unique(np.concatenate([product.times for product in series.values()]))
-        if len(times):
-            times = np.array([times[0], times[-1]]) if len(times) > 1 else times
+    if bounds is not None:
+        times = np.asarray(bounds.numpy)
+    else:
+        available_times = [product.times for product in series.values() if len(product.times)]
+        if available_times:
+            combined = np.concatenate(available_times)
+            times = np.unique([np.min(combined), np.max(combined)])
         else:
             times = np.array([np.datetime64("1970-01-01")])
-    else:
-        times = np.array([np.datetime64("1970-01-01")])
     return ResolvedSeries(
         times=times,
         values=np.full(len(times), DEFAULT_OMNI_TEMPERATURE_K),
@@ -177,30 +184,6 @@ def _to_datetime64(times: object) -> np.ndarray:
     if np.issubdtype(timestamps.dtype, np.datetime64):
         return timestamps
     return timestamps.astype("datetime64[s]")
-
-
-def _total_temperature(
-    series: Mapping[str, ResolvedSeries], species: str
-) -> ResolvedSeries | None:
-    """Return ``(T_parallel + 2*T_perpendicular) / 3``."""
-    parallel = series.get(f"{species}_temperature_parallel")
-    perpendicular = series.get(f"{species}_temperature_perpendicular")
-    if parallel is None or perpendicular is None:
-        return series.get(f"{species}_temperature")
-
-    times, parallel_indices, perpendicular_indices = np.intersect1d(
-        parallel.times, perpendicular.times, return_indices=True
-    )
-    if not len(times):
-        return None
-    values = (
-        parallel.values[parallel_indices] + 2 * perpendicular.values[perpendicular_indices]
-    ) / 3
-    return ResolvedSeries(
-        times=times,
-        values=values,
-        units=parallel.units or perpendicular.units,
-    )
 
 
 def _finite_mean(values: np.ndarray) -> float:
