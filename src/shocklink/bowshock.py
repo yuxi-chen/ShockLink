@@ -23,6 +23,37 @@ _DEFAULT_SURFACE_Z = np.linspace(-30.0, 30.0, 241)
 _DEFAULT_SURFACE_Z.setflags(write=False)
 
 
+def _paraboloid_location(value: ArrayLike, *, name: str) -> NDArray[np.float64]:
+    """Return one immutable, finite paraboloid landmark."""
+
+    try:
+        location = np.array(value, dtype=np.float64, copy=True)
+    except (TypeError, ValueError) as error:
+        raise GeometryError(
+            f"{name} must contain exactly three finite values"
+        ) from error
+    if location.shape != (3,):
+        raise GeometryError(f"{name} must contain exactly three values")
+    if not np.isfinite(location).all():
+        raise GeometryError(f"{name} must contain finite values")
+    location.setflags(write=False)
+    return location
+
+
+def _positive_curvature(value: float) -> float:
+    """Return a finite, positive paraboloid curvature."""
+
+    try:
+        curvature = float(value)
+    except (TypeError, ValueError) as error:
+        raise GeometryError("curvature must be a finite positive value") from error
+    if not np.isfinite(curvature):
+        raise GeometryError("curvature must be finite")
+    if curvature <= 0.0:
+        raise GeometryError("curvature must be positive")
+    return curvature
+
+
 @dataclass(frozen=True, slots=True)
 class BowShockParaboloid:
     """Axisymmetric bow-shock fit directed along the X axis."""
@@ -34,22 +65,11 @@ class BowShockParaboloid:
 
     def __post_init__(self) -> None:
         for name in ("loc0", "loc1", "loc2"):
-            try:
-                location = np.array(
-                    getattr(self, name),
-                    dtype=np.float64,
-                    copy=True,
-                )
-            except (TypeError, ValueError) as error:
-                raise GeometryError(
-                    f"{name} must contain exactly three finite values"
-                ) from error
-            if location.shape != (3,):
-                raise GeometryError(f"{name} must contain exactly three values")
-            if not np.isfinite(location).all():
-                raise GeometryError(f"{name} must contain finite values")
-            location.setflags(write=False)
-            object.__setattr__(self, name, location)
+            object.__setattr__(
+                self,
+                name,
+                _paraboloid_location(getattr(self, name), name=name),
+            )
 
         if not np.allclose(self.loc0[1:], 0.0, rtol=0.0, atol=1.0e-12):
             raise GeometryError("loc0 must lie on the X axis")
@@ -58,15 +78,7 @@ class BowShockParaboloid:
         if self.loc2[1] <= 0.0:
             raise GeometryError("loc2 must lie on the positive Y side")
 
-        try:
-            curvature = float(self.curvature)
-        except (TypeError, ValueError) as error:
-            raise GeometryError("curvature must be a finite positive value") from error
-        if not np.isfinite(curvature):
-            raise GeometryError("curvature must be finite")
-        if curvature <= 0.0:
-            raise GeometryError("curvature must be positive")
-        object.__setattr__(self, "curvature", curvature)
+        object.__setattr__(self, "curvature", _positive_curvature(self.curvature))
 
     def x_at(self, y: ArrayLike, z: ArrayLike) -> np.ndarray:
         """Evaluate the fitted surface at transverse coordinates."""
@@ -169,6 +181,33 @@ def _strongest_compression(
     return np.array(points[selected], dtype=np.float64, copy=True)
 
 
+def _shockfit_values(dataset: pv.DataSet, *, name: str) -> np.ndarray:
+    """Return the named point-scalar shock-fit residual."""
+
+    if not isinstance(name, str) or not name.strip():
+        raise DatasetError("Shockfit array name must not be empty")
+    if name not in dataset.point_data:
+        raise DatasetError(f"Shockfit array {name!r} is unavailable in point data")
+    values = np.asarray(dataset.point_data[name])
+    if values.shape != (dataset.n_points,):
+        raise DatasetError(f"Shockfit array {name!r} must be a point scalar")
+    return values
+
+
+def _shockfit_limits(lower: float, upper: float) -> tuple[float, float]:
+    """Return finite, ordered residual limits."""
+
+    try:
+        limits = float(lower), float(upper)
+    except (TypeError, ValueError) as error:
+        raise DatasetError("Shockfit range limits must be finite numbers") from error
+    if not np.isfinite(limits).all():
+        raise DatasetError("Shockfit range limits must be finite numbers")
+    if limits[0] > limits[1]:
+        raise DatasetError("Shockfit range lower limit must not exceed upper limit")
+    return limits
+
+
 def extract_shockfit_range(
     dataset: pv.DataSet,
     *,
@@ -204,24 +243,8 @@ def extract_shockfit_range(
         unstructured grid.
     """
 
-    if not isinstance(shockfit_name, str) or not shockfit_name.strip():
-        raise DatasetError("Shockfit array name must not be empty")
-    if shockfit_name not in dataset.point_data:
-        raise DatasetError(
-            f"Shockfit array {shockfit_name!r} is unavailable in point data"
-        )
-    values = np.asarray(dataset.point_data[shockfit_name])
-    if values.shape != (dataset.n_points,):
-        raise DatasetError(f"Shockfit array {shockfit_name!r} must be a point scalar")
-    try:
-        lower_limit = float(lower)
-        upper_limit = float(upper)
-    except (TypeError, ValueError) as error:
-        raise DatasetError("Shockfit range limits must be finite numbers") from error
-    if not np.isfinite((lower_limit, upper_limit)).all():
-        raise DatasetError("Shockfit range limits must be finite numbers")
-    if lower_limit > upper_limit:
-        raise DatasetError("Shockfit range lower limit must not exceed upper limit")
+    values = _shockfit_values(dataset, name=shockfit_name)
+    lower_limit, upper_limit = _shockfit_limits(lower, upper)
     if not isinstance(adjacent_cells, bool):
         raise DatasetError("adjacent_cells must be a boolean")
 
@@ -479,44 +502,69 @@ def _normal_components(
     if not outward_is_finite:
         raise DatasetError("Bow-shock normal components must be finite")
 
-    try:
-        # Scale components before normalization to avoid overflow in the magnitude.
-        component_scale = np.max(np.abs(outward), axis=-1, keepdims=True)
-        scaled_outward = outward / component_scale
-        normal_magnitudes = np.hypot(
-            np.hypot(scaled_outward[..., 0], scaled_outward[..., 1]),
-            scaled_outward[..., 2],
-        )
-    except Exception as error:
-        raise DatasetError(f"Could not normalize bow-shock normals: {error}") from error
-    if (
-        component_scale.shape != surface_shape + (1,)
-        or not np.isfinite(component_scale).all()
-        or np.any(component_scale <= 0.0)
-        or normal_magnitudes.shape != surface_shape
-        or not np.isfinite(normal_magnitudes).all()
-        or np.any(normal_magnitudes <= 0.0)
-    ):
-        raise DatasetError("Bow-shock normal magnitudes must be finite and positive")
+    scaled_outward, normal_magnitudes = _scaled_normal_components(
+        outward,
+        surface_shape=surface_shape,
+    )
 
     try:
         normals = scaled_outward / normal_magnitudes[..., np.newaxis]
     except Exception as error:
         raise DatasetError(f"Could not normalize bow-shock normals: {error}") from error
+    _validate_normal_components(normals, expected_shape=expected_shape)
+    return normals
+
+
+def _scaled_normal_components(
+    outward: NDArray[np.float64],
+    *,
+    surface_shape: tuple[int, ...],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Scale normal components and return their overflow-safe magnitudes."""
+
+    try:
+        component_scale = np.max(np.abs(outward), axis=-1, keepdims=True)
+        scaled = outward / component_scale
+        magnitudes = np.hypot(
+            np.hypot(scaled[..., 0], scaled[..., 1]),
+            scaled[..., 2],
+        )
+    except Exception as error:
+        raise DatasetError(f"Could not normalize bow-shock normals: {error}") from error
+    valid_scale = (
+        component_scale.shape == surface_shape + (1,)
+        and np.isfinite(component_scale).all()
+        and np.all(component_scale > 0.0)
+    )
+    valid_magnitudes = (
+        magnitudes.shape == surface_shape
+        and np.isfinite(magnitudes).all()
+        and np.all(magnitudes > 0.0)
+    )
+    if not valid_scale or not valid_magnitudes:
+        raise DatasetError("Bow-shock normal magnitudes must be finite and positive")
+    return scaled, magnitudes
+
+
+def _validate_normal_components(
+    normals: NDArray[np.float64],
+    *,
+    expected_shape: tuple[int, ...],
+) -> None:
+    """Validate the shape, orientation, and length of computed normals."""
+
     if normals.shape != expected_shape:
         raise DatasetError(f"Bow-shock normal field must have shape {expected_shape}")
     if not np.isfinite(normals).all():
         raise DatasetError("Bow-shock normal components must be finite")
     if not np.all(normals[..., 0] > 0.0):
         raise DatasetError("Bow-shock normal X components must be strictly positive")
-
-    unit_magnitudes = np.hypot(
+    magnitudes = np.hypot(
         np.hypot(normals[..., 0], normals[..., 1]),
         normals[..., 2],
     )
-    if not np.allclose(unit_magnitudes, 1.0, rtol=1.0e-12, atol=1.0e-12):
+    if not np.allclose(magnitudes, 1.0, rtol=1.0e-12, atol=1.0e-12):
         raise DatasetError("Bow-shock normals must have unit length")
-    return normals
 
 
 def _surface_integer(
@@ -666,6 +714,87 @@ def _refine_surface_minima(
     return refined
 
 
+def _sample_surface_points(
+    source: pv.DataSet,
+    locator: vtkStaticCellLocator,
+    points: NDArray[np.float64],
+    *,
+    divergence_name: str,
+) -> pv.PolyData:
+    """Sample a prepared surface chunk and validate its basic structure."""
+
+    try:
+        sampled = pv.PolyData(points).sample(
+            source,
+            locator=locator,
+            pass_cell_data=False,
+            pass_point_data=False,
+            pass_field_data=False,
+        )
+    except Exception as error:
+        raise DatasetError(f"Could not sample bow-shock surface: {error}") from error
+    if sampled.n_points != len(points):
+        raise DatasetError("Bow-shock sampler returned an unexpected point count")
+    if divergence_name not in sampled.point_data:
+        raise DatasetError(
+            f"Bow-shock sampler is missing sampled divergence {divergence_name!r}"
+        )
+    if "vtkValidPointMask" not in sampled.point_data:
+        raise DatasetError("Bow-shock sampler is missing vtkValidPointMask")
+    return sampled
+
+
+def _surface_chunk_values(
+    sampled: pv.PolyData,
+    *,
+    divergence_name: str,
+    count: int,
+    x_count: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return sampled divergence and its valid mask as column matrices."""
+
+    expected = count * x_count
+    divergence = np.asarray(sampled.point_data[divergence_name])
+    point_mask = np.asarray(sampled.point_data["vtkValidPointMask"])
+    if divergence.shape != (expected,):
+        raise DatasetError("Bow-shock sampler returned invalid divergence data")
+    if point_mask.shape != (expected,):
+        raise DatasetError("Bow-shock sampler returned an invalid point mask")
+    divergence = divergence.reshape(count, x_count)
+    valid = point_mask.astype(bool).reshape(count, x_count)
+    try:
+        valid &= np.isfinite(divergence)
+    except TypeError as error:
+        raise DatasetError(
+            "Bow-shock sampler returned nonnumeric divergence data"
+        ) from error
+    return divergence, valid
+
+
+def _surface_chunk_minima(
+    x_values: NDArray[np.float64],
+    divergence: np.ndarray,
+    valid: np.ndarray,
+    *,
+    refine: bool,
+) -> NDArray[np.float64]:
+    """Select the strongest-compression location in each sampled column."""
+
+    surface = np.full(len(divergence), np.nan, dtype=np.float64)
+    has_valid = valid.any(axis=1)
+    minima = np.argmin(np.where(valid, divergence, np.inf), axis=1)
+    selected = x_values[minima].astype(np.float64, copy=True)
+    if refine:
+        selected = _refine_surface_minima(
+            x_values=x_values,
+            sampled_divergence=divergence,
+            valid=valid,
+            minima=minima,
+        )
+    surface[has_valid] = selected[has_valid]
+    return surface
+
+
 def get_bow_shock_surface(
     dataset: pv.DataSet,
     *,
@@ -765,61 +894,24 @@ def get_bow_shock_surface(
         points[:, 1] = np.repeat(column_y[start:stop], len(x_values))
         points[:, 2] = np.repeat(column_z[start:stop], len(x_values))
 
-        try:
-            sampled = pv.PolyData(points).sample(
-                source,
-                locator=locator,
-                pass_cell_data=False,
-                pass_point_data=False,
-                pass_field_data=False,
-            )
-        except Exception as error:
-            raise DatasetError(
-                f"Could not sample bow-shock surface: {error}"
-            ) from error
-
-        expected_points = count * len(x_values)
-        if sampled.n_points != expected_points:
-            raise DatasetError("Bow-shock sampler returned an unexpected point count")
-        if divergence_name not in sampled.point_data:
-            raise DatasetError(
-                f"Bow-shock sampler is missing sampled divergence {divergence_name!r}"
-            )
-        if "vtkValidPointMask" not in sampled.point_data:
-            raise DatasetError("Bow-shock sampler is missing vtkValidPointMask")
-        sampled_divergence = np.asarray(sampled.point_data[divergence_name])
-        point_mask = np.asarray(sampled.point_data["vtkValidPointMask"])
-        if sampled_divergence.shape != (expected_points,):
-            raise DatasetError("Bow-shock sampler returned invalid divergence data")
-        if point_mask.shape != (expected_points,):
-            raise DatasetError("Bow-shock sampler returned an invalid point mask")
-        sampled_divergence = sampled_divergence.reshape(
-            count,
-            len(x_values),
+        sampled = _sample_surface_points(
+            source,
+            locator,
+            points,
+            divergence_name=divergence_name,
         )
-        valid = point_mask.astype(bool).reshape(count, len(x_values))
-        try:
-            valid &= np.isfinite(sampled_divergence)
-        except TypeError as error:
-            raise DatasetError(
-                "Bow-shock sampler returned nonnumeric divergence data"
-            ) from error
-
-        chunk_surface = np.full(count, np.nan, dtype=np.float64)
-        has_valid = valid.any(axis=1)
-        candidates = np.where(valid, sampled_divergence, np.inf)
-        # Per-column argmin selects the most-negative valid div(U) sample.
-        minima = np.argmin(candidates, axis=1)
-        chunk_surface[has_valid] = x_values[minima[has_valid]]
-        if refine_minimum:
-            refined = _refine_surface_minima(
-                x_values=x_values,
-                sampled_divergence=sampled_divergence,
-                valid=valid,
-                minima=minima,
-            )
-            chunk_surface[has_valid] = refined[has_valid]
-        surface[start:stop] = chunk_surface
+        sampled_divergence, valid = _surface_chunk_values(
+            sampled,
+            divergence_name=divergence_name,
+            count=count,
+            x_count=len(x_values),
+        )
+        surface[start:stop] = _surface_chunk_minima(
+            x_values,
+            sampled_divergence,
+            valid,
+            refine=refine_minimum,
+        )
 
     return surface.reshape(len(y_values), len(z_values))
 
