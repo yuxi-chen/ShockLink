@@ -299,6 +299,7 @@ def save_mms_bow_shock_connection_plots(
     )
     try:
         figure.savefig(two_d_path, dpi=dpi, bbox_inches="tight")
+        figure.savefig(two_d_path.with_suffix(".eps"), dpi=dpi, bbox_inches="tight")
     finally:
         import matplotlib.pyplot as plt
 
