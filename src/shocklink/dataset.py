@@ -20,6 +20,77 @@ _AXIS_NORMALS = {
 }
 
 
+def _velocity_array(dataset: pv.DataSet, *, name: str) -> np.ndarray:
+    """Return a finite point-vector velocity array."""
+
+    if name not in dataset.point_data:
+        raise DatasetError(f"Velocity array {name!r} is unavailable in point data")
+    velocity = np.asarray(dataset.point_data[name])
+    if velocity.shape != (dataset.n_points, 3):
+        raise DatasetError(
+            f"Velocity array {name!r} must have shape ({dataset.n_points}, 3)"
+        )
+    try:
+        finite = np.isfinite(velocity).all()
+    except TypeError as error:
+        raise DatasetError(
+            f"Velocity array {name!r} must contain numeric values"
+        ) from error
+    if not finite:
+        raise DatasetError(f"Velocity array {name!r} must contain finite values")
+    return velocity
+
+
+def _compute_velocity_divergence(
+    dataset: pv.DataSet,
+    *,
+    velocity_name: str,
+    output_name: str,
+) -> pv.DataSet:
+    """Invoke PyVista's point-vector derivative filter."""
+
+    try:
+        return dataset.compute_derivative(
+            scalars=velocity_name,
+            gradient=False,
+            divergence=output_name,
+            preference="point",
+        )
+    except Exception as error:
+        raise DatasetError(
+            f"Could not calculate velocity divergence: {error}"
+        ) from error
+
+
+def _divergence_array(
+    derived: pv.DataSet,
+    *,
+    output_name: str,
+    point_count: int,
+) -> np.ndarray:
+    """Return a finite scalar result from the derivative filter."""
+
+    if output_name not in derived.point_data:
+        raise DatasetError(
+            f"Velocity-divergence filter did not produce {output_name!r} in point data"
+        )
+    divergence = np.asarray(derived.point_data[output_name])
+    if divergence.shape != (point_count,):
+        raise DatasetError(
+            "Velocity-divergence filter returned an invalid result shape: "
+            f"{divergence.shape}"
+        )
+    try:
+        finite = np.isfinite(divergence).all()
+    except TypeError as error:
+        raise DatasetError(
+            "Velocity-divergence filter returned nonnumeric values"
+        ) from error
+    if not finite:
+        raise DatasetError("Velocity-divergence filter returned nonfinite values")
+    return divergence
+
+
 def calc_velocity_divergence(
     dataset: pv.DataSet,
     *,
@@ -51,59 +122,19 @@ def calc_velocity_divergence(
         compute a finite scalar divergence result.
     """
 
-    if velocity_name not in dataset.point_data:
-        raise DatasetError(
-            f"Velocity array {velocity_name!r} is unavailable in point data"
-        )
+    _velocity_array(dataset, name=velocity_name)
     if not isinstance(output_name, str) or not output_name.strip():
         raise DatasetError("Velocity-divergence output name must not be empty")
-
-    velocity = np.asarray(dataset.point_data[velocity_name])
-    if velocity.shape != (dataset.n_points, 3):
-        raise DatasetError(
-            f"Velocity array {velocity_name!r} must have shape ({dataset.n_points}, 3)"
-        )
-    try:
-        finite_velocity = np.isfinite(velocity).all()
-    except TypeError as error:
-        raise DatasetError(
-            f"Velocity array {velocity_name!r} must contain numeric values"
-        ) from error
-    if not finite_velocity:
-        raise DatasetError(
-            f"Velocity array {velocity_name!r} must contain finite values"
-        )
-
-    try:
-        derived = dataset.compute_derivative(
-            scalars=velocity_name,
-            gradient=False,
-            divergence=output_name,
-            preference="point",
-        )
-    except Exception as error:
-        raise DatasetError(
-            f"Could not calculate velocity divergence: {error}"
-        ) from error
-
-    if output_name not in derived.point_data:
-        raise DatasetError(
-            f"Velocity-divergence filter did not produce {output_name!r} in point data"
-        )
-    divergence = np.asarray(derived.point_data[output_name])
-    if divergence.shape != (dataset.n_points,):
-        raise DatasetError(
-            "Velocity-divergence filter returned an invalid result shape: "
-            f"{divergence.shape}"
-        )
-    try:
-        finite_divergence = np.isfinite(divergence).all()
-    except TypeError as error:
-        raise DatasetError(
-            "Velocity-divergence filter returned nonnumeric values"
-        ) from error
-    if not finite_divergence:
-        raise DatasetError("Velocity-divergence filter returned nonfinite values")
+    derived = _compute_velocity_divergence(
+        dataset,
+        velocity_name=velocity_name,
+        output_name=output_name,
+    )
+    divergence = _divergence_array(
+        derived,
+        output_name=output_name,
+        point_count=dataset.n_points,
+    )
 
     dataset.point_data[output_name] = divergence.copy()
     return dataset

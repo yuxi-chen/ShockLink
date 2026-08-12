@@ -215,6 +215,82 @@ def _dataset_leaves(
     return leaves
 
 
+def _simulation_source(path: str | Path) -> Path:
+    """Resolve a supported simulation file from a path or directory."""
+
+    source = Path(path)
+    if source.is_dir():
+        candidates = sorted(
+            (
+                candidate
+                for candidate in source.iterdir()
+                if candidate.is_file() and candidate.suffix.lower() == ".vtm"
+            ),
+            key=lambda candidate: candidate.name.lower(),
+        )
+        if not candidates:
+            raise DatasetError(f"Simulation directory contains no .vtm file: {source}")
+        source = candidates[0]
+    if not source.is_file():
+        raise DatasetError(f"Simulation file does not exist: {source}")
+    if source.suffix.lower() not in {".dat", ".vtm"}:
+        raise DatasetError(
+            f"Simulation input must use the .dat or .vtm extension: {source}"
+        )
+    return source
+
+
+def _read_simulation(source: Path) -> pv.MultiBlock:
+    """Read one simulation file and require a multiblock result."""
+
+    try:
+        loaded = pv.read(source)
+    except Exception as error:
+        raise DatasetError(
+            f"Could not read simulation file {source}: {error}"
+        ) from error
+    if not isinstance(loaded, pv.MultiBlock):
+        raise DatasetError(
+            f"Simulation reader returned {type(loaded).__name__} for {source}; "
+            "expected MultiBlock"
+        )
+    return loaded
+
+
+def _normalize_leaves(
+    loaded: pv.MultiBlock,
+    *,
+    source: Path,
+    time_event: str,
+    coordinate_components: tuple[str, str, str] | None,
+    magnetic_components: tuple[str, str, str] | None,
+    velocity_components: tuple[str, str, str] | None,
+    magnetic_name: str,
+    velocity_name: str,
+) -> list[tuple[tuple[str, ...], pv.DataSet]]:
+    """Normalize every nonempty dataset leaf with block-path context."""
+
+    leaves = _dataset_leaves(loaded, source=source)
+    if not leaves:
+        raise DatasetError(f"Simulation file {source} has no nonempty dataset zones")
+    for block_path, grid in leaves:
+        try:
+            _normalize_dataset(
+                grid,
+                source=source,
+                time_event=time_event,
+                coordinate_components=coordinate_components,
+                magnetic_components=magnetic_components,
+                velocity_components=velocity_components,
+                magnetic_name=magnetic_name,
+                velocity_name=velocity_name,
+            )
+        except DatasetError as error:
+            location = "/".join(block_path)
+            raise DatasetError(f"{source} block {location}: {error}") from error
+    return leaves
+
+
 def load_simulation(
     path: str | Path,
     *,
@@ -251,63 +327,25 @@ def load_simulation(
         components are invalid.
     """
 
-    source = Path(path)
-    if source.is_dir():
-        candidates = sorted(
-            (
-                candidate
-                for candidate in source.iterdir()
-                if candidate.is_file() and candidate.suffix.lower() == ".vtm"
-            ),
-            key=lambda candidate: candidate.name.lower(),
-        )
-        if not candidates:
-            raise DatasetError(f"Simulation directory contains no .vtm file: {source}")
-        source = candidates[0]
-    if not source.is_file():
-        raise DatasetError(f"Simulation file does not exist: {source}")
+    source = _simulation_source(path)
     suffix = source.suffix.lower()
-    if suffix not in {".dat", ".vtm"}:
-        raise DatasetError(
-            f"Simulation input must use the .dat or .vtm extension: {source}"
-        )
     time_event = _read_dat_time(source) if suffix == ".dat" else None
-
-    try:
-        loaded = pv.read(source)
-    except Exception as error:
-        raise DatasetError(
-            f"Could not read simulation file {source}: {error}"
-        ) from error
-    if not isinstance(loaded, pv.MultiBlock):
-        raise DatasetError(
-            f"Simulation reader returned {type(loaded).__name__} for {source}; "
-            "expected MultiBlock"
-        )
+    loaded = _read_simulation(source)
 
     if suffix == ".vtm":
         time_event = _read_vtm_time(loaded, source=source)
     assert time_event is not None
     loaded.field_data[TIME_EVENT_KEY] = time_event
-    leaves = _dataset_leaves(loaded, source=source)
-    if not leaves:
-        raise DatasetError(f"Simulation file {source} has no nonempty dataset zones")
-
-    for block_path, grid in leaves:
-        try:
-            _normalize_dataset(
-                grid,
-                source=source,
-                time_event=time_event,
-                coordinate_components=coordinate_components,
-                magnetic_components=magnetic_components,
-                velocity_components=velocity_components,
-                magnetic_name=magnetic_name,
-                velocity_name=velocity_name,
-            )
-        except DatasetError as error:
-            location = "/".join(block_path)
-            raise DatasetError(f"{source} block {location}: {error}") from error
+    leaves = _normalize_leaves(
+        loaded,
+        source=source,
+        time_event=time_event,
+        coordinate_components=coordinate_components,
+        magnetic_components=magnetic_components,
+        velocity_components=velocity_components,
+        magnetic_name=magnetic_name,
+        velocity_name=velocity_name,
+    )
 
     if len(leaves) == 1:
         return leaves[0][1]

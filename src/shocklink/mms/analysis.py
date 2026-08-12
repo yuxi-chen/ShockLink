@@ -16,10 +16,55 @@ from .data import (
     _resolve_series,
     _total_temperature,
 )
-from .data import MMSData
+from .data import MMSData, ResolvedSeries
 
 
 PLOTTED_DIRECT_PRODUCTS = ("magnetic_field", "ion_density", "ion_velocity")
+
+
+def _add_product_averages(
+    averages: dict[str, float],
+    *,
+    key: str,
+    values: np.ndarray,
+) -> None:
+    """Add scalar or Cartesian component means for one plotted product."""
+
+    if values.ndim == 1:
+        averages[key] = _finite_mean(values)
+        return
+    for index, component in enumerate(CARTESIAN_COMPONENTS):
+        if index < values.shape[1]:
+            averages[f"{key}_{component}"] = _finite_mean(values[:, index])
+    if key == "magnetic_field" and values.shape[1] >= 3:
+        averages["magnetic_field_magnitude"] = _finite_mean(
+            np.linalg.norm(values[:, :3], axis=1)
+        )
+
+
+def _add_position_averages(
+    averages: dict[str, float],
+    series: dict[str, ResolvedSeries],
+) -> None:
+    """Add mean GSM position components when they are available."""
+
+    position = _mean_position_earth_radii(series)
+    if position is None:
+        return
+    for component, value in zip(CARTESIAN_COMPONENTS, position, strict=True):
+        averages[f"satellite_location_{component}"] = float(value)
+
+
+def _add_temperature_averages(
+    averages: dict[str, float],
+    series: dict[str, ResolvedSeries],
+) -> None:
+    """Add total ion and electron temperatures when available."""
+
+    for species in ("ion", "electron"):
+        product = _total_temperature(series, species)
+        if product is not None:
+            averages[f"{species}_temperature"] = _finite_mean(product.values)
 
 
 def summarize_data(
@@ -53,27 +98,9 @@ def average_plotted_values(data: MMSData) -> dict[str, float]:
         product = series.get(key)
         if product is None:
             continue
-        if product.values.ndim == 1:
-            averages[key] = _finite_mean(product.values)
-            continue
-        for index, component in enumerate(CARTESIAN_COMPONENTS):
-            if index < product.values.shape[1]:
-                averages[f"{key}_{component}"] = _finite_mean(
-                    product.values[:, index]
-                )
-        if key == "magnetic_field" and product.values.shape[1] >= 3:
-            averages["magnetic_field_magnitude"] = _finite_mean(
-                np.linalg.norm(product.values[:, :3], axis=1)
-            )
-
-    position = _mean_position_earth_radii(series)
-    if position is not None:
-        for component, value in zip(CARTESIAN_COMPONENTS, position, strict=True):
-            averages[f"satellite_location_{component}"] = float(value)
-    for species in ("ion", "electron"):
-        product = _total_temperature(series, species)
-        if product is not None:
-            averages[f"{species}_temperature"] = _finite_mean(product.values)
+        _add_product_averages(averages, key=key, values=product.values)
+    _add_position_averages(averages, series)
+    _add_temperature_averages(averages, series)
     return averages
 
 
@@ -84,9 +111,7 @@ def position_at_time_earth_radii(
     """Return the bounded linearly interpolated GSM position at *time*."""
     if isinstance(time, datetime):
         target = (
-            time.replace(tzinfo=UTC)
-            if time.tzinfo is None
-            else time.astimezone(UTC)
+            time.replace(tzinfo=UTC) if time.tzinfo is None else time.astimezone(UTC)
         )
     else:
         target = parse_datetime(time)
@@ -101,7 +126,9 @@ def position_at_time_earth_radii(
 
     timestamps = position.times.astype("datetime64[ns]")
     if len(timestamps) != len(values):
-        raise ValueError("satellite_location timestamps and values must have matching lengths")
+        raise ValueError(
+            "satellite_location timestamps and values must have matching lengths"
+        )
     timestamp_ns = timestamps.astype(np.int64)
     valid = ~np.isnat(timestamps) & np.all(np.isfinite(values[:, :3]), axis=1)
     if not np.any(valid):
@@ -120,7 +147,10 @@ def position_at_time_earth_radii(
             f"position range {unique_times[0]} to {unique_times[-1]}"
         )
     interpolated = np.array(
-        [np.interp(target_ns, unique_times, values[:, component]) for component in range(3)]
+        [
+            np.interp(target_ns, unique_times, values[:, component])
+            for component in range(3)
+        ]
     )
     result = interpolated / EARTH_RADIUS_KM
     if not np.all(np.isfinite(result)):
