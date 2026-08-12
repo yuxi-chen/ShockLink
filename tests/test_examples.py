@@ -193,19 +193,22 @@ def test_create_swmf_inputs_uses_writable_local_dependency_directories(
     namespace = runpy.run_path(str(ROOT / "examples/create_swmf_inputs.py"))
 
     output_directory = tmp_path / "results"
+    cache = output_directory / ".cache"
+    cache.mkdir(parents=True)
+    (cache / "sentinel").write_text("remove me")
     outputs = namespace["create_inputs"](
         [("2023-12-16 08:30:00", "2023-12-16 11:00:00")],
         output_directory=output_directory,
         plot=False,
     )
 
-    cache = output_directory / ".cache"
     assert os.environ["MPLBACKEND"] == "Agg"
     assert Path(os.environ["MPLCONFIGDIR"]) == cache / "matplotlib"
     assert Path(os.environ["SPACEPY"]) == cache / "spacepy"
     assert Path(os.environ["SPEDAS_DATA_DIR"]) == cache / "spedas"
     assert outputs == [output for output, _input in calls]
     assert [input for _output, input in calls] == [ROOT / "data/Param/PARAM.in.Earth"]
+    assert not cache.exists()
 
 
 def test_copied_create_swmf_inputs_finds_repository_template(

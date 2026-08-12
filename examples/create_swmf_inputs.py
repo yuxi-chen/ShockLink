@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable
 from pathlib import Path
+import shutil
 
 import shocklink
 
@@ -53,8 +54,9 @@ def create_inputs(
         Directory for generated PARAM files and optional MMS plots.
     cache_directory
         Writable directory for SpacePy, pySPEDAS, and Matplotlib state. By
-        default, use ``<output_directory>/.cache``. Existing environment
-        variable settings take precedence.
+        default, use ``<output_directory>/.cache`` and remove it after the
+        inputs are created. Existing environment variable settings take
+        precedence.
     template
         SWMF template. By default, use ``data/Param/PARAM.in.Earth`` from this
         ShockLink checkout.
@@ -76,6 +78,7 @@ def create_inputs(
     dependency_cache = (
         destination / ".cache" if cache_directory is None else Path(cache_directory)
     )
+    remove_dependency_cache = cache_directory is None
     _configure_dependency_directories(dependency_cache)
 
     # pySPEDAS imports SpacePy, which initializes its configuration at import
@@ -98,6 +101,8 @@ def create_inputs(
         )
         print(f"Created {path} for {start} to {end}")
         outputs.append(path)
+    if remove_dependency_cache:
+        shutil.rmtree(dependency_cache, ignore_errors=True)
     return outputs
 
 
