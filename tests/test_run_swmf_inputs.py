@@ -108,7 +108,7 @@ def test_stops_batch_when_swmf_fails(tmp_path: Path, monkeypatch) -> None:
         text=True,
     )
     assert result.returncode == 1
-    assert first_name in result.stderr
+    assert "returned non-zero exit status 7" in result.stderr
 
     assert not postprocess_marker.exists()
     assert (run_directory / "PARAM.in").read_text() == "first"
@@ -187,7 +187,7 @@ def test_stops_batch_when_postprocessing_fails(tmp_path: Path, monkeypatch) -> N
         text=True,
     )
     assert result.returncode == 1
-    assert first_name in result.stderr
+    assert "returned non-zero exit status 9" in result.stderr
 
     assert swmf_runs.read_text() == "first"
     assert (run_directory / "PARAM.in").read_text() == "first"

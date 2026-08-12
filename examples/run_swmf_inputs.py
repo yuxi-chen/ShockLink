@@ -69,30 +69,14 @@ for number, (param_file, result) in enumerate(jobs, start=1):
     print(f"[{number}/{len(jobs)}] Running {param_file.name}")
     shutil.copy2(param_file, run_directory / "PARAM.in")
 
-    try:
-        with (run_directory / "runlog").open("w") as runlog:
-            subprocess.run(
-                ["mpiexec", "./SWMF.exe"],
-                cwd=run_directory,
-                stdout=runlog,
-                stderr=subprocess.STDOUT,
-                check=True,
-            )
-    except subprocess.CalledProcessError as error:
-        print(
-            f"error: SWMF failed for {param_file.name} with exit status "
-            f"{error.returncode}; see {run_directory / 'runlog'}",
-            file=sys.stderr,
+    with (run_directory / "runlog").open("w") as runlog:
+        subprocess.run(
+            ["mpiexec", "./SWMF.exe"],
+            cwd=run_directory,
+            stdout=runlog,
+            stderr=subprocess.STDOUT,
+            check=True,
         )
-        sys.exit(1)
 
     print(f"[{number}/{len(jobs)}] Postprocessing to {result}")
-    try:
-        subprocess.run(["./PostProc.pl", str(result)], cwd=run_directory, check=True)
-    except subprocess.CalledProcessError as error:
-        print(
-            f"error: postprocessing failed for {param_file.name} with exit status "
-            f"{error.returncode}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    subprocess.run(["./PostProc.pl", str(result)], cwd=run_directory, check=True)
