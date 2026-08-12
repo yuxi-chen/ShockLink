@@ -13,9 +13,8 @@ the empty `mms` extra. Keep notebook applications and development tools optional
 because they are not required to use the MMS API.
 
 Update the root and examples READMEs so source-download installation uses
-`pip install .`, MMS documentation no longer mentions an extra, and editable
-installation is presented only for contributors or scripts that need to remain
-linked to a checkout.
+`pip install -e .`, MMS documentation no longer mentions an extra, and the
+installed package remains linked to repository-level data files.
 
 ## Verification
 

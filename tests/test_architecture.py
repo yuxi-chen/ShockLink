@@ -21,7 +21,8 @@ def test_package_metadata_and_mms_dependencies_are_declared() -> None:
     assert metadata["project"]["readme"] == "README.md"
     assert metadata["project"]["urls"]["Documentation"].endswith("docs/algorithms.md")
     assert any(dependency.startswith("pyspedas") for dependency in metadata["project"]["dependencies"])
-    assert "matplotlib>=3.8" in metadata["project"]["optional-dependencies"]["mms"]
+    assert "matplotlib>=3.8" in metadata["project"]["dependencies"]
+    assert "mms" not in metadata["project"]["optional-dependencies"]
 
 
 def test_import_does_not_load_optional_paraview() -> None:

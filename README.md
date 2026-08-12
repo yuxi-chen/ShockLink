@@ -7,19 +7,20 @@ and calculates outward unit normals.
 
 ## Installation
 
-When a ShockLink release is published on PyPI, install it with:
+Download or clone the repository, then install it from the repository root:
 
 ```bash
-pip install shocklink
-```
-
-For a development checkout:
-
-```bash
+git clone https://github.com/yuxi-chen/ShockLink.git
+cd ShockLink
 pip install -e .
 ```
 
-To install the development and notebook tools as well:
+The editable install keeps ShockLink linked to the downloaded checkout. This
+allows its command-line tools and copied example scripts to locate repository
+data such as `data/Param/PARAM.in.Earth`. The standard installation includes
+the packages required for MMS data loading, analysis, and plotting.
+
+Contributors who also need the development and notebook tools can run:
 
 ```bash
 pip install -e ".[dev,notebook]"
@@ -60,16 +61,10 @@ lists the notebook and command-line examples.
 
 ## SWMF input generation
 
-Install ShockLink with the optional MMS plotting dependencies from a development
-checkout; pySPEDAS is included in the base installation:
-
-```bash
-pip install -e ".[mms]"
-```
-
-The editable install is also required when copying
-`examples/create_swmf_inputs.py` outside the repository; the script uses the
-installed ShockLink checkout to locate the default SWMF template.
+The standard editable installation includes pySPEDAS and Matplotlib. It is also
+required when copying `examples/create_swmf_inputs.py` outside the repository,
+because the script uses the installed ShockLink checkout to locate the default
+SWMF template.
 
 Generate an SWMF parameter file from interval-averaged MMS observations in GSM
 coordinates:

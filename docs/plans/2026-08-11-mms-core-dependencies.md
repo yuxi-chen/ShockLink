@@ -4,7 +4,7 @@
 
 **Goal:** Make MMS loading and plotting dependencies part of every ShockLink installation.
 
-**Architecture:** Move Matplotlib from the `mms` extra into core project dependencies, then align installation documentation with source-based installation. Preserve separate extras only for development and notebook applications.
+**Architecture:** Move Matplotlib from the `mms` extra into core project dependencies, then align installation documentation with editable source-based installation. Preserve separate extras only for development and notebook applications.
 
 **Tech Stack:** Python packaging (`pyproject.toml`), pytest, Markdown.
 
@@ -40,7 +40,7 @@ and confirm it fails against the existing metadata.
 - Modify: `examples/README.md`
 
 **Step 1:** Replace PyPI-oriented and `.[mms]` instructions with source checkout
-and `pip install .` instructions. Keep editable installs for development.
+and `pip install -e .` instructions so repository data remains available.
 
 **Step 2:** Run `rg -n 'PyPI|\.\[mms\]' README.md examples/README.md` and confirm
 there are no stale instructions.

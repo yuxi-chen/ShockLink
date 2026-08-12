@@ -5,8 +5,8 @@
 The [algorithm guide](../docs/algorithms.md) explains the full
 Tecplot-to-normal pipeline and its array/sign conventions.
 
-Install the repository in editable mode before running copied examples or
-examples from outside the checkout:
+Download or clone ShockLink, then install the repository in editable mode from
+its root before running copied examples or examples from outside the checkout:
 
 ```bash
 pip install -e .
@@ -46,14 +46,11 @@ checkpoints are not committed.
 
 ### MMS–bow-shock connection
 
-Install ShockLink (pySPEDAS is included in the base installation) and read [the algorithm guide](../docs/algorithms.md), then run:
+The standard ShockLink installation includes pySPEDAS and Matplotlib. Read
+[the algorithm guide](../docs/algorithms.md), then run:
 
 ```bash
-pip install -e ".[mms]"
-```
-
-```bash
-PYTHONPATH=src python tools/mms_bow_shock_connection.py data/3d.dat \
+python tools/mms_bow_shock_connection.py data/3d.dat \
   --param-file results/PARAM_20181219_194600.in \
   --output-directory results --three-d-output both
 ```
@@ -84,12 +81,13 @@ ShockLink checkout.
 The script creates one `PARAM_*.in` file per `(start, end)` interval and saves
 the MMS quick-look plot beside each file by default.
 
-Install the optional MMS plotting tools, then launch the notebook for a short MMS
-interval. Automatic mode prefers burst data and uses fast survey data when
-burst is not available:
+MMS loading and plotting packages are included in the standard installation.
+Launch the notebook for a short MMS interval after installing the notebook
+tools. Automatic mode prefers burst data and uses fast survey data when burst
+is not available:
 
 ```bash
-pip install -e ".[mms]"
+pip install -e ".[notebook]"
 jupyter lab examples/mms_example.ipynb
 ```
 
