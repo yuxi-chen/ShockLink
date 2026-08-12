@@ -43,7 +43,7 @@ def _get_tplot_data(variable: str, *, metadata: bool = False) -> object:
     bundled_available = False
     try:
         from pyspedas import get_data as get_bundled_data
-    except ImportError:  # pragma: no cover - compatibility with pySPEDAS 1.x
+    except Exception:  # pragma: no cover - compatibility with pySPEDAS 1.x
         pass
     else:
         bundled_available = True
@@ -104,7 +104,49 @@ def _resolve_series(data: MMSData) -> dict[str, ResolvedSeries]:
             values=values_array,
             units=_metadata_text(metadata, "units"),
         )
+    electron_density = resolved.get("electron_density")
+    if electron_density is not None:
+        resolved["ion_density"] = electron_density
+    omni_temperature = resolved.get("omni_temperature")
+    if omni_temperature is not None:
+        metadata = _get_tplot_data(data.series["omni_temperature"], metadata=True) or {}
+        resolved["omni_temperature"] = _clean_omni_temperature(
+            omni_temperature,
+            fill_value=_metadata_number(metadata, "FILLVAL"),
+            valid_min=_metadata_number(metadata, "VALIDMIN"),
+            valid_max=_metadata_number(metadata, "VALIDMAX"),
+        )
     return resolved
+
+
+def _clean_omni_temperature(
+    product: ResolvedSeries | object,
+    *,
+    fill_value: float | None = None,
+    valid_min: float | None = None,
+    valid_max: float | None = None,
+) -> ResolvedSeries:
+    """Remove OMNI temperature fill values and placeholder records."""
+    times = np.asarray(product.times)
+    values = np.asarray(product.values, dtype=float)
+    valid = np.isfinite(values)
+    if fill_value is not None:
+        valid &= ~np.isclose(values, fill_value, rtol=0.0, atol=0.0)
+    if valid_min is not None:
+        valid &= values >= valid_min
+    if valid_max is not None:
+        valid &= values <= valid_max
+    valid &= ~np.asarray([_is_all_nines(value) for value in values])
+    return ResolvedSeries(
+        times=times[valid],
+        values=values[valid],
+        units=getattr(product, "units", None),
+    )
+
+
+def _is_all_nines(value: float) -> bool:
+    text = format(float(value), ".15g").lstrip("-").replace(".", "")
+    return bool(text) and set(text) == {"9"}
 
 
 def _to_datetime64(times: object) -> np.ndarray:
@@ -168,6 +210,21 @@ def _metadata_text(metadata: object, field: str) -> str | None:
         _nested_metadata(metadata, "plot_options", "yaxis_opt", "units"),
     )
     return next((str(value) for value in candidates if value), None)
+
+
+def _metadata_number(metadata: object, field: str) -> float | None:
+    if not isinstance(metadata, Mapping):
+        return None
+    candidates = (
+        metadata.get(field),
+        _nested_metadata(metadata, "data_att", field),
+    )
+    for value in candidates:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def _nested_metadata(metadata: Mapping[str, object], *keys: str) -> object | None:

@@ -6,7 +6,7 @@ from types import ModuleType, SimpleNamespace
 import numpy as np
 
 from shocklink.constants import EV_TO_K
-from shocklink.mms.data import _resolve_series, _total_temperature
+from shocklink.mms.data import _clean_omni_temperature, _resolve_series, _total_temperature
 from shocklink.mms import MMSData
 from shocklink.utilities import ev_to_kelvin, kelvin_to_ev
 
@@ -75,3 +75,34 @@ def test_total_temperature_uses_one_parallel_and_two_perpendicular_directions(
     temperature = _total_temperature(_resolve_series(mms_data), "ion")
 
     np.testing.assert_allclose(temperature.values, [120.0, 240.0, 360.0])
+
+
+def test_clean_omni_temperature_removes_fill_and_all_nines() -> None:
+    product = SimpleNamespace(
+        times=np.arange(5.0),
+        values=np.array([100000.0, 99999.0, 9999.9, np.nan, 200000.0]),
+        units="K",
+    )
+
+    cleaned = _clean_omni_temperature(product, fill_value=99999.0)
+
+    np.testing.assert_array_equal(cleaned.values, [100000.0, 200000.0])
+    np.testing.assert_array_equal(cleaned.times, [0.0, 4.0])
+
+
+def test_resolve_series_prefers_electron_density_for_ion_density(monkeypatch) -> None:
+    products = {
+        "ni": SimpleNamespace(times=np.array([0.0]), y=np.array([1.0])),
+        "ne": SimpleNamespace(times=np.array([0.0]), y=np.array([4.0])),
+    }
+    monkeypatch.setitem(
+        sys.modules,
+        "pytplot",
+        SimpleNamespace(get_data=lambda name, **_: products.get(name)),
+    )
+
+    resolved = _resolve_series(
+        MMSData(cadence="fast", series={"ion_density": "ni", "electron_density": "ne"})
+    )
+
+    np.testing.assert_array_equal(resolved["ion_density"].values, [4.0])

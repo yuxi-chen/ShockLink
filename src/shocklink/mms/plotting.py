@@ -17,7 +17,6 @@ from .data import (
     ResolvedSeries,
     _mean_position_earth_radii,
     _resolve_series,
-    _total_temperature,
 )
 
 
@@ -48,16 +47,10 @@ def _build_panels(series: Mapping[str, ResolvedSeries]) -> list[PlotPanel]:
                 partial(_plot_vector, fallback_name=r"$V_i$", fallback_units="[km/s]"),
             )
         )
-    for species, symbol in (("ion", "i"), ("electron", "e")):
-        temperature = _total_temperature(series, species)
-        if temperature is not None:
-            panels.append(
-                PlotPanel(
-                    f"{species}_temperature",
-                    temperature,
-                    partial(_plot_temperature, fallback_name=rf"$T_{symbol}$"),
-                )
-            )
+    temperature = series.get("omni_temperature")
+    if temperature is None or not len(temperature.values):
+        raise ValueError("No valid OMNI temperature data were available for this interval.")
+    panels.append(PlotPanel("omni_temperature", temperature, _plot_omni_temperature))
     return panels
 
 
@@ -198,6 +191,11 @@ def _plot_temperature(
     )
     kelvin_axis.set_ylabel("[K]")
     kelvin_axis.yaxis.set_major_formatter(FuncFormatter(_format_kelvin_tick))
+
+
+def _plot_omni_temperature(axis: object, product: ResolvedSeries) -> None:
+    axis.plot(product.times, product.values, linewidth=PLOT_LINE_WIDTH)
+    axis.set_ylabel("OMNI $T_p$ [K]")
 
 
 def _format_kelvin_tick(value: float, _position: float | None = None) -> str:

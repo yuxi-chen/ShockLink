@@ -18,6 +18,7 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
         ),
         "ni": np.array([1.0, 2.0, 3.0]),
         "ne": np.array([4.0, 5.0, 6.0]),
+        "omni_t": np.array([100000.0, 200000.0, 300000.0]),
         "vi": np.array(
             [[10.0, 20.0, 30.0], [20.0, 40.0, 60.0], [30.0, 60.0, 90.0]]
         ),
@@ -52,6 +53,7 @@ def mms_data(monkeypatch: pytest.MonkeyPatch) -> MMSData:
             "magnetic_field": "b",
             "ion_density": "ni",
             "electron_density": "ne",
+            "omni_temperature": "omni_t",
             "ion_velocity": "vi",
             "electron_velocity": "ve",
             "satellite_location": "location",
