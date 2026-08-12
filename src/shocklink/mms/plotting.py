@@ -199,7 +199,7 @@ def _plot_temperature(
 
 def _plot_omni_temperature(axis: object, product: ResolvedSeries) -> None:
     axis.plot(product.times, product.values, linewidth=PLOT_LINE_WIDTH)
-    axis.set_ylabel("OMNI $T_p$ [K]")
+    axis.set_ylabel("OMNI total $T$ [K]")
 
 
 def _format_kelvin_tick(value: float, _position: float | None = None) -> str:

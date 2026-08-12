@@ -18,7 +18,8 @@ assumption explicit in labels and documentation.
 OMNI temperatures are filtered to finite values, metadata-defined fill values
 and valid bounds, and numeric all-9 placeholders (for example `99999`,
 `9999.9`, and `9999999`). The cleaned series is the only temperature panel and
-its mean is used directly as kelvin in SWMF input generation. If the requested
+its mean is doubled to represent equal ion and electron contributions and is
+used as kelvin in SWMF input generation. If the requested
 interval has no valid OMNI samples, loading/averaging raises a clear error;
 there is no MMS-temperature fallback.
 

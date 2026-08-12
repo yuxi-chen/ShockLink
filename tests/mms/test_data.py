@@ -86,7 +86,7 @@ def test_clean_omni_temperature_removes_fill_and_all_nines() -> None:
 
     cleaned = _clean_omni_temperature(product, fill_value=99999.0)
 
-    np.testing.assert_array_equal(cleaned.values, [100000.0, 200000.0])
+    np.testing.assert_array_equal(cleaned.values, [200000.0, 400000.0])
     np.testing.assert_array_equal(cleaned.times, [0.0, 4.0])
 
 
