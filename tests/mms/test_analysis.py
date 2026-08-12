@@ -71,9 +71,10 @@ def test_average_plotted_values_returns_only_displayed_means(mms_data) -> None:
     assert "electron_velocity_x" not in averages
 
 
-def test_average_plotted_values_fails_without_valid_omni_temperature() -> None:
-    with pytest.raises(ValueError, match="OMNI temperature"):
-        average_plotted_values(MMSData(cadence="fast", series={}))
+def test_average_plotted_values_uses_default_without_valid_omni_temperature() -> None:
+    averages = average_plotted_values(MMSData(cadence="fast", series={}))
+
+    assert averages["omni_temperature"] == 100000.0
 
 
 def test_position_at_time_interpolates_between_mec_samples(monkeypatch) -> None:

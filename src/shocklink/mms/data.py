@@ -14,6 +14,7 @@ from shocklink.utilities import TimeBounds
 
 Cadence = Literal["brst", "fast"] | str
 CoordinateSystem = Literal["gse", "gsm"]
+DEFAULT_OMNI_TEMPERATURE_K = 1.0e5
 
 
 @dataclass(frozen=True)
@@ -141,6 +142,25 @@ def _clean_omni_temperature(
         times=times[valid],
         values=values[valid],
         units=getattr(product, "units", None),
+    )
+
+
+def _default_omni_temperature(
+    series: Mapping[str, ResolvedSeries],
+) -> ResolvedSeries:
+    """Return the configured fallback OMNI temperature for plotting/averaging."""
+    if series:
+        times = np.unique(np.concatenate([product.times for product in series.values()]))
+        if len(times):
+            times = np.array([times[0], times[-1]]) if len(times) > 1 else times
+        else:
+            times = np.array([np.datetime64("1970-01-01")])
+    else:
+        times = np.array([np.datetime64("1970-01-01")])
+    return ResolvedSeries(
+        times=times,
+        values=np.full(len(times), DEFAULT_OMNI_TEMPERATURE_K),
+        units="K",
     )
 
 
