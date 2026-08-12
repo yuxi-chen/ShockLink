@@ -42,7 +42,12 @@ def load_mms_data(
                 coordinates=coordinates,
             )
         )
-        if any(series.values()) or mode != "auto":
+        mms_products = {
+            name: variable
+            for name, variable in series.items()
+            if name != "omni_temperature"
+        }
+        if any(mms_products.values()) or mode != "auto":
             return MMSData(
                 cadence=cadence,
                 series=series,
