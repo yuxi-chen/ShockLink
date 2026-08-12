@@ -103,6 +103,14 @@ def test_connection_notebook_preserves_the_simplified_default_grid() -> None:
     assert "SURFACE_Z" not in source
 
 
+@pytest.mark.parametrize("name", ("mms_example.ipynb", "shock_connection.ipynb"))
+def test_mms_notebooks_use_current_installation_command(name: str) -> None:
+    source = (ROOT / "examples" / name).read_text()
+
+    assert '.[mms' not in source
+    assert 'pip install -e ' in source
+
+
 def _tool_environment() -> dict[str, str]:
     environment = os.environ.copy()
     environment["PYTHONPATH"] = os.pathsep.join(

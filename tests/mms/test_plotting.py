@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import sys
 from types import SimpleNamespace
 
@@ -8,6 +9,7 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import dates as mdates
 import numpy as np
+import pytest
 
 from shocklink.mms.data import _resolve_series
 from shocklink.mms.plotting import _build_panels
@@ -73,6 +75,22 @@ def test_plot_mms_data_draws_available_products(mms_data) -> None:
     assert figure.axes[4].child_axes[0].yaxis.get_offset_text().get_text() == ""
 
 
+def test_plot_mms_data_reports_missing_core_matplotlib(
+    mms_data, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import_module = builtins.__import__
+
+    def import_without_matplotlib(name, *args, **kwargs):
+        if name.startswith("matplotlib"):
+            raise ImportError("Matplotlib is unavailable")
+        return import_module(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_without_matplotlib)
+
+    with pytest.raises(ImportError, match="reinstall ShockLink"):
+        plot_mms_data(mms_data)
+
+
 def test_plot_mms_data_uses_exact_requested_time_limits(monkeypatch) -> None:
     product = SimpleNamespace(
         times=np.array([0.0, 10.0, 20.0]),
@@ -105,7 +123,5 @@ def test_plot_mms_data_uses_exact_requested_time_limits(monkeypatch) -> None:
 
 
 def test_plot_mms_data_rejects_empty_products() -> None:
-    import pytest
-
     with pytest.raises(ValueError, match="No plot-able"):
         plot_mms_data(MMSData(cadence="fast", series={}))

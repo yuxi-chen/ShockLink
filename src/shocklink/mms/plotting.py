@@ -66,9 +66,10 @@ def plot_mms_data(data: MMSData):
     try:
         import matplotlib.dates as mdates
         import matplotlib.pyplot as plt
-    except ImportError as error:  # pragma: no cover - optional dependency
+    except ImportError as error:
         raise ImportError(
-            "MMS plotting requires Matplotlib; install the optional `mms` extra."
+            "MMS plotting requires Matplotlib, a core ShockLink dependency; "
+            "reinstall ShockLink with `pip install -e .`."
         ) from error
 
     series = _resolve_series(data)
