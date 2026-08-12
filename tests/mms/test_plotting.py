@@ -63,7 +63,7 @@ def test_plot_mms_data_draws_available_products(mms_data) -> None:
         r"$V_{i,y}$",
         r"$V_{i,z}$",
     ]
-    assert figure.axes[3].get_ylabel() == "OMNI $T_p$ [K]"
+    assert figure.axes[3].get_ylabel() == "OMNI total $T$ [K]"
     assert figure.axes[3].get_legend() is None
     figure.canvas.draw()
 
@@ -118,4 +118,4 @@ def test_plot_mms_data_rejects_empty_products() -> None:
     figure = plot_mms_data(MMSData(cadence="fast", series={}))
 
     assert len(figure.axes) == 1
-    assert figure.axes[0].get_ylabel() == "OMNI $T_p$ [K]"
+    assert figure.axes[0].get_ylabel() == "OMNI total $T$ [K]"

@@ -64,7 +64,7 @@ def test_average_plotted_values_returns_only_displayed_means(mms_data) -> None:
     assert averages["satellite_location_x"] == 1.0
     assert averages["satellite_location_y"] == -0.5
     assert averages["satellite_location_z"] == 0.1
-    assert averages["omni_temperature"] == 200000.0
+    assert averages["omni_temperature"] == 400000.0
     assert "ion_temperature" not in averages
     assert "electron_temperature" not in averages
     assert "electron_density" not in averages

@@ -138,9 +138,11 @@ def _clean_omni_temperature(
     if valid_max is not None:
         valid &= values <= valid_max
     valid &= ~np.asarray([_is_all_nines(value) for value in values])
+    # OMNI T is the proton/ion temperature. Assume T_e = T_i and expose
+    # the total temperature used by the SWMF input as T_i + T_e = 2*T_i.
     return ResolvedSeries(
         times=times[valid],
-        values=values[valid],
+        values=2.0 * values[valid],
         units=getattr(product, "units", None),
     )
 
