@@ -140,13 +140,18 @@ def _load_omni_temperature(start: str, end: str) -> dict[str, str]:
         from pyspedas.projects import omni
     except ImportError:  # pragma: no cover - optional product
         return {}
-    omni.data(
-        trange=[start, end],
-        datatype="1min",
-        level="hro",
-        varnames=["T"],
-        time_clip=True,
-    )
+    try:
+        omni.data(
+            trange=[start, end],
+            datatype="1min",
+            level="hro",
+            varnames=["T"],
+            time_clip=True,
+        )
+    except Exception:
+        # OMNI temperature is optional; an unavailable remote archive must not
+        # prevent loading the MMS products or using the configured fallback.
+        return {}
     start_time, end_time = TimeBounds.from_strings(start, end).unix
     return (
         {"omni_temperature": "T"}

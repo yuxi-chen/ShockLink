@@ -194,6 +194,23 @@ def test_default_loader_requests_omni_temperature(monkeypatch: pytest.MonkeyPatc
     assert series["omni_temperature"] == "T"
 
 
+def test_default_loader_ignores_omni_download_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    omni = ModuleType("omni")
+
+    def data(**_kwargs: object) -> list[str]:
+        raise ConnectionError("remote OMNI server disconnected")
+
+    omni.data = data  # type: ignore[attr-defined]
+    projects = ModuleType("pyspedas.projects")
+    projects.omni = omni  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyspedas", ModuleType("pyspedas"))
+    monkeypatch.setitem(sys.modules, "pyspedas.projects", projects)
+
+    assert _load_omni_temperature("2015-10-16 13:06:00", "2015-10-16 13:07:00") == {}
+
+
 def test_default_loader_requests_optional_mec_position(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
