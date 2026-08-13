@@ -179,6 +179,45 @@ def test_parse_args_allows_omitted_output() -> None:
 
     assert arguments.output is None
     assert arguments.plot is True
+    assert arguments.zero_transverse_velocity is True
+
+
+def test_parse_args_accepts_zero_transverse_velocity_flag() -> None:
+    arguments = mms_swmf.parse_args(
+        [
+            "--mms-start",
+            "2018-12-19 19:40:00",
+            "--mms-end",
+            "2018-12-19 19:52:00",
+            "--zero-transverse-velocity",
+            "false",
+        ]
+    )
+
+    assert arguments.zero_transverse_velocity is False
+
+
+@pytest.mark.parametrize("zero_transverse_velocity", [True, False])
+def test_create_swmf_input_controls_transverse_velocity(
+    monkeypatch, zero_transverse_velocity: bool
+) -> None:
+    calls: dict[str, object] = {}
+    _stub_mms_generation(monkeypatch, calls)
+
+    mms_swmf.create_swmf_input(
+        "2018-12-19 19:40:00",
+        "2018-12-19 19:52:00",
+        plot=False,
+        zero_transverse_velocity=zero_transverse_velocity,
+    )
+
+    solar_wind = calls["write"][3]
+    expected_velocity = (
+        (-400.0, 0.0, 0.0)
+        if zero_transverse_velocity
+        else (-400.0, 20.0, 30.0)
+    )
+    assert solar_wind.velocity == expected_velocity
 
 
 def test_parse_args_finds_default_template_outside_repository(
@@ -273,10 +312,11 @@ def test_create_swmf_input_exposes_all_workflow_options(
         ("2018-12-19 19:40:00", "2018-12-19 19:52:00"),
         {"probe": 3, "mode": "fast", "coordinates": "gsm"},
     )
-    template, path, effective_time, _solar_wind, _location = calls["write"]
+    template, path, effective_time, solar_wind, _location = calls["write"]
     assert template == "template.in"
     assert path == output
     assert effective_time == start_time
+    assert solar_wind.velocity == (-400.0, 0.0, 0.0)
     assert calls["position_time"] == start_time
 
 
@@ -401,7 +441,7 @@ def test_main_loads_gsm_data_uses_midpoint_and_passes_values(
     )
     assert path == Path("PARAM_20181219_194600.in")
     assert start_time == datetime(2018, 12, 19, 19, 46, tzinfo=UTC)
-    assert solar_wind == solar_wind_from_averages(_averages())
+    assert solar_wind.velocity == (-400.0, 0.0, 0.0)
     assert location == MMSLocation(1.1, 2.2, 3.3)
     assert calls["position_time"] == datetime(2018, 12, 19, 19, 46, tzinfo=UTC)
     assert "Wrote SWMF input to PARAM_20181219_194600.in" in capsys.readouterr().out
@@ -505,5 +545,6 @@ def test_main_delegates_to_create_swmf_input(monkeypatch, capsys) -> None:
         "probe": 1,
         "mode": "auto",
         "plot": True,
+        "zero_transverse_velocity": True,
     }
     assert "Wrote SWMF input to PARAM_20181219_194600.in" in capsys.readouterr().out

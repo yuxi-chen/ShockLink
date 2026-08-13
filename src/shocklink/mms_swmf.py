@@ -98,6 +98,7 @@ def create_swmf_input(
     probe: int = 1,
     mode: Literal["auto", "brst", "fast"] = "auto",
     plot: bool = True,
+    zero_transverse_velocity: bool = True,
 ) -> Path:
     """Create an SWMF input file from interval-averaged MMS observations.
 
@@ -119,6 +120,8 @@ def create_swmf_input(
     plot
         If true, save the multi-panel MMS quick-look plot beside the generated
         SWMF input. The filename is based on the MMS start and end times.
+    zero_transverse_velocity
+        If true, write zero for the solar-wind Y and Z velocity components.
 
     Returns
     -------
@@ -151,6 +154,8 @@ def create_swmf_input(
         raise ValueError("mode must be one of: auto, brst, fast")
     if not isinstance(plot, bool):
         raise TypeError("plot must be a bool")
+    if not isinstance(zero_transverse_velocity, bool):
+        raise TypeError("zero_transverse_velocity must be a bool")
 
     bounds = TimeBounds.from_strings(mms_start, mms_end)
     if start_time is None:
@@ -174,6 +179,13 @@ def create_swmf_input(
         raise RuntimeError("No MMS data were available for this interval")
     averages = average_plotted_values(data)
     solar_wind = solar_wind_from_averages(averages)
+    if zero_transverse_velocity:
+        solar_wind = SolarWindValues(
+            density=solar_wind.density,
+            temperature_kelvin=solar_wind.temperature_kelvin,
+            velocity=(solar_wind.velocity[0], 0.0, 0.0),
+            magnetic_field=solar_wind.magnetic_field,
+        )
     location = MMSLocation(
         *position_at_time_earth_radii(data, effective_start_time)
     )
@@ -244,6 +256,13 @@ epilog='''examples:
         metavar="{true,false}",
         help="save the MMS quick-look plot (default: true)",
     )
+    parser.add_argument(
+        "--zero-transverse-velocity",
+        type=_parse_bool,
+        default=True,
+        metavar="{true,false}",
+        help="write zero solar-wind Uy and Uz (default: true)",
+    )
     return parser.parse_args(argv)
 
 
@@ -259,6 +278,7 @@ def main(argv: list[str] | None = None) -> int:
             probe=arguments.probe,
             mode=arguments.mode,
             plot=arguments.plot,
+            zero_transverse_velocity=arguments.zero_transverse_velocity,
         )
     except Exception as error:
         print(f"Could not create SWMF input: {error}", file=sys.stderr)
