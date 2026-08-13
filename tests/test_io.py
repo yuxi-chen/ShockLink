@@ -4,6 +4,7 @@ import numpy as np
 import pyvista as pv
 import pytest
 
+import shocklink.io as simulation_io
 from shocklink.exceptions import DatasetError
 from shocklink.io import DEFAULT_TIME_EVENT, TIME_EVENT_KEY, load_simulation
 
@@ -96,6 +97,20 @@ def test_load_simulation_normalizes_dat_geometry_vectors_and_time(
     np.testing.assert_allclose(grid["B [nT]"], EXPECTED_B)
     np.testing.assert_allclose(grid["U [km/s]"], EXPECTED_U)
     assert np.asarray(grid.field_data[TIME_EVENT_KEY]).item() == EXPECTED_TIME_EVENT
+
+
+def test_load_simulation_cleans_dat_in_place_before_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = _raw_grid(cleaned=True)
+    calls: list[Path] = []
+    monkeypatch.setattr(simulation_io.pv, "read", lambda _path: pv.MultiBlock([raw]))
+    monkeypatch.setattr(simulation_io, "clean_dat", lambda path: calls.append(path))
+
+    source = _sample_path(tmp_path)
+    load_simulation(source)
+
+    assert calls == [source]
 
 
 def test_load_simulation_detects_converter_cleaned_names(

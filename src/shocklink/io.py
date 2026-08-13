@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
+import re
 
 import numpy as np
 import pyvista as pv
 from numpy.typing import NDArray
 
 from shocklink.exceptions import DatasetError
+from shocklink.clean_dat import clean_dat
 from shocklink.utilities import parse_datetime
 
 TIME_EVENT_KEY = "time_event"
@@ -328,6 +329,8 @@ def load_simulation(
 
     source = _simulation_source(path)
     suffix = source.suffix.lower()
+    if suffix == ".dat":
+        clean_dat(source)
     time_event = _read_dat_time(source) if suffix == ".dat" else None
     loaded = _read_simulation(source)
 
